@@ -41,9 +41,10 @@ async function generateGemini(opts, config) {
   for (const img of imageParts) {
     if (img.mimeType && img.data) parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
   }
-  const modelRaw = config.gemini?.model || 'gemini-2.5-flash';
-  let model = String(modelRaw).replace(/^models\//, '').trim() || 'gemini-2.5-flash';
-  const fallbacks = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+  const modelRaw = config.gemini?.model || 'gemini-1.5-flash';
+  let model = String(modelRaw).replace(/^models\//, '').trim() || 'gemini-1.5-flash';
+  // gemini-pro ya no está soportado en v1beta; solo modelos que aceptan generateContent
+  const fallbacks = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-2.5-flash'];
   if (!fallbacks.includes(model)) model = fallbacks[0];
   const payload = { contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.7, maxOutputTokens: 1024 } };
   let data;
