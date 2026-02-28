@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 
 const LEAD_STATUS_OPTIONS = [
@@ -39,12 +40,19 @@ export default function Contactos() {
     api
       .get('/crm/contactos')
       .then((r) => {
-        const list = Array.isArray(r?.contactos) ? r.contactos : [];
-        setContactos(list);
+        try {
+          const raw = Array.isArray(r?.contactos) ? r.contactos : [];
+          const list = raw.filter((c) => c != null && typeof c === 'object');
+          setContactos(list);
+        } catch (err) {
+          setContactos([]);
+          setError(err?.message || 'Error al procesar la lista de contactos.');
+        }
       })
       .catch((e) => {
         setContactos([]);
-        setError(e?.message || 'Error al cargar contactos. Revisa la conexión.');
+        const msg = e?.message || 'Error al cargar contactos. Revisa la conexión.';
+        setError(msg);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -105,7 +113,7 @@ export default function Contactos() {
     setError('');
   };
 
-  const list = Array.isArray(contactos) ? contactos : [];
+  const list = Array.isArray(contactos) ? contactos.filter((c) => c != null && typeof c === 'object') : [];
 
   return (
     <div className="min-h-[320px]">
@@ -127,11 +135,20 @@ export default function Contactos() {
       )}
 
       {error && (
-        <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-[#f87171] text-sm flex items-center justify-between">
-          <span>{error}</span>
-          <button type="button" onClick={() => setError('')} className="text-[#f87171] hover:text-white">
-            ×
-          </button>
+        <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-[#f87171] text-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p>{error}</p>
+              {(error.includes('vencida') || error.includes('revisión') || error.includes('Empresa no asociada')) && (
+                <Link to="/dashboard/pagos" className="mt-2 inline-block text-[#00c896] hover:text-[#00e0a8] text-sm font-medium">
+                  Ir a Pagos →
+                </Link>
+              )}
+            </div>
+            <button type="button" onClick={() => setError('')} className="text-[#f87171] hover:text-white shrink-0">
+              ×
+            </button>
+          </div>
         </div>
       )}
 
@@ -157,16 +174,16 @@ export default function Contactos() {
                     </td>
                   </tr>
                 ) : (
-                  list.map((c) => (
-                    <tr key={c.id} className="border-b border-[#2d3a47] hover:bg-[#232d38]/50">
+                  list.map((c, idx) => (
+                    <tr key={c?.id ?? `contact-${idx}`} className="border-b border-[#2d3a47] hover:bg-[#232d38]/50">
                       <td className="px-4 py-3 text-white">
-                        {(c?.nombre ?? '').trim()} {(c?.apellidos ?? '').trim()}
+                        {String(c?.nombre ?? '').trim()} {String(c?.apellidos ?? '').trim()}
                       </td>
-                      <td className="px-4 py-3 text-[#8b9cad]">{c?.email || '—'}</td>
-                      <td className="px-4 py-3 text-[#8b9cad]">{c?.telefono || '—'}</td>
+                      <td className="px-4 py-3 text-[#8b9cad]">{c?.email ?? '—'}</td>
+                      <td className="px-4 py-3 text-[#8b9cad]">{c?.telefono ?? '—'}</td>
                       <td className="px-4 py-3">
                         <span className="text-xs px-2 py-1 rounded-full bg-[#232d38] text-[#8b9cad]">
-                          {LEAD_STATUS_OPTIONS.find((o) => o.value === (c?.lead_status || 'new'))?.label || c?.lead_status || 'Nuevo'}
+                          {LEAD_STATUS_OPTIONS.find((o) => o.value === (c?.lead_status || 'new'))?.label || 'Nuevo'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-[#8b9cad]">{safeTags(c)}</td>

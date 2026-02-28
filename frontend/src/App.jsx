@@ -7,6 +7,7 @@ import LayoutCliente from './components/LayoutCliente';
 import LayoutSuperAdmin from './components/LayoutSuperAdmin';
 import DashboardResumen from './pages/cliente/DashboardResumen';
 import Contactos from './pages/cliente/Contactos';
+import ErrorBoundary from './components/ErrorBoundary';
 import Conversaciones from './pages/cliente/Conversaciones';
 import ConversacionDetalle from './pages/cliente/ConversacionDetalle';
 import WhatsApp from './pages/cliente/WhatsApp';
@@ -28,7 +29,7 @@ function App() {
       <Route path="/crear-super-admin" element={<CrearSuperAdmin />} />
       <Route path="/dashboard" element={<LayoutCliente />}>
         <Route index element={<DashboardResumen />} />
-        <Route path="contactos" element={<Contactos />} />
+        <Route path="contactos" element={<ErrorBoundary><Contactos /></ErrorBoundary>} />
         <Route path="conversaciones" element={<Conversaciones />} />
         <Route path="conversaciones/:id" element={<ConversacionDetalle />} />
         <Route path="whatsapp" element={<WhatsApp />} />
