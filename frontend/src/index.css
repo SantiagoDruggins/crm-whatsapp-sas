@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  background: #0f1419;
+  color: #e6edf3;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: #00c896;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #00e0a8;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}

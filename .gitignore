@@ -1,0 +1,27 @@
+# Dependencias
+node_modules/
+
+# Entorno y secretos
+.env
+.env.local
+.env.*.local
+*.env
+
+# Build / dist
+dist/
+build/
+.next/
+
+# Logs y cache
+*.log
+.wwebjs_auth/
+.wwebjs_cache/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Uploads (archivos subidos por usuarios; opcional subirlos)
+# backend/uploads/
