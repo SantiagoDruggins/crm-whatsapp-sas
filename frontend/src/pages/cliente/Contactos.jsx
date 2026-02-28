@@ -13,9 +13,20 @@ const LEAD_STATUS_OPTIONS = [
   { value: 'lost', label: 'Perdido' },
 ];
 
+/** Convierte tags a texto; tags puede ser array, string, objeto (JSONB) o null. Nunca usa .join salvo en array real. */
 function safeTags(c) {
-  if (Array.isArray(c?.tags)) return c.tags.join(', ');
-  if (typeof c?.tags === 'string') return c.tags;
+  const t = c?.tags;
+  if (t == null) return '—';
+  if (Array.isArray(t)) return t.join(', ');
+  if (typeof t === 'string') return t;
+  if (typeof t === 'object') {
+    try {
+      const arr = Object.values(t).filter((x) => x != null && String(x).trim() !== '');
+      return Array.isArray(arr) && arr.length ? arr.join(', ') : '—';
+    } catch {
+      return '—';
+    }
+  }
   return '—';
 }
 
@@ -37,9 +48,16 @@ export default function Contactos() {
   const load = useCallback(() => {
     setError('');
     setLoading(true);
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      if (cancelled) return;
+      setLoading(false);
+      setError((prev) => prev || 'Tiempo de espera agotado. Comprueba tu conexión.');
+    }, 12000);
     api
       .get('/crm/contactos')
       .then((r) => {
+        if (cancelled) return;
         try {
           const raw = Array.isArray(r?.contactos) ? r.contactos : [];
           const list = raw.filter((c) => c != null && typeof c === 'object');
@@ -50,15 +68,23 @@ export default function Contactos() {
         }
       })
       .catch((e) => {
+        if (cancelled) return;
         setContactos([]);
-        const msg = e?.message || 'Error al cargar contactos. Revisa la conexión.';
-        setError(msg);
+        setError(e?.message || 'Error al cargar contactos. Revisa la conexión.');
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+        clearTimeout(timeout);
+      });
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, []);
 
   useEffect(() => {
-    load();
+    const cleanup = load();
+    return () => { if (typeof cleanup === 'function') cleanup(); };
   }, [load]);
 
   const handleSubmit = (e) => {
@@ -116,7 +142,7 @@ export default function Contactos() {
   const list = Array.isArray(contactos) ? contactos.filter((c) => c != null && typeof c === 'object') : [];
 
   return (
-    <div className="min-h-[320px]">
+    <div className="min-h-[320px] bg-[#0f1419] text-white">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">Contactos</h1>
         <button
@@ -129,9 +155,10 @@ export default function Contactos() {
       </div>
 
       {loading && (
-        <p className="text-[#8b9cad] py-8" aria-live="polite">
-          Cargando contactos…
-        </p>
+        <div className="py-8 flex items-center gap-3 text-[#8b9cad]" aria-live="polite">
+          <span className="inline-block w-5 h-5 border-2 border-[#00c896] border-t-transparent rounded-full animate-spin" />
+          <span>Cargando contactos…</span>
+        </div>
       )}
 
       {error && (
@@ -144,6 +171,9 @@ export default function Contactos() {
                   Ir a Pagos →
                 </Link>
               )}
+              <button type="button" onClick={() => { setError(''); load(); }} className="mt-2 mr-2 rounded-lg bg-[#232d38] text-[#8b9cad] hover:text-white px-3 py-1.5 text-sm">
+                Reintentar
+              </button>
             </div>
             <button type="button" onClick={() => setError('')} className="text-[#f87171] hover:text-white shrink-0">
               ×
@@ -153,7 +183,7 @@ export default function Contactos() {
       )}
 
       {!loading && (
-        <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl overflow-hidden">
+        <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl overflow-hidden min-h-[200px]">
           <div className="overflow-x-auto">
             <table className="w-full text-left min-w-[640px]">
               <thead>

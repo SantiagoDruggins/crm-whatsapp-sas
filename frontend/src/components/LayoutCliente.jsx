@@ -19,8 +19,20 @@ export default function LayoutCliente() {
   const navigate = useNavigate();
   const location = useLocation();
   const [modalVencida, setModalVencida] = useState(false);
-  const [empresa, setEmpresa] = useState(() => JSON.parse(localStorage.getItem('empresa') || '{}'));
-  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+  const [empresa, setEmpresa] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('empresa') || '{}');
+    } catch {
+      return {};
+    }
+  });
+  const usuario = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('usuario') || '{}');
+    } catch {
+      return {};
+    }
+  })();
 
   useEffect(() => {
     if (!localStorage.getItem('token')) return;
