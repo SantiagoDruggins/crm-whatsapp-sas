@@ -6,9 +6,13 @@ function normalizarTelefono(t) {
 
 async function listar(empresaId, { limit = 50, offset = 0 } = {}) {
   try {
-    const result = await query(`SELECT * FROM contactos WHERE empresa_id = $1 ORDER BY COALESCE(last_interaction_at, updated_at) DESC NULLS LAST LIMIT $2 OFFSET $3`, [empresaId, limit, offset]);
-    return result.rows;
+    const result = await query(
+      `SELECT * FROM contactos WHERE empresa_id = $1 ORDER BY updated_at DESC NULLS LAST LIMIT $2 OFFSET $3`,
+      [empresaId, limit, offset]
+    );
+    return result.rows || [];
   } catch (e) {
+    console.error('contactoModel.listar:', e.message);
     return [];
   }
 }
@@ -26,8 +30,21 @@ async function getByTelefono(empresaId, telefono) {
 }
 
 async function crear(empresaId, data) {
-  const result = await query(`INSERT INTO contactos (empresa_id, nombre, apellidos, email, telefono, origen, tags, notas) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`, [empresaId, data.nombre || 'Sin nombre', data.apellidos || null, data.email || null, data.telefono ? normalizarTelefono(data.telefono) : null, data.origen || 'manual', Array.isArray(data.tags) ? data.tags : [], data.notas || null]);
-  return result.rows[0];
+  const vals = [empresaId, data.nombre || 'Sin nombre', data.apellidos || null, data.email || null, data.telefono ? normalizarTelefono(data.telefono) : null, data.origen || 'manual', Array.isArray(data.tags) ? data.tags : [], data.notas || null];
+  try {
+    const leadStatus = (data.lead_status && String(data.lead_status).trim()) || 'new';
+    const result = await query(
+      `INSERT INTO contactos (empresa_id, nombre, apellidos, email, telefono, origen, tags, notas, lead_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [...vals, leadStatus]
+    );
+    return result.rows[0];
+  } catch (e) {
+    const result = await query(
+      `INSERT INTO contactos (empresa_id, nombre, apellidos, email, telefono, origen, tags, notas) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      vals
+    );
+    return result.rows[0];
+  }
 }
 
 async function actualizar(empresaId, id, data) {
