@@ -30,6 +30,7 @@ const config = {
   },
   whatsapp: {
     cloudVerifyToken: process.env.WHATSAPP_CLOUD_VERIFY_TOKEN || '',
+    publicWebhookBaseUrl: (process.env.PUBLIC_API_URL || process.env.PUBLIC_WEBHOOK_BASE_URL || '').replace(/\/$/, ''),
     cloudAccessToken: process.env.WHATSAPP_CLOUD_ACCESS_TOKEN || '',
     cloudPhoneNumberId: process.env.WHATSAPP_CLOUD_PHONE_NUMBER_ID || '',
     cloudApiBaseUrl: process.env.WHATSAPP_CLOUD_API_BASE_URL || 'https://graph.facebook.com/v19.0'

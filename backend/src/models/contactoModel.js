@@ -6,7 +6,7 @@ function normalizarTelefono(t) {
 
 async function listar(empresaId, { limit = 50, offset = 0 } = {}) {
   try {
-    const result = await query(`SELECT * FROM contactos WHERE empresa_id = $1 ORDER BY updated_at DESC LIMIT $2 OFFSET $3`, [empresaId, limit, offset]);
+    const result = await query(`SELECT * FROM contactos WHERE empresa_id = $1 ORDER BY COALESCE(last_interaction_at, updated_at) DESC NULLS LAST LIMIT $2 OFFSET $3`, [empresaId, limit, offset]);
     return result.rows;
   } catch (e) {
     return [];
@@ -31,8 +31,78 @@ async function crear(empresaId, data) {
 }
 
 async function actualizar(empresaId, id, data) {
-  const result = await query(`UPDATE contactos SET nombre = COALESCE($2, nombre), apellidos = COALESCE($3, apellidos), email = COALESCE($4, email), tags = COALESCE($5, tags), notas = COALESCE($6, notas), updated_at = now() WHERE id = $1 AND empresa_id = $7 RETURNING *`, [id, data.nombre, data.apellidos, data.email, data.tags, data.notas, empresaId]);
+  const updates = ['nombre', 'apellidos', 'email', 'tags', 'notas', 'lead_status', 'conversation_status', 'assigned_to'];
+  const setClause = [];
+  const values = [id, empresaId];
+  let idx = 3;
+  for (const key of updates) {
+    if (data[key] !== undefined) {
+      setClause.push(`${key} = $${idx}`);
+      values.push(key === 'tags' && !Array.isArray(data[key]) ? data[key] : data[key]);
+      idx++;
+    }
+  }
+  if (setClause.length === 0) {
+    const r = await query(`SELECT * FROM contactos WHERE id = $1 AND empresa_id = $2`, [id, empresaId]);
+    return r.rows[0] || null;
+  }
+  setClause.push('updated_at = now()');
+  const result = await query(`UPDATE contactos SET ${setClause.join(', ')} WHERE id = $1 AND empresa_id = $2 RETURNING *`, values);
   return result.rows[0] || null;
+}
+
+/** Actualiza last_message_at, last_message y last_interaction_at del contacto (tras nuevo mensaje). */
+async function actualizarUltimoMensajeContacto(empresaId, contactoId, { lastMessage, lastMessageAt } = {}) {
+  const now = lastMessageAt || new Date();
+  await query(
+    `UPDATE contactos SET last_message_at = $2, last_message = COALESCE($3, last_message), last_interaction_at = $2, updated_at = now() WHERE id = $1 AND empresa_id = $4`,
+    [contactoId, now, lastMessage ?? null, empresaId]
+  );
+}
+
+/** Contexto completo del contacto para el chatbot: contacto, últimos mensajes, tags, lead_status, conversation_state, citas. */
+async function getContactContext(empresaId, contactId, { mensajesLimit = 20 } = {}) {
+  const contact = await getById(empresaId, contactId);
+  if (!contact) return null;
+
+  const conv = await query(`SELECT id FROM conversaciones WHERE empresa_id = $1 AND contacto_id = $2 AND canal = 'whatsapp' LIMIT 1`, [empresaId, contactId]);
+  const conversacionId = conv.rows[0]?.id || null;
+
+  let lastMessages = [];
+  if (conversacionId) {
+    const msg = await query(
+      `SELECT id, origen, contenido, es_entrada, created_at FROM mensajes WHERE conversacion_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT $3`,
+      [conversacionId, empresaId, mensajesLimit]
+    );
+    lastMessages = (msg.rows || []).reverse().map((m) => ({
+      role: m.es_entrada ? 'user' : 'assistant',
+      content: m.contenido,
+      timestamp: m.created_at,
+      message_type: 'text',
+    }));
+  }
+
+  const stateRes = await query(`SELECT current_state, last_intent, context_data, updated_at FROM conversation_state WHERE empresa_id = $1 AND contacto_id = $2 LIMIT 1`, [empresaId, contactId]);
+  const conversationState = stateRes.rows[0] ? { current_state: stateRes.rows[0].current_state, last_intent: stateRes.rows[0].last_intent, context_data: stateRes.rows[0].context_data || {}, updated_at: stateRes.rows[0].updated_at } : null;
+
+  const tagsRes = await query(
+    `SELECT t.id, t.name, t.color FROM tags t INNER JOIN contact_tags ct ON ct.tag_id = t.id WHERE ct.contact_id = $1 AND t.empresa_id = $2`,
+    [contactId, empresaId]
+  );
+  const tags = tagsRes.rows || [];
+
+  const appRes = await query(`SELECT id, date, time, status, notes FROM appointments WHERE empresa_id = $1 AND contact_id = $2 AND date >= CURRENT_DATE ORDER BY date ASC, time ASC NULLS LAST LIMIT 10`, [empresaId, contactId]);
+  const appointments = appRes.rows || [];
+
+  return {
+    contact,
+    lastMessages,
+    tags,
+    leadStatus: contact.lead_status || 'new',
+    conversationState,
+    appointments,
+    conversacionId,
+  };
 }
 
 async function getOrCreateByTelefono(empresaId, telefono) {
@@ -42,4 +112,4 @@ async function getOrCreateByTelefono(empresaId, telefono) {
   return crear(empresaId, { nombre: t || 'Sin nombre', telefono: t, origen: 'whatsapp' });
 }
 
-module.exports = { listar, getById, getByTelefono, crear, actualizar, getOrCreateByTelefono };
+module.exports = { listar, getById, getByTelefono, crear, actualizar, actualizarUltimoMensajeContacto, getContactContext, getOrCreateByTelefono };

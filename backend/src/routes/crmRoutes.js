@@ -4,6 +4,8 @@ const empresaEstadoMiddleware = require('../middleware/empresaEstadoMiddleware')
 const { listarContactos, obtenerContacto, crearContacto, actualizarContacto } = require('../controllers/contactosController');
 const { listarConversaciones, obtenerConversacion, actualizarConversacion, historialConversacion, enviarMensajeConversacion } = require('../controllers/conversacionesController');
 const { listarProductos, obtenerProducto, crearProducto, actualizarProducto, eliminarProducto, subirImagenProducto } = require('../controllers/productosController');
+const { listarTags, obtenerTag, crearTag, actualizarTag, eliminarTag, listarTagsContacto, actualizarTagsContacto } = require('../controllers/tagsController');
+const { listarAppointments, obtenerAppointment, crearAppointment, actualizarAppointment, eliminarAppointment, listarAppointmentsContacto } = require('../controllers/appointmentsController');
 const { uploadProductoImagen } = require('../config/multer');
 const { query } = require('../config/db');
 
@@ -34,6 +36,23 @@ router.get('/conversaciones/:id', asyncHandler(obtenerConversacion));
 router.patch('/conversaciones/:id', asyncHandler(actualizarConversacion));
 router.get('/conversaciones/:id/historial', asyncHandler(historialConversacion));
 router.post('/conversaciones/:id/mensajes', asyncHandler(enviarMensajeConversacion));
+
+// Tags
+router.get('/tags', asyncHandler(listarTags));
+router.post('/tags', asyncHandler(crearTag));
+router.get('/tags/:id', asyncHandler(obtenerTag));
+router.patch('/tags/:id', asyncHandler(actualizarTag));
+router.delete('/tags/:id', asyncHandler(eliminarTag));
+router.get('/contactos/:id/tags', asyncHandler(listarTagsContacto));
+router.put('/contactos/:id/tags', asyncHandler(actualizarTagsContacto));
+
+// Agenda / Citas
+router.get('/appointments', asyncHandler(listarAppointments));
+router.post('/appointments', asyncHandler(crearAppointment));
+router.get('/appointments/:id', asyncHandler(obtenerAppointment));
+router.patch('/appointments/:id', asyncHandler(actualizarAppointment));
+router.delete('/appointments/:id', asyncHandler(eliminarAppointment));
+router.get('/contactos/:id/appointments', asyncHandler(listarAppointmentsContacto));
 
 // Catálogo de productos / servicios
 router.get('/productos', asyncHandler(listarProductos));

@@ -25,6 +25,10 @@ En el `.env` del servidor define al menos:
 ```env
 # WhatsApp Cloud API - Webhook
 WHATSAPP_CLOUD_VERIFY_TOKEN=un_texto_secreto_que_eliges_tu
+
+# Opcional: URL pública del API (para que los clientes vean la URL correcta del webhook en el CRM)
+# Si no la pones, se usará el dominio desde el que carguen la web.
+PUBLIC_API_URL=https://api.dsgchatbot.pro
 ```
 
 Ese **Verify Token** es un valor que tú inventas (ej: una frase larga o un UUID). Debe ser **el mismo** que pongas en la consola de Meta.

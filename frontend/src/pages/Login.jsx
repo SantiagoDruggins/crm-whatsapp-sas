@@ -94,6 +94,12 @@ export default function Login() {
               Crear demo gratis
             </Link>
           </p>
+          <p className="text-center text-[#8b9cad] text-sm mt-2">
+            ¿Eres el dueño del sistema?{' '}
+            <Link to="/crear-super-admin" className="text-[#00c896] hover:text-[#00e0a8] font-medium">
+              Crear super admin
+            </Link>
+          </p>
         </div>
       </div>
     </div>

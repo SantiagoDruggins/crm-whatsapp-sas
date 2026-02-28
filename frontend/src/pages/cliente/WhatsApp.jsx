@@ -11,13 +11,21 @@ export default function WhatsApp() {
   const [configForm, setConfigForm] = useState({ accessToken: '', phoneNumberId: '' });
   const [guardandoConfig, setGuardandoConfig] = useState(false);
   const [mostrarConfig, setMostrarConfig] = useState(false);
+  const [webhookConfig, setWebhookConfig] = useState({ webhookUrl: '', verifyToken: '' });
 
   const loadStatus = () => {
-    api.get('/whatsapp/status').then((r) => setConfigurado(r.configurado)).catch(() => setConfigurado(false)).finally(() => setLoading(false));
+    api.get('/whatsapp/status').then((r) => setConfigurado(r.configurado)).catch(() => setConfigurado(false));
+  };
+
+  const loadWebhookConfig = () => {
+    api.get('/whatsapp/webhook-config').then((r) => setWebhookConfig({ webhookUrl: r.webhookUrl || '', verifyToken: r.verifyToken || '' })).catch(() => setWebhookConfig({ webhookUrl: '', verifyToken: '' }));
   };
 
   useEffect(() => {
-    loadStatus();
+    Promise.all([
+      api.get('/whatsapp/status').then((r) => setConfigurado(r.configurado)).catch(() => setConfigurado(false)),
+      api.get('/whatsapp/webhook-config').then((r) => setWebhookConfig({ webhookUrl: r.webhookUrl || '', verifyToken: r.verifyToken || '' })).catch(() => setWebhookConfig({ webhookUrl: '', verifyToken: '' })),
+    ]).finally(() => setLoading(false));
   }, []);
 
   const guardarConfig = (e) => {
@@ -57,12 +65,32 @@ export default function WhatsApp() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-white mb-2">WhatsApp Cloud API</h1>
-      <p className="text-[#8b9cad] text-sm mb-4">Cada empresa configura su propia API. Ingresa el Access Token y el Phone Number ID que obtienes en Meta for Developers (WhatsApp Business).</p>
-      <div className="bg-[#232d38] border border-[#2d3a47] rounded-xl p-4 mb-6 text-sm">
-        <p className="text-[#8b9cad] mb-1"><strong className="text-white">Webhook (para el administrador del servidor):</strong></p>
-        <p className="text-[#00c896] font-mono break-all">{typeof window !== 'undefined' ? `${window.location.origin}/api/whatsapp/webhook` : 'https://tu-dominio.com/api/whatsapp/webhook'}</p>
-        <p className="text-[#8b9cad] mt-2">En Meta → WhatsApp → Configuration pon esta URL (si tu API está en otro dominio, usa ese dominio + <code className="text-[#00c896]">/api/whatsapp/webhook</code>) y el <strong>Verify Token</strong> del .env del servidor (<code className="text-[#00c896]">WHATSAPP_CLOUD_VERIFY_TOKEN</code>). Suscribe el campo <strong>messages</strong>.</p>
+      <p className="text-[#8b9cad] text-sm mb-4">Conecta tu número de WhatsApp Business. Necesitas dos pasos: guardar aquí tu Access Token y Phone Number ID, y configurar el webhook en tu app de Meta.</p>
+
+      <div className="bg-[#232d38] border border-[#00c896]/50 rounded-xl p-6 mb-6">
+        <h3 className="text-white font-semibold text-lg mb-1">Configuración del webhook en Meta (obligatorio)</h3>
+        <p className="text-[#8b9cad] text-sm mb-4">Para recibir y enviar mensajes, en <strong>Meta for Developers</strong> → tu app → <strong>WhatsApp</strong> → <strong>Configuration</strong> debes poner exactamente estos datos. Luego <strong>Verify and Save</strong> y suscribe el campo <strong>messages</strong>.</p>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-[#8b9cad] uppercase tracking-wider mb-1">Callback URL</label>
+            <div className="bg-[#0f1419] border border-[#2d3a47] rounded-lg px-4 py-3">
+              <span className="text-[#00c896] font-mono text-sm break-all select-all">
+                {webhookConfig.webhookUrl || (typeof window !== 'undefined' ? `${window.location.origin}/api/whatsapp/webhook` : '')}
+              </span>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#8b9cad] uppercase tracking-wider mb-1">Contraseña / Verify token</label>
+            <div className="bg-[#0f1419] border border-[#2d3a47] rounded-lg px-4 py-3">
+              <span className="text-white font-mono text-sm break-all select-all">
+                {webhookConfig.verifyToken || '— (pide al administrador de la plataforma)'}
+              </span>
+            </div>
+          </div>
+        </div>
+        <p className="text-[#8b9cad] text-xs mt-4">Sin configurar el webhook en Meta con esta URL y este verify token, no recibirás mensajes en el CRM.</p>
       </div>
+
       {error && <p className="text-sm text-[#f87171] mb-4">{error}</p>}
 
       <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-6 mb-6 max-w-2xl">

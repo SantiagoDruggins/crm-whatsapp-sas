@@ -4,9 +4,10 @@ const config = require('../config/env');
 const { query } = require('../config/db');
 const { dirBotConocimiento } = require('../config/multer');
 const { getAiConfig, generateContent } = require('../services/aiProviderService');
+const contactoModel = require('../models/contactoModel');
 
-/** Genera respuesta del bot por empresa y mensaje (para webhook WhatsApp, etc.). Retorna { respuesta?, error? }. */
-async function generarRespuestaBot(empresaId, mensaje) {
+/** Genera respuesta del bot por empresa y mensaje (para webhook WhatsApp, etc.). opts: { contactId, conversacionId } para memoria. Retorna { respuesta?, error? }. */
+async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
   if (!mensaje?.trim()) return { error: 'mensaje vacío' };
   try {
     let empresa = null;
@@ -49,6 +50,31 @@ async function generarRespuestaBot(empresaId, mensaje) {
         '\n\nCATÁLOGO DE PRODUCTOS/SERVICIOS (NO INVENTES OTROS):\n' +
         resumen +
         '\n\nSi el usuario pregunta por precios, productos o servicios, usa SOLO este catálogo. Si algo no está en la lista, dilo claramente.';
+    }
+    if (opts.contactId) {
+      try {
+        const ctx = await contactoModel.getContactContext(empresaId, opts.contactId, { mensajesLimit: 20 });
+        if (ctx) {
+          const nombreContacto = [ctx.contact.nombre, ctx.contact.apellidos].filter(Boolean).join(' ').trim() || ctx.contact.telefono || 'Cliente';
+          let bloque = '\n\n--- CONTEXTO DE ESTE CLIENTE (memoria CRM) ---\n';
+          bloque += `Nombre: ${nombreContacto}. Teléfono: ${ctx.contact.telefono || 'N/A'}. Lead: ${ctx.leadStatus}.`;
+          if (ctx.tags && ctx.tags.length) bloque += ` Tags: ${ctx.tags.map((t) => t.name).join(', ')}.`;
+          if (ctx.conversationState?.current_state) bloque += ` Estado conversación: ${ctx.conversationState.current_state}.`;
+          if (ctx.appointments && ctx.appointments.length) {
+            bloque += ` Próximas citas: ${ctx.appointments.map((a) => `${a.date}${a.time ? ' ' + a.time : ''} (${a.status})`).join('; ')}.`;
+          }
+          if (ctx.lastMessages && ctx.lastMessages.length) {
+            bloque += '\nÚltimos mensajes (para mantener contexto):\n';
+            ctx.lastMessages.forEach((m) => {
+              bloque += (m.role === 'user' ? 'Usuario: ' : 'Asistente: ') + (m.content || '').slice(0, 500) + '\n';
+            });
+          }
+          bloque += '--- FIN CONTEXTO ---';
+          systemPrompt += bloque;
+        }
+      } catch (e) {
+        // Si falla contexto (ej. migración no aplicada), seguir sin memoria
+      }
     }
     const conocimiento = Array.isArray(bot?.conocimiento) ? bot.conocimiento : [];
     const imagenesConocimiento = conocimiento.filter((c) => c.tipo === 'imagen' && c.ruta).slice(0, 4);

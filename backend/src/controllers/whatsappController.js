@@ -58,15 +58,18 @@ async function cloudWebhookPost(req, res) {
 
             const contacto = await contactoModel.getOrCreateByTelefono(empresa.id, from);
             const conversacion = await conversacionModel.getOrCreate(empresa.id, contacto.id, 'whatsapp');
-            await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'cliente', contenido: text || '[mensaje no texto]', esEntrada: true });
+            const contenidoEntrada = text || '[mensaje no texto]';
+            await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'cliente', contenido: contenidoEntrada, esEntrada: true });
             await conversacionModel.actualizarUltimoMensaje(conversacion.id);
+            await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: contenidoEntrada, lastMessageAt: new Date() });
 
             if (text && text.trim()) {
-              const { respuesta, error } = await generarRespuestaBot(empresa.id, text.trim());
+              const { respuesta, error } = await generarRespuestaBot(empresa.id, text.trim(), { contactId: contacto.id, conversacionId: conversacion.id });
               if (respuesta && respuesta.trim()) {
                 await enviarMensajeEmpresa(empresa.id, from, respuesta.trim());
                 await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: respuesta.trim(), esEntrada: false });
                 await conversacionModel.actualizarUltimoMensaje(conversacion.id);
+                await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: respuesta.trim(), lastMessageAt: new Date() });
               }
             }
           }
@@ -166,9 +169,17 @@ async function cloudSend(req, res) {
   }
 }
 
+function cloudWebhookConfig(req, res) {
+  const base = (config.whatsapp && config.whatsapp.publicWebhookBaseUrl) ? config.whatsapp.publicWebhookBaseUrl : '';
+  const webhookUrl = base ? `${base}/api/whatsapp/webhook` : '';
+  const verifyToken = (config.whatsapp && config.whatsapp.cloudVerifyToken) ? config.whatsapp.cloudVerifyToken : '';
+  return res.json({ webhookUrl, verifyToken });
+}
+
 module.exports = {
   cloudWebhookGet,
   cloudWebhookPost,
+  cloudWebhookConfig,
   cloudStatus,
   cloudConfigUpdate,
   cloudSend,
