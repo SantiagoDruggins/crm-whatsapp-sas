@@ -78,7 +78,7 @@ async function actualizarUltimoMensajeContacto(empresaId, contactoId, { lastMess
 }
 
 /** Contexto completo del contacto para el chatbot: contacto, últimos mensajes, tags, lead_status, conversation_state, citas. */
-async function getContactContext(empresaId, contactId, { mensajesLimit = 20 } = {}) {
+async function getContactContext(empresaId, contactId, { mensajesLimit = 30 } = {}) {
   const contact = await getById(empresaId, contactId);
   if (!contact) return null;
 

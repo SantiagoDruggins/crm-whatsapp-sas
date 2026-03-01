@@ -47,11 +47,12 @@ async function generateGemini(opts, config) {
   if (!fallbacks.includes(model)) model = fallbacks[0];
   const temperature = Number(config.gemini?.temperature) >= 0 && Number(config.gemini?.temperature) <= 2 ? Number(config.gemini.temperature) : 0.4;
   const topP = Number(config.gemini?.topP) >= 0 && Number(config.gemini?.topP) <= 1 ? Number(config.gemini.topP) : 0.9;
+  const maxOut = Number(config.gemini?.maxOutputTokens) > 0 ? Number(config.gemini.maxOutputTokens) : 8192;
   const generationConfig = {
     temperature,
     topP,
     topK: 40,
-    maxOutputTokens: 1024
+    maxOutputTokens: Math.min(65536, Math.max(256, maxOut))
   };
   const payload = { contents: [{ role: 'user', parts }], generationConfig };
   let data;
@@ -60,7 +61,7 @@ async function generateGemini(opts, config) {
   for (const m of modelsToTry) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
-      const res = await axios.post(url, payload, { headers: { 'Content-Type': 'application/json' }, timeout: 30000 });
+      const res = await axios.post(url, payload, { headers: { 'Content-Type': 'application/json' }, timeout: 60000 });
       data = res.data;
       break;
     } catch (e) {

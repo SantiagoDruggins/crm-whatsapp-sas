@@ -20,7 +20,8 @@ const config = {
     apiKey: process.env.GEMINI_API_KEY || '',
     model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
     temperature: Number(process.env.GEMINI_TEMPERATURE || 0.4),
-    topP: Number(process.env.GEMINI_TOP_P || 0.9)
+    topP: Number(process.env.GEMINI_TOP_P || 0.9),
+    maxOutputTokens: Math.min(65536, Math.max(256, Number(process.env.GEMINI_MAX_OUTPUT_TOKENS || 8192)))
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',
