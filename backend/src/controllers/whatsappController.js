@@ -21,20 +21,31 @@ function sugerirLeadStatusDesdeTexto(contenido) {
   return null;
 }
 
-/** Parsea [IMAGEN: path] o IMAGEN: path en la respuesta; devuelve { textoLimpio, urlsImagen } para enviar las fotos y quitar las líneas. */
-function extraerImagenesDeRespuesta(respuesta, baseUrl) {
-  if (!respuesta || typeof respuesta !== 'string') return { textoLimpio: respuesta, urlsImagen: [] };
-  const regex = /\[?IMAGEN:\s*([^\]\n]+)\]?/gi;
+/** Parsea [IMAGEN: path] y [AUDIO: url] en la respuesta; devuelve { textoLimpio, urlsImagen, urlsAudio }. */
+function extraerImagenesYAudiosDeRespuesta(respuesta, baseUrl) {
+  if (!respuesta || typeof respuesta !== 'string') return { textoLimpio: respuesta, urlsImagen: [], urlsAudio: [] };
   const urlsImagen = [];
-  let match;
-  while ((match = regex.exec(respuesta)) !== null) {
-    const path = (match[1] || '').trim();
-    if (!path) continue;
-    const urlCompleta = path.startsWith('http') ? path : `${(baseUrl || '').replace(/\/$/, '')}${path.startsWith('/') ? path : '/' + path}`;
-    if (urlCompleta && urlCompleta.startsWith('http')) urlsImagen.push(urlCompleta);
+  const urlsAudio = [];
+  let textoLimpio = respuesta;
+  const reImagen = /\[?IMAGEN:\s*([^\]\n]+)\]?/gi;
+  let m;
+  while ((m = reImagen.exec(respuesta)) !== null) {
+    const path = (m[1] || '').trim();
+    if (path) {
+      const url = path.startsWith('http') ? path : `${(baseUrl || '').replace(/\/$/, '')}${path.startsWith('/') ? path : '/' + path}`;
+      if (url.startsWith('http')) urlsImagen.push(url);
+    }
   }
-  const textoLimpio = respuesta.replace(/\s*\[?IMAGEN:\s*[^\]\n]+\]?\s*/gi, '\n').replace(/\n{2,}/g, '\n').trim();
-  return { textoLimpio, urlsImagen };
+  const reAudio = /\[?AUDIO:\s*([^\]\n]+)\]?/gi;
+  while ((m = reAudio.exec(respuesta)) !== null) {
+    const path = (m[1] || '').trim();
+    if (path) {
+      const url = path.startsWith('http') ? path : `${(baseUrl || '').replace(/\/$/, '')}${path.startsWith('/') ? path : '/' + path}`;
+      if (url.startsWith('http')) urlsAudio.push(url);
+    }
+  }
+  textoLimpio = respuesta.replace(/\s*\[?IMAGEN:\s*[^\]\n]+\]?\s*/gi, '\n').replace(/\s*\[?AUDIO:\s*[^\]\n]+\]?\s*/gi, '\n').replace(/\n{2,}/g, '\n').trim();
+  return { textoLimpio, urlsImagen, urlsAudio };
 }
 
 /** Parsea respuesta del bot en busca de CITA:YYYY-MM-DD|HH:MM|notas; crea la cita si el horario está libre y devuelve el mensaje sin esa línea. */
@@ -135,6 +146,70 @@ async function enviarImagenEmpresa(empresaId, toPhone, imageUrl, caption) {
   }
 }
 
+/** Envía un audio por WhatsApp Cloud API (URL pública o bien subir buffer y enviar por id). Formatos: AAC, AMR, MP4, MPEG, OGG. */
+async function enviarAudioEmpresa(empresaId, toPhone, audioUrl) {
+  const row = await getWhatsappConfig(empresaId);
+  if (!row?.whatsapp_cloud_access_token || !row?.whatsapp_cloud_phone_number_id) return { ok: false, error: 'WhatsApp no configurado' };
+  const url = `${CLOUD_API_BASE}/${row.whatsapp_cloud_phone_number_id}/messages`;
+  const toNumber = String(toPhone).replace(/\D/g, '');
+  try {
+    await axios.post(
+      url,
+      { messaging_product: 'whatsapp', to: toNumber, type: 'audio', audio: { link: audioUrl } },
+      { headers: { Authorization: `Bearer ${row.whatsapp_cloud_access_token}`, 'Content-Type': 'application/json' }, timeout: 20000 }
+    );
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.response?.data?.error?.message || err.message };
+  }
+}
+
+/** Sube un buffer de audio a Meta y envía el mensaje de audio por WhatsApp. Para TTS (texto a voz). */
+async function subirYEnviarAudioEmpresa(empresaId, toPhone, audioBuffer, mimeType = 'audio/mpeg') {
+  const row = await getWhatsappConfig(empresaId);
+  if (!row?.whatsapp_cloud_access_token || !row?.whatsapp_cloud_phone_number_id) return { ok: false, error: 'WhatsApp no configurado' };
+  const FormData = require('form-data');
+  const form = new FormData();
+  form.append('file', audioBuffer, { filename: 'audio.mp3', contentType: mimeType });
+  form.append('messaging_product', 'whatsapp');
+  form.append('type', mimeType);
+  const uploadUrl = `${CLOUD_API_BASE}/${row.whatsapp_cloud_phone_number_id}/media`;
+  try {
+    const up = await axios.post(uploadUrl, form, {
+      headers: { ...form.getHeaders(), Authorization: `Bearer ${row.whatsapp_cloud_access_token}` },
+      maxBodyLength: Infinity,
+      timeout: 30000
+    });
+    const mediaId = up.data?.id;
+    if (!mediaId) return { ok: false, error: 'No se obtuvo id de media' };
+    const msgUrl = `${CLOUD_API_BASE}/${row.whatsapp_cloud_phone_number_id}/messages`;
+    await axios.post(
+      msgUrl,
+      { messaging_product: 'whatsapp', to: String(toPhone).replace(/\D/g, ''), type: 'audio', audio: { id: mediaId } },
+      { headers: { Authorization: `Bearer ${row.whatsapp_cloud_access_token}`, 'Content-Type': 'application/json' }, timeout: 15000 }
+    );
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.response?.data?.error?.message || err.message };
+  }
+}
+
+/** Convierte texto a audio con OpenAI TTS (tts-1). Requiere OPENAI_API_KEY. Máx ~2500 caracteres. */
+async function textoAVozOpenAI(texto, apiKey) {
+  if (!texto || !apiKey || String(texto).length > 2500) return null;
+  try {
+    const res = await axios.post(
+      'https://api.openai.com/v1/audio/speech',
+      { model: 'tts-1', input: String(texto).slice(0, 2500), voice: 'alloy' },
+      { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, responseType: 'arraybuffer', timeout: 30000 }
+    );
+    return res.data && Buffer.isBuffer(res.data) ? res.data : Buffer.from(res.data);
+  } catch (e) {
+    console.warn('[TTS] OpenAI:', e.response?.data?.error?.message || e.message);
+    return null;
+  }
+}
+
 /** Indica si el mensaje del usuario parece una consulta por productos/catálogo (para enviar fotos). */
 function esConsultaProductos(texto) {
   if (!texto || typeof texto !== 'string') return false;
@@ -213,7 +288,7 @@ async function cloudWebhookPost(req, res) {
                   const respuestaLimpia = await extraerYCrearCitaSiHay(empresa.id, contacto.id, respuesta.trim());
                   let textoEnviar = respuestaLimpia || respuesta.trim();
                   const baseUrl = (config.publicBaseUrl || config.whatsapp?.publicWebhookBaseUrl || '').replace(/\/$/, '');
-                  const { textoLimpio, urlsImagen } = extraerImagenesDeRespuesta(textoEnviar, baseUrl);
+                  const { textoLimpio, urlsImagen, urlsAudio } = extraerImagenesYAudiosDeRespuesta(textoEnviar, baseUrl);
                   textoEnviar = textoLimpio || textoEnviar;
                   const sent = await enviarMensajeEmpresa(empresa.id, from, textoEnviar);
                   if (sent.ok) {
@@ -223,6 +298,14 @@ async function cloudWebhookPost(req, res) {
                         await new Promise((r) => setTimeout(r, 500));
                       } catch (eImg) {
                         console.warn('[WhatsApp] Error enviando imagen:', eImg.message);
+                      }
+                    }
+                    for (const audioUrl of urlsAudio.slice(0, 2)) {
+                      try {
+                        await enviarAudioEmpresa(empresa.id, from, audioUrl);
+                        await new Promise((r) => setTimeout(r, 500));
+                      } catch (eAud) {
+                        console.warn('[WhatsApp] Error enviando audio:', eAud.message);
                       }
                     }
                     await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: textoEnviar, esEntrada: false });
@@ -240,6 +323,17 @@ async function cloudWebhookPost(req, res) {
                         }
                       } catch (eImg) {
                         console.warn('[WhatsApp] Error enviando fotos de productos:', eImg.message);
+                      }
+                    }
+                    if (process.env.BOT_ENVIAR_RESPUESTA_EN_AUDIO === 'true' && config.openai?.apiKey && textoEnviar.length >= 10 && textoEnviar.length <= 2500) {
+                      try {
+                        const audioBuffer = await textoAVozOpenAI(textoEnviar, config.openai.apiKey);
+                        if (audioBuffer) {
+                          await new Promise((r) => setTimeout(r, 400));
+                          await subirYEnviarAudioEmpresa(empresa.id, from, audioBuffer, 'audio/mpeg');
+                        }
+                      } catch (eAudio) {
+                        console.warn('[WhatsApp] Error enviando respuesta en audio:', eAudio.message);
                       }
                     }
                   }

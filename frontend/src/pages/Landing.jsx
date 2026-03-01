@@ -23,7 +23,13 @@ export default function Landing() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-50 border-b border-[#2d3a47] bg-[#0f1419]/95 backdrop-blur">
         <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <span className="font-bold text-xl text-white">ChatProBusiness</span>
+          <div className="flex items-center gap-3">
+            <img src="/logo-delthaseg.png" alt="DELTHASEG" className="h-10 w-auto object-contain" />
+            <div>
+              <span className="font-bold text-xl text-white block leading-tight">DELTHASEG</span>
+              <span className="text-xs text-[#8b9cad] tracking-wide">SYSTEMS GROUP</span>
+            </div>
+          </div>
           <nav className="flex items-center gap-6">
             <a href="#problema" className="text-[#8b9cad] hover:text-white text-sm font-medium">Problema</a>
             <a href="#solucion" className="text-[#8b9cad] hover:text-white text-sm font-medium">Solución</a>
@@ -35,17 +41,22 @@ export default function Landing() {
       </header>
 
       <section className={styles.section + ' pt-12 md:pt-20'}>
-        <div className="max-w-3xl">
-          <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-4">CRM con chatbot IA para WhatsApp</p>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-6">
-            Atiende a tus clientes 24/7 y no pierdas ninguna venta por WhatsApp
-          </h1>
-          <p className={styles.p + ' mb-8'}>
-            Conecta tu negocio a WhatsApp, automatiza respuestas con IA y gestiona todas las conversaciones desde un solo lugar. Prueba 3 días gratis, sin tarjeta.
-          </p>
-          <div id="cta-demo" className="flex flex-wrap gap-4">
-            <Link to="/registro" className={styles.cta}>Crear mi demo gratis (3 días)</Link>
-            <a href="#como-funciona" className={styles.ctaOutline}>Cómo funciona</a>
+        <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16 max-w-6xl mx-auto">
+          <div className="flex-1 max-w-3xl">
+            <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-4">CRM con chatbot IA para WhatsApp</p>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-6">
+              Atiende a tus clientes 24/7 y no pierdas ninguna venta por WhatsApp
+            </h1>
+            <p className={styles.p + ' mb-8'}>
+              Conecta tu negocio a WhatsApp, automatiza respuestas con IA y gestiona todas las conversaciones desde un solo lugar. Prueba 3 días gratis, sin tarjeta.
+            </p>
+            <div id="cta-demo" className="flex flex-wrap gap-4">
+              <Link to="/registro" className={styles.cta}>Crear mi demo gratis (3 días)</Link>
+              <a href="#como-funciona" className={styles.ctaOutline}>Cómo funciona</a>
+            </div>
+          </div>
+          <div className="flex-shrink-0 w-full max-w-sm lg:max-w-md">
+            <img src="/logo-delthaseg.png" alt="DELTHASEG Systems Group" className="w-full h-auto object-contain" />
           </div>
         </div>
       </section>
@@ -186,7 +197,11 @@ export default function Landing() {
 
       <footer className="border-t border-[#2d3a47] py-8 px-4">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-[#8b9cad] text-sm">
-          <span>ChatProBusiness</span>
+          <div className="flex items-center gap-2">
+            <img src="/logo-delthaseg.png" alt="" className="h-8 w-auto object-contain opacity-90" />
+            <span className="font-semibold text-white">DELTHASEG</span>
+            <span>· SYSTEMS GROUP</span>
+          </div>
           <div className="flex gap-6">
             <a href="#planes" className="hover:text-white">Planes</a>
             <Link to="/registro" className="hover:text-white">Registro</Link>
