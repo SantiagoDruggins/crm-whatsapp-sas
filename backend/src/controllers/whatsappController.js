@@ -6,6 +6,7 @@ const conversacionModel = require('../models/conversacionModel');
 const mensajeModel = require('../models/mensajeModel');
 const appointmentModel = require('../models/appointmentModel');
 const productoModel = require('../models/productoModel');
+const planModel = require('../models/planModel');
 const { generarRespuestaBot } = require('./iaController');
 const { getAiConfig, transcribeAudioGemini } = require('../services/aiProviderService');
 
@@ -263,7 +264,18 @@ async function cloudWebhookPost(req, res) {
               if (!text) text = '[audio no transcrito]';
             }
 
-            const contacto = await contactoModel.getOrCreateByTelefono(empresa.id, from);
+            let contacto = await contactoModel.getByTelefono(empresa.id, from);
+            if (!contacto) {
+              const limits = await planModel.getLimitsForEmpresa(empresa.id);
+              if (limits.max_contactos != null) {
+                const total = await contactoModel.countByEmpresa(empresa.id);
+                if (total >= limits.max_contactos) {
+                  await enviarMensajeEmpresa(empresa.id, from, 'Has alcanzado el límite de contactos de tu plan. Actualiza en la web (Pagos) para recibir más conversaciones.');
+                  continue;
+                }
+              }
+              contacto = await contactoModel.getOrCreateByTelefono(empresa.id, from);
+            }
             const conversacion = await conversacionModel.getOrCreate(empresa.id, contacto.id, 'whatsapp');
             const contenidoEntrada = text || '[mensaje no texto]';
             await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'cliente', contenido: contenidoEntrada, esEntrada: true });

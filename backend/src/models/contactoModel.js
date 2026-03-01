@@ -4,6 +4,15 @@ function normalizarTelefono(t) {
   return (t && String(t).replace(/\D/g, '').trim()) || '';
 }
 
+async function countByEmpresa(empresaId) {
+  try {
+    const r = await query(`SELECT COUNT(*) AS total FROM contactos WHERE empresa_id = $1`, [empresaId]);
+    return Number(r.rows[0]?.total || 0);
+  } catch (e) {
+    return 0;
+  }
+}
+
 async function listar(empresaId, { limit = 50, offset = 0 } = {}) {
   try {
     const result = await query(
@@ -129,4 +138,4 @@ async function getOrCreateByTelefono(empresaId, telefono) {
   return crear(empresaId, { nombre: t || 'Sin nombre', telefono: t, origen: 'whatsapp' });
 }
 
-module.exports = { listar, getById, getByTelefono, crear, actualizar, actualizarUltimoMensajeContacto, getContactContext, getOrCreateByTelefono };
+module.exports = { listar, getById, getByTelefono, crear, actualizar, actualizarUltimoMensajeContacto, getContactContext, getOrCreateByTelefono, countByEmpresa };

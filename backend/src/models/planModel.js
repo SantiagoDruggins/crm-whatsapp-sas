@@ -14,4 +14,22 @@ async function getByCodigo(codigo) {
   return result.rows[0] || null;
 }
 
-module.exports = { listarActivos, getByCodigo };
+/** Devuelve { max_contactos, max_usuarios } para la empresa. null = ilimitado. Demo usa plan 'demo'. */
+async function getLimitsForEmpresa(empresaId) {
+  try {
+    const emp = await query(`SELECT estado, plan FROM empresas WHERE id = $1`, [empresaId]);
+    const row = emp.rows[0];
+    if (!row) return { max_contactos: null, max_usuarios: null };
+    const codigo = row.estado === 'demo_activa' ? 'demo' : (row.plan || 'BASICO_MENSUAL');
+    const plan = await getByCodigo(codigo);
+    if (!plan) return { max_contactos: null, max_usuarios: null };
+    return {
+      max_contactos: plan.max_contactos != null ? Number(plan.max_contactos) : null,
+      max_usuarios: plan.max_usuarios != null ? Number(plan.max_usuarios) : null
+    };
+  } catch (e) {
+    return { max_contactos: null, max_usuarios: null };
+  }
+}
+
+module.exports = { listarActivos, getByCodigo, getLimitsForEmpresa };

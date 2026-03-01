@@ -140,14 +140,14 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto">
           <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Precios en Colombia</p>
           <h2 className={styles.h2}>Planes y precios (COP)</h2>
-          <p className={styles.p + ' mb-4'}>Pago por Nequi. Subes el comprobante y activamos tu plan en 24 h.</p>
+          <p className={styles.p + ' mb-2'}>La demo incluye hasta 50 contactos por 3 días. Al pagar, cada plan tiene su límite de contactos. Pago por Nequi; subes el comprobante y activamos en 24 h.</p>
           <p className="text-white font-medium mb-2">Nequi: {formatearNequiTelefono()} — {NEQUI_PAGO.nombre}</p>
           <button type="button" onClick={() => setModalNequi(true)} className="text-[#00c896] text-sm hover:underline mb-10">Ver datos de pago Nequi</button>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { nombre: 'Básico', precio: 39900, desc: '1 usuario, CRM básico, Bot IA, WhatsApp. Ideal para emprendedores.', codigo: 'BASICO_MENSUAL' },
-              { nombre: 'Profesional', precio: 89900, desc: 'Hasta 3 usuarios, contactos ilimitados, Bot IA y WhatsApp. Para equipos pequeños.', codigo: 'PROFESIONAL_MENSUAL', destacado: true },
-              { nombre: 'Empresarial', precio: 149900, desc: 'Usuarios ilimitados, soporte prioritario y reportes avanzados.', codigo: 'EMPRESARIAL_MENSUAL' },
+              { nombre: 'Básico', precio: 39900, desc: '1 usuario, hasta 500 contactos, CRM, Bot IA y WhatsApp. Ideal para emprendedores.', codigo: 'BASICO_MENSUAL' },
+              { nombre: 'Profesional', precio: 89900, desc: 'Hasta 3 usuarios, 2000 contactos, Bot IA y WhatsApp. Para equipos pequeños.', codigo: 'PROFESIONAL_MENSUAL', destacado: true },
+              { nombre: 'Empresarial', precio: 149900, desc: 'Usuarios y contactos ilimitados, soporte prioritario.', codigo: 'EMPRESARIAL_MENSUAL' },
             ].map((plan) => (
               <div key={plan.codigo} className={`rounded-2xl border p-6 ${plan.destacado ? 'border-[#00c896] bg-[#00c896]/5' : 'border-[#2d3a47] bg-[#232d38]'}`}>
                 <h3 className="text-xl font-bold text-white mb-2">{plan.nombre}</h3>
