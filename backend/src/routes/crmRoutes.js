@@ -6,6 +6,7 @@ const { listarConversaciones, obtenerConversacion, actualizarConversacion, histo
 const { listarProductos, obtenerProducto, crearProducto, actualizarProducto, eliminarProducto, subirImagenProducto } = require('../controllers/productosController');
 const { listarTags, obtenerTag, crearTag, actualizarTag, eliminarTag, listarTagsContacto, actualizarTagsContacto } = require('../controllers/tagsController');
 const { listarAppointments, obtenerAppointment, crearAppointment, actualizarAppointment, eliminarAppointment, listarAppointmentsContacto } = require('../controllers/appointmentsController');
+const { actividadReciente } = require('../controllers/activityController');
 const { uploadProductoImagen } = require('../config/multer');
 const { query } = require('../config/db');
 
@@ -36,6 +37,7 @@ router.get('/conversaciones/:id', asyncHandler(obtenerConversacion));
 router.patch('/conversaciones/:id', asyncHandler(actualizarConversacion));
 router.get('/conversaciones/:id/historial', asyncHandler(historialConversacion));
 router.post('/conversaciones/:id/mensajes', asyncHandler(enviarMensajeConversacion));
+router.get('/actividad-reciente', asyncHandler(actividadReciente));
 
 // Tags
 router.get('/tags', asyncHandler(listarTags));
