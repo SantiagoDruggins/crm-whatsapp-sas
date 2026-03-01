@@ -51,7 +51,7 @@ async function generateGemini(opts, config) {
     temperature,
     topP,
     topK: 40,
-    maxOutputTokens: 300
+    maxOutputTokens: 1024
   };
   const payload = { contents: [{ role: 'user', parts }], generationConfig };
   let data;
@@ -77,8 +77,15 @@ async function generateGemini(opts, config) {
       : rawMsg;
     return { text: '', error: userMsg };
   }
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  return { text: (text && text.trim()) || 'No pude generar una respuesta.', error: null };
+  const candidate = data?.candidates?.[0];
+  const text = candidate?.content?.parts?.[0]?.text;
+  if (text && text.trim()) return { text: text.trim(), error: null };
+  const finishReason = candidate?.finishReason || candidate?.finish_reason;
+  if (finishReason && finishReason !== 'STOP' && finishReason !== 'stop') {
+    const reasonMsg = finishReason === 'SAFETY' || finishReason === 'safety' ? 'La IA no generó texto por filtros de seguridad.' : `La IA terminó con motivo: ${finishReason}.`;
+    return { text: '', error: reasonMsg };
+  }
+  return { text: '', error: 'La IA no devolvió texto. Revisa los logs del servidor (pm2 logs) o la consola de Google AI/Cloud por bloqueos o límites.' };
 }
 
 async function generateOpenAI(opts, config) {
