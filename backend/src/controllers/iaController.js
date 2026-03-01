@@ -99,7 +99,8 @@ async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
         .replace(/\[HORARIOS\]/gi, 'consultar con nosotros')
         .replace(/\[PRODUCTOS_SERVICIOS\]/gi, 'nuestros productos y servicios') +
       '\n\nIMPORTANTE: El usuario te escribe por WhatsApp. Cuando pida contacto, comprar o más información, indícale que puede seguir escribiendo por WhatsApp en esta conversación. No sugieras enviar email ni Gmail.' +
-      '\n\nCITAS EN EL CRM: Cuando confirmes una cita con fecha y hora concretas, DEBES añadir al final de tu mensaje (en una sola línea, sin explicar al usuario) la marca: CITA:YYYY-MM-DD|HH:MM|Breve descripción. Ejemplo: CITA:2025-02-26|08:00|Instalación segundo vehículo. Usa la fecha en formato año-mes-día y la hora en 24h (ej. 08:00, 14:30). El sistema quitará esta línea antes de enviar el mensaje al usuario. Solo añade CITA: cuando realmente estés confirmando una cita con fecha y hora acordadas.';
+      '\n\nCITAS EN EL CRM: Cuando confirmes una cita con fecha y hora concretas, DEBES añadir al final de tu mensaje (en una sola línea, sin explicar al usuario) la marca: CITA:YYYY-MM-DD|HH:MM|Breve descripción. Ejemplo: CITA:2025-02-26|08:00|Instalación segundo vehículo. Usa la fecha en formato año-mes-día y la hora en 24h (ej. 08:00, 14:30). El sistema quitará esta línea antes de enviar el mensaje al usuario. Solo añade CITA: cuando realmente estés confirmando una cita con fecha y hora acordadas.' +
+      '\n\nFOTOS DE PRODUCTOS: Cuando el usuario pida una foto o quieras mostrar un producto del catálogo, añade en una línea: [IMAGEN: ruta] usando la ruta exacta que aparece en el catálogo (ej. /uploads/productos/nombre-archivo.jpg). Puedes poner varias líneas [IMAGEN: ruta] si quieres enviar más de una. El sistema enviará cada imagen por WhatsApp y quitará estas líneas del mensaje.';
     const imageParts = [];
     for (const item of imagenesConocimiento) {
       const baseName = path.basename(item.ruta);

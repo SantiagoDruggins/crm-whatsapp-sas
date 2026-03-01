@@ -21,6 +21,22 @@ function sugerirLeadStatusDesdeTexto(contenido) {
   return null;
 }
 
+/** Parsea [IMAGEN: path] o IMAGEN: path en la respuesta; devuelve { textoLimpio, urlsImagen } para enviar las fotos y quitar las líneas. */
+function extraerImagenesDeRespuesta(respuesta, baseUrl) {
+  if (!respuesta || typeof respuesta !== 'string') return { textoLimpio: respuesta, urlsImagen: [] };
+  const regex = /\[?IMAGEN:\s*([^\]\n]+)\]?/gi;
+  const urlsImagen = [];
+  let match;
+  while ((match = regex.exec(respuesta)) !== null) {
+    const path = (match[1] || '').trim();
+    if (!path) continue;
+    const urlCompleta = path.startsWith('http') ? path : `${(baseUrl || '').replace(/\/$/, '')}${path.startsWith('/') ? path : '/' + path}`;
+    if (urlCompleta && urlCompleta.startsWith('http')) urlsImagen.push(urlCompleta);
+  }
+  const textoLimpio = respuesta.replace(/\s*\[?IMAGEN:\s*[^\]\n]+\]?\s*/gi, '\n').replace(/\n{2,}/g, '\n').trim();
+  return { textoLimpio, urlsImagen };
+}
+
 /** Parsea respuesta del bot en busca de CITA:YYYY-MM-DD|HH:MM|notas; crea la cita si el horario está libre y devuelve el mensaje sin esa línea. */
 async function extraerYCrearCitaSiHay(empresaId, contactId, respuesta) {
   if (!respuesta || typeof respuesta !== 'string') return respuesta;
@@ -195,30 +211,35 @@ async function cloudWebhookPost(req, res) {
                 const { respuesta, error } = await generarRespuestaBot(empresa.id, text.trim(), { contactId: contacto.id, conversacionId: conversacion.id });
                 if (respuesta && respuesta.trim()) {
                   const respuestaLimpia = await extraerYCrearCitaSiHay(empresa.id, contacto.id, respuesta.trim());
-                  const textoEnviar = respuestaLimpia || respuesta.trim();
+                  let textoEnviar = respuestaLimpia || respuesta.trim();
+                  const baseUrl = (config.publicBaseUrl || config.whatsapp?.publicWebhookBaseUrl || '').replace(/\/$/, '');
+                  const { textoLimpio, urlsImagen } = extraerImagenesDeRespuesta(textoEnviar, baseUrl);
+                  textoEnviar = textoLimpio || textoEnviar;
                   const sent = await enviarMensajeEmpresa(empresa.id, from, textoEnviar);
                   if (sent.ok) {
+                    for (const imgUrl of urlsImagen.slice(0, 5)) {
+                      try {
+                        await enviarImagenEmpresa(empresa.id, from, imgUrl, '');
+                        await new Promise((r) => setTimeout(r, 500));
+                      } catch (eImg) {
+                        console.warn('[WhatsApp] Error enviando imagen:', eImg.message);
+                      }
+                    }
                     await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: textoEnviar, esEntrada: false });
                     await conversacionModel.actualizarUltimoMensaje(conversacion.id);
                     await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: textoEnviar, lastMessageAt: new Date() });
                     respuestaEnviada = true;
-                    // Si preguntó por productos/catálogo, enviar fotos de productos que tengan imagen
-                    if (esConsultaProductos(text.trim())) {
-                      const baseUrl = (config.publicBaseUrl || config.whatsapp?.publicWebhookBaseUrl || '').replace(/\/$/, '');
-                      if (baseUrl) {
-                        try {
-                          const productos = await productoModel.listarActivos(empresa.id, { limit: 20 });
-                          const conImagen = (productos || []).filter((p) => p.imagen_url && String(p.imagen_url).trim());
-                          const urlCompleta = (path) => (path.startsWith('http') ? path : `${baseUrl}${path.startsWith('/') ? path : '/' + path}`);
-                          for (const p of conImagen.slice(0, 5)) {
-                            const imgUrl = urlCompleta(p.imagen_url);
-                            const caption = `${p.nombre} – ${Number(p.precio || 0).toLocaleString('es-CO')} ${p.moneda || 'COP'}`;
-                            await enviarImagenEmpresa(empresa.id, from, imgUrl, caption);
-                            await new Promise((r) => setTimeout(r, 600));
-                          }
-                        } catch (eImg) {
-                          console.warn('[WhatsApp] Error enviando fotos de productos:', eImg.message);
+                    if (esConsultaProductos(text.trim()) && baseUrl) {
+                      try {
+                        const productos = await productoModel.listarActivos(empresa.id, { limit: 20 });
+                        const conImagen = (productos || []).filter((p) => p.imagen_url && String(p.imagen_url).trim());
+                        const urlCompleta = (path) => (path.startsWith('http') ? path : `${baseUrl}${path.startsWith('/') ? path : '/' + path}`);
+                        for (const p of conImagen.slice(0, 5)) {
+                          await enviarImagenEmpresa(empresa.id, from, urlCompleta(p.imagen_url), `${p.nombre} – ${Number(p.precio || 0).toLocaleString('es-CO')} ${p.moneda || 'COP'}`);
+                          await new Promise((r) => setTimeout(r, 600));
                         }
+                      } catch (eImg) {
+                        console.warn('[WhatsApp] Error enviando fotos de productos:', eImg.message);
                       }
                     }
                   }
