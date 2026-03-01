@@ -4,6 +4,7 @@ const { getWhatsappConfig, updateWhatsappConfig, getEmpresaByWhatsappPhoneNumber
 const contactoModel = require('../models/contactoModel');
 const conversacionModel = require('../models/conversacionModel');
 const mensajeModel = require('../models/mensajeModel');
+const appointmentModel = require('../models/appointmentModel');
 const { generarRespuestaBot } = require('./iaController');
 const { getAiConfig, transcribeAudioGemini } = require('../services/aiProviderService');
 
@@ -17,6 +18,28 @@ function sugerirLeadStatusDesdeTexto(contenido) {
   if (/\b(compré|comprado|ya compré|adquirí)\b/.test(t)) return 'buyer';
   if (/\b(quiero comprar|comprar|me interesa|interesado|tomar el servicio)\b/.test(t)) return 'interested';
   return null;
+}
+
+/** Parsea respuesta del bot en busca de CITA:YYYY-MM-DD|HH:MM|notas; crea la cita y devuelve el mensaje sin esa línea. */
+async function extraerYCrearCitaSiHay(empresaId, contactId, respuesta) {
+  if (!respuesta || typeof respuesta !== 'string') return respuesta;
+  const regex = /CITA:(\d{4}-\d{2}-\d{2})\|(\d{1,2}:\d{2})\|([^\n]*)/i;
+  const match = respuesta.match(regex);
+  if (!match) return respuesta;
+  const [, date, time, notes] = match;
+  try {
+    await appointmentModel.crear(empresaId, {
+      contact_id: contactId,
+      date,
+      time: time.length === 4 ? '0' + time : time,
+      status: 'programada',
+      notes: (notes || '').trim() || null,
+    });
+    await contactoModel.actualizar(empresaId, contactId, { lead_status: 'scheduled' });
+  } catch (e) {
+    console.warn('[WhatsApp] No se pudo crear cita desde bot:', e.message);
+  }
+  return respuesta.replace(regex, '').replace(/\n{2,}/g, '\n').trim();
 }
 
 /** Obtiene la URL del medio de WhatsApp y descarga el contenido (para audios). */
@@ -131,11 +154,13 @@ async function cloudWebhookPost(req, res) {
               try {
                 const { respuesta, error } = await generarRespuestaBot(empresa.id, text.trim(), { contactId: contacto.id, conversacionId: conversacion.id });
                 if (respuesta && respuesta.trim()) {
-                  const sent = await enviarMensajeEmpresa(empresa.id, from, respuesta.trim());
+                  const respuestaLimpia = await extraerYCrearCitaSiHay(empresa.id, contacto.id, respuesta.trim());
+                  const textoEnviar = respuestaLimpia || respuesta.trim();
+                  const sent = await enviarMensajeEmpresa(empresa.id, from, textoEnviar);
                   if (sent.ok) {
-                    await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: respuesta.trim(), esEntrada: false });
+                    await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: textoEnviar, esEntrada: false });
                     await conversacionModel.actualizarUltimoMensaje(conversacion.id);
-                    await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: respuesta.trim(), lastMessageAt: new Date() });
+                    await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: textoEnviar, lastMessageAt: new Date() });
                     respuestaEnviada = true;
                   }
                 } else {

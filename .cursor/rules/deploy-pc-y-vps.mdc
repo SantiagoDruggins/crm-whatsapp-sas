@@ -1,0 +1,20 @@
+---
+description: Al dar instrucciones de despliegue, siempre incluir comandos para PC y para VPS
+alwaysApply: true
+---
+
+# Despliegue: PC y VPS
+
+Cuando expliques cómo subir cambios o actualizar el proyecto después de modificaciones:
+
+1. **Siempre** incluir dos bloques claros de comandos:
+   - **En el PC (local):** comandos para hacer commit y push a Git (git add, git commit, git push).
+   - **En el VPS (SSH):** comandos para actualizar el código (git pull), instalar dependencias si aplica (npm install) y reiniciar servicios (pm2 restart all). Si el frontend se construye en el servidor, incluir también npm run build en frontend.
+
+2. **Formato recomendado** al responder:
+   - Título tipo "En tu PC" / "En el VPS".
+   - Bloques de código con los comandos listos para copiar y pegar.
+   - Ruta del proyecto en PC: `c:\Users\eduar\Desktop\EMAIL MARKETING IA\saas_crm_multitenant`
+   - Ruta típica en VPS: `/var/www/crm-whatsapp-sas` (ajustar si el usuario indica otra).
+
+3. No asumir que el usuario recuerda los pasos; dar siempre la secuencia completa para agilizar.
