@@ -56,7 +56,9 @@ export default function Landing() {
             </div>
           </div>
           <div className="flex-shrink-0 w-full max-w-sm lg:max-w-md">
-            <img src="/logo-delthaseg.png" alt="DELTHASEG Systems Group" className="w-full h-auto object-contain" />
+            <div className="rounded-2xl border border-[#2d3a47] bg-[#1a2129] p-6 shadow-xl shadow-black/30 ring-1 ring-white/5">
+              <img src="/logo-delthaseg.png" alt="DELTHASEG Systems Group" className="w-full h-auto object-contain" />
+            </div>
           </div>
         </div>
       </section>
