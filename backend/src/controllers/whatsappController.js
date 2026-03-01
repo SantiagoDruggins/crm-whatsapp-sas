@@ -20,18 +20,24 @@ function sugerirLeadStatusDesdeTexto(contenido) {
   return null;
 }
 
-/** Parsea respuesta del bot en busca de CITA:YYYY-MM-DD|HH:MM|notas; crea la cita y devuelve el mensaje sin esa línea. */
+/** Parsea respuesta del bot en busca de CITA:YYYY-MM-DD|HH:MM|notas; crea la cita si el horario está libre y devuelve el mensaje sin esa línea. */
 async function extraerYCrearCitaSiHay(empresaId, contactId, respuesta) {
   if (!respuesta || typeof respuesta !== 'string') return respuesta;
   const regex = /CITA:(\d{4}-\d{2}-\d{2})\|(\d{1,2}:\d{2})\|([^\n]*)/i;
   const match = respuesta.match(regex);
   if (!match) return respuesta;
   const [, date, time, notes] = match;
+  const timeNorm = time.length === 4 ? '0' + time : time;
   try {
+    const ocupado = await appointmentModel.existeCitaEnHorario(empresaId, date, timeNorm);
+    if (ocupado) {
+      const aviso = '\n\n(Ese horario ya está ocupado con otra cita; no pude agendarla. ¿Me das otro horario?)';
+      return respuesta.replace(regex, '').replace(/\n{2,}/g, '\n').trim() + aviso;
+    }
     await appointmentModel.crear(empresaId, {
       contact_id: contactId,
       date,
-      time: time.length === 4 ? '0' + time : time,
+      time: timeNorm,
       status: 'programada',
       notes: (notes || '').trim() || null,
     });

@@ -5,6 +5,7 @@ const { query } = require('../config/db');
 const { dirBotConocimiento } = require('../config/multer');
 const { getAiConfig, generateContent } = require('../services/aiProviderService');
 const contactoModel = require('../models/contactoModel');
+const appointmentModel = require('../models/appointmentModel');
 
 /** Genera respuesta del bot por empresa y mensaje (para webhook WhatsApp, etc.). opts: { contactId, conversacionId } para memoria. Retorna { respuesta?, error? }. */
 async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
@@ -76,6 +77,16 @@ async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
         // Si falla contexto (ej. migración no aplicada), seguir sin memoria
       }
     }
+    // Citas ya agendadas de la empresa para que el bot no sugiera horarios ocupados
+    try {
+      const hoy = new Date().toISOString().slice(0, 10);
+      const hasta = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const citasEmpresa = await appointmentModel.listarPorEmpresa(empresaId, { desde: hoy, hasta, limit: 150 });
+      if (citasEmpresa && citasEmpresa.length > 0) {
+        const lista = citasEmpresa.map((a) => `${a.date} ${(a.time || '').toString().substring(0, 5) || 'sin hora'}`).join(', ');
+        systemPrompt += `\n\n--- HORARIOS YA OCUPADOS (NO sugerir estos para nuevas citas) ---\n${lista}\nSolo propón horarios que NO estén en esta lista.\n---`;
+      }
+    } catch (e) {}
     const conocimiento = Array.isArray(bot?.conocimiento) ? bot.conocimiento : [];
     const imagenesConocimiento = conocimiento.filter((c) => c.tipo === 'imagen' && c.ruta).slice(0, 4);
     const nombreEmpresa = empresa?.nombre || 'la empresa';

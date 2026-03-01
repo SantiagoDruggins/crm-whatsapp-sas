@@ -85,4 +85,19 @@ async function eliminar(empresaId, id) {
   return result.rowCount > 0;
 }
 
-module.exports = { listarPorEmpresa, listarPorContacto, getById, crear, actualizar, eliminar };
+/** Indica si ya existe alguna cita para la empresa en esa fecha y hora (evitar doble reserva). */
+function normalizarHora(t) {
+  if (!t) return '';
+  const s = String(t).trim();
+  return s.length >= 5 ? s.substring(0, 5) : s;
+}
+
+async function existeCitaEnHorario(empresaId, date, time) {
+  if (!date) return false;
+  const hora = normalizarHora(time);
+  if (!hora || hora.length < 5) return false;
+  const list = await listarPorEmpresa(empresaId, { desde: date, hasta: date, limit: 200 });
+  return list.some((a) => normalizarHora(a.time) === hora);
+}
+
+module.exports = { listarPorEmpresa, listarPorContacto, getById, crear, actualizar, eliminar, existeCitaEnHorario };
