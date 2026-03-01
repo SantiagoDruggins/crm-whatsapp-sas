@@ -78,13 +78,21 @@ async function generateGemini(opts, config) {
     return { text: '', error: userMsg };
   }
   const candidate = data?.candidates?.[0];
-  const text = candidate?.content?.parts?.[0]?.text;
-  if (text && text.trim()) return { text: text.trim(), error: null };
+  let text = candidate?.content?.parts?.[0]?.text;
+  if (!text && candidate?.content?.parts?.length) {
+    const part = candidate.content.parts.find((p) => p && (p.text || p.inlineData));
+    text = part?.text;
+  }
+  if (text && String(text).trim()) return { text: String(text).trim(), error: null };
   const finishReason = candidate?.finishReason || candidate?.finish_reason;
   if (finishReason && finishReason !== 'STOP' && finishReason !== 'stop') {
     const reasonMsg = finishReason === 'SAFETY' || finishReason === 'safety' ? 'La IA no generó texto por filtros de seguridad.' : `La IA terminó con motivo: ${finishReason}.`;
     return { text: '', error: reasonMsg };
   }
+  if (data?.promptFeedback?.blockReason) {
+    return { text: '', error: `Prompt bloqueado: ${data.promptFeedback.blockReason}. Ajusta el mensaje o el prompt del bot.` };
+  }
+  console.warn('[Gemini] Respuesta sin texto. Estructura:', JSON.stringify({ hasCandidates: !!data?.candidates?.length, candidateKeys: candidate ? Object.keys(candidate) : [], finishReason }));
   return { text: '', error: 'La IA no devolvió texto. Revisa los logs del servidor (pm2 logs) o la consola de Google AI/Cloud por bloqueos o límites.' };
 }
 
