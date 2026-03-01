@@ -390,7 +390,16 @@ export default function BotIA() {
         </form>
         {testRespuesta && (
           <div className="mt-4 p-4 rounded-xl bg-[#232d38] text-[#8b9cad] text-sm">
-            {testRespuesta.error ? <p className="text-[#f87171]">{testRespuesta.error}</p> : <p className="text-white whitespace-pre-wrap">{testRespuesta.respuesta || '(sin respuesta)'}</p>}
+            {testRespuesta.error ? (
+              <>
+                <p className="text-[#f87171]">{testRespuesta.error}</p>
+                {(testRespuesta.error.includes('Límite') || testRespuesta.error.toLowerCase().includes('quota')) && (
+                  <p className="text-[#8b9cad] text-xs mt-2">Espera 1–2 minutos y vuelve a probar, o configura otra API key en Integraciones.</p>
+                )}
+              </>
+            ) : (
+              <p className="text-white whitespace-pre-wrap">{testRespuesta.respuesta || '(sin respuesta)'}</p>
+            )}
           </div>
         )}
       </div>

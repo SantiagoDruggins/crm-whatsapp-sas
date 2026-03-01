@@ -18,7 +18,9 @@ const config = {
   },
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || '',
-    model: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+    model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
+    temperature: Number(process.env.GEMINI_TEMPERATURE || 0.4),
+    topP: Number(process.env.GEMINI_TOP_P || 0.9)
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',

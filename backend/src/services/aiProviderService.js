@@ -41,12 +41,19 @@ async function generateGemini(opts, config) {
   for (const img of imageParts) {
     if (img.mimeType && img.data) parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
   }
-  const modelRaw = config.gemini?.model || 'gemini-1.5-flash';
-  let model = String(modelRaw).replace(/^models\//, '').trim() || 'gemini-1.5-flash';
-  // gemini-pro ya no está soportado en v1beta; solo modelos que aceptan generateContent
-  const fallbacks = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-2.5-flash'];
+  const modelRaw = config.gemini?.model || 'gemini-2.5-pro';
+  let model = String(modelRaw).replace(/^models\//, '').trim() || 'gemini-2.5-pro';
+  const fallbacks = ['gemini-2.5-pro', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-2.5-flash'];
   if (!fallbacks.includes(model)) model = fallbacks[0];
-  const payload = { contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.7, maxOutputTokens: 1024 } };
+  const temperature = Number(config.gemini?.temperature) >= 0 && Number(config.gemini?.temperature) <= 2 ? Number(config.gemini.temperature) : 0.4;
+  const topP = Number(config.gemini?.topP) >= 0 && Number(config.gemini?.topP) <= 1 ? Number(config.gemini.topP) : 0.9;
+  const generationConfig = {
+    temperature,
+    topP,
+    topK: 40,
+    maxOutputTokens: 300
+  };
+  const payload = { contents: [{ role: 'user', parts }], generationConfig };
   let data;
   let lastError;
   const modelsToTry = [model, ...fallbacks].filter((m, i, a) => a.indexOf(m) === i);
@@ -62,7 +69,14 @@ async function generateGemini(opts, config) {
       if (!msg.includes('quota') && !msg.includes('not found') && e.response?.status !== 429 && e.response?.status !== 404) throw e;
     }
   }
-  if (!data) return { text: '', error: lastError?.response?.data?.error?.message || lastError?.message || 'Error IA' };
+  if (!data) {
+    const rawMsg = lastError?.response?.data?.error?.message || lastError?.message || 'Error IA';
+    const isQuota = String(rawMsg).toLowerCase().includes('quota') || lastError?.response?.status === 429;
+    const userMsg = isQuota
+      ? 'Límite de uso gratuito de la IA alcanzado. Espera 1–2 minutos e intenta de nuevo, o añade facturación en Google AI Studio (ai.google.dev) para más solicitudes.'
+      : rawMsg;
+    return { text: '', error: userMsg };
+  }
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   return { text: (text && text.trim()) || 'No pude generar una respuesta.', error: null };
 }
