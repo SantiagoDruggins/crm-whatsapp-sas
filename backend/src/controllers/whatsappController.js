@@ -64,12 +64,37 @@ async function cloudWebhookPost(req, res) {
             await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: contenidoEntrada, lastMessageAt: new Date() });
 
             if (text && text.trim()) {
-              const { respuesta, error } = await generarRespuestaBot(empresa.id, text.trim(), { contactId: contacto.id, conversacionId: conversacion.id });
-              if (respuesta && respuesta.trim()) {
-                await enviarMensajeEmpresa(empresa.id, from, respuesta.trim());
-                await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: respuesta.trim(), esEntrada: false });
-                await conversacionModel.actualizarUltimoMensaje(conversacion.id);
-                await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: respuesta.trim(), lastMessageAt: new Date() });
+              let respuestaEnviada = null;
+              try {
+                const { respuesta, error } = await generarRespuestaBot(empresa.id, text.trim(), { contactId: contacto.id, conversacionId: conversacion.id });
+                if (respuesta && respuesta.trim()) {
+                  const sent = await enviarMensajeEmpresa(empresa.id, from, respuesta.trim());
+                  if (sent.ok) {
+                    await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: respuesta.trim(), esEntrada: false });
+                    await conversacionModel.actualizarUltimoMensaje(conversacion.id);
+                    await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: respuesta.trim(), lastMessageAt: new Date() });
+                    respuestaEnviada = true;
+                  }
+                } else {
+                  console.warn('[WhatsApp] Bot sin respuesta para', from, 'error:', error || 'sin texto');
+                  const fallback = 'Disculpa, en este momento no pude procesar tu mensaje. ¿Puedes intentar de nuevo en un momento?';
+                  const sent = await enviarMensajeEmpresa(empresa.id, from, fallback);
+                  if (sent.ok) {
+                    await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: fallback, esEntrada: false });
+                    await conversacionModel.actualizarUltimoMensaje(conversacion.id);
+                    await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: fallback, lastMessageAt: new Date() });
+                  }
+                }
+              } catch (err) {
+                console.error('[WhatsApp] Error al generar/enviar respuesta:', err.message);
+                const fallback = 'Disculpa, hubo un momento de demora. ¿Puedes escribirme de nuevo?';
+                try {
+                  await enviarMensajeEmpresa(empresa.id, from, fallback);
+                  await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: fallback, esEntrada: false });
+                  await conversacionModel.actualizarUltimoMensaje(conversacion.id);
+                } catch (e2) {
+                  console.error('[WhatsApp] No se pudo enviar fallback:', e2.message);
+                }
               }
             }
           }

@@ -53,7 +53,7 @@ async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
     }
     if (opts.contactId) {
       try {
-        const ctx = await contactoModel.getContactContext(empresaId, opts.contactId, { mensajesLimit: 20 });
+        const ctx = await contactoModel.getContactContext(empresaId, opts.contactId, { mensajesLimit: 10 });
         if (ctx) {
           const nombreContacto = [ctx.contact.nombre, ctx.contact.apellidos].filter(Boolean).join(' ').trim() || ctx.contact.telefono || 'Cliente';
           let bloque = '\n\n--- CONTEXTO DE ESTE CLIENTE (memoria CRM) ---\n';
