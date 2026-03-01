@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Registro from './pages/Registro';
 import Login from './pages/Login';
-import CrearSuperAdmin from './pages/CrearSuperAdmin';
 import LayoutCliente from './components/LayoutCliente';
 import LayoutSuperAdmin from './components/LayoutSuperAdmin';
 import DashboardResumen from './pages/cliente/DashboardResumen';
@@ -27,7 +26,6 @@ function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/registro" element={<Registro />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/crear-super-admin" element={<CrearSuperAdmin />} />
       <Route path="/dashboard" element={<LayoutCliente />}>
         <Route index element={<DashboardResumen />} />
         <Route path="contactos" element={<ErrorBoundary><Contactos /></ErrorBoundary>} />
