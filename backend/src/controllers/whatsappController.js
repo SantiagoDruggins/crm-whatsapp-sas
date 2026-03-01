@@ -5,6 +5,7 @@ const contactoModel = require('../models/contactoModel');
 const conversacionModel = require('../models/conversacionModel');
 const mensajeModel = require('../models/mensajeModel');
 const appointmentModel = require('../models/appointmentModel');
+const productoModel = require('../models/productoModel');
 const { generarRespuestaBot } = require('./iaController');
 const { getAiConfig, transcribeAudioGemini } = require('../services/aiProviderService');
 
@@ -94,6 +95,39 @@ async function enviarMensajeEmpresa(empresaId, toPhone, text) {
   }
 }
 
+/** Envía una imagen por WhatsApp Cloud API (link debe ser URL pública). */
+async function enviarImagenEmpresa(empresaId, toPhone, imageUrl, caption) {
+  const row = await getWhatsappConfig(empresaId);
+  if (!row?.whatsapp_cloud_access_token || !row?.whatsapp_cloud_phone_number_id) return { ok: false, error: 'WhatsApp no configurado' };
+  const url = `${CLOUD_API_BASE}/${row.whatsapp_cloud_phone_number_id}/messages`;
+  const toNumber = String(toPhone).replace(/\D/g, '');
+  const body = {
+    messaging_product: 'whatsapp',
+    to: toNumber,
+    type: 'image',
+    image: { link: imageUrl }
+  };
+  if (caption && String(caption).trim()) body.image.caption = String(caption).trim().slice(0, 1024);
+  try {
+    await axios.post(url, body, {
+      headers: { Authorization: `Bearer ${row.whatsapp_cloud_access_token}`, 'Content-Type': 'application/json' },
+      timeout: 15000
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.response?.data?.error?.message || err.message };
+  }
+}
+
+/** Indica si el mensaje del usuario parece una consulta por productos/catálogo (para enviar fotos). */
+function esConsultaProductos(texto) {
+  if (!texto || typeof texto !== 'string') return false;
+  const t = texto.trim().toLowerCase();
+  return /\b(productos?|catálogo|catalogo|qué tienen|que tienen|qué ofrecen|precios?|mostrar|ver)\b/.test(t) ||
+    /\b(tienen foto|imágenes?|imagenes|fotos?|muéstrame|muestrame)\b/.test(t) ||
+    /qué\s+(venden|ofrecen|tienen)/i.test(t);
+}
+
 async function cloudWebhookPost(req, res) {
   try {
     const body = req.body;
@@ -168,6 +202,25 @@ async function cloudWebhookPost(req, res) {
                     await conversacionModel.actualizarUltimoMensaje(conversacion.id);
                     await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: textoEnviar, lastMessageAt: new Date() });
                     respuestaEnviada = true;
+                    // Si preguntó por productos/catálogo, enviar fotos de productos que tengan imagen
+                    if (esConsultaProductos(text.trim())) {
+                      const baseUrl = (config.publicBaseUrl || config.whatsapp?.publicWebhookBaseUrl || '').replace(/\/$/, '');
+                      if (baseUrl) {
+                        try {
+                          const productos = await productoModel.listarActivos(empresa.id, { limit: 20 });
+                          const conImagen = (productos || []).filter((p) => p.imagen_url && String(p.imagen_url).trim());
+                          const urlCompleta = (path) => (path.startsWith('http') ? path : `${baseUrl}${path.startsWith('/') ? path : '/' + path}`);
+                          for (const p of conImagen.slice(0, 5)) {
+                            const imgUrl = urlCompleta(p.imagen_url);
+                            const caption = `${p.nombre} – ${Number(p.precio || 0).toLocaleString('es-CO')} ${p.moneda || 'COP'}`;
+                            await enviarImagenEmpresa(empresa.id, from, imgUrl, caption);
+                            await new Promise((r) => setTimeout(r, 600));
+                          }
+                        } catch (eImg) {
+                          console.warn('[WhatsApp] Error enviando fotos de productos:', eImg.message);
+                        }
+                      }
+                    }
                   }
                 } else {
                   console.warn('[WhatsApp] Bot sin respuesta para', from, 'error:', error || 'sin texto');

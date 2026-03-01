@@ -3,6 +3,8 @@ require('dotenv').config();
 const config = {
   env: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT) || 4000,
+  /** URL pública base de la app (ej. https://dsgchatbot.pro) para enlazar imágenes enviadas por WhatsApp */
+  publicBaseUrl: (process.env.PUBLIC_APP_URL || process.env.PUBLIC_API_URL || '').replace(/\/$/, ''),
   jwt: {
     secret: process.env.JWT_SECRET || 'change-me',
     expiresIn: process.env.JWT_EXPIRES_IN || '7d'
