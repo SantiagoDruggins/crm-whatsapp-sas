@@ -11,6 +11,7 @@ const nav = [
   { path: '/dashboard/ia', label: 'Bot IA' },
   { path: '/dashboard/catalogo', label: 'Catálogo' },
   { path: '/dashboard/pedidos', label: 'Pedidos' },
+  { path: '/dashboard/agenda', label: 'Agenda' },
   { path: '/dashboard/integraciones', label: 'Integraciones' },
   { path: '/dashboard/pagos', label: 'Pagos' },
 ];

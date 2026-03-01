@@ -9,6 +9,7 @@ const LEAD_STATUS_OPTIONS = [
   { value: 'warm', label: 'Cálido' },
   { value: 'hot', label: 'Caliente' },
   { value: 'scheduled', label: 'Agendado' },
+  { value: 'buyer', label: 'Comprador' },
   { value: 'converted', label: 'Convertido' },
   { value: 'lost', label: 'Perdido' },
 ];

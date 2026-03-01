@@ -22,6 +22,7 @@ export default function Conversaciones() {
           <thead>
             <tr className="border-b border-[#2d3a47]">
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Contacto</th>
+              <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Teléfono</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Estado</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Último mensaje</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium w-24">Acción</th>
@@ -29,11 +30,18 @@ export default function Conversaciones() {
           </thead>
           <tbody>
             {conversaciones.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-[#8b9cad] text-center">No hay conversaciones. Conecta WhatsApp para recibir mensajes.</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-[#8b9cad] text-center">No hay conversaciones. Conecta WhatsApp para recibir mensajes.</td></tr>
             ) : (
               conversaciones.map((c) => (
                 <tr key={c.id} className="border-b border-[#2d3a47] hover:bg-[#232d38]/50">
                   <td className="px-4 py-3 text-white">{c.contacto_nombre || '—'} {c.contacto_apellidos || ''}</td>
+                  <td className="px-4 py-3 text-[#8b9cad] font-mono">
+                    {c.contacto_telefono ? (
+                      <a href={`https://wa.me/${c.contacto_telefono.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-[#00c896] hover:text-[#00e0a8]">
+                        {c.contacto_telefono}
+                      </a>
+                    ) : '—'}
+                  </td>
                   <td className="px-4 py-3 text-[#8b9cad]">{c.estado || '—'}</td>
                   <td className="px-4 py-3 text-[#8b9cad]">{c.ultimo_mensaje_at ? new Date(c.ultimo_mensaje_at).toLocaleString() : '—'}</td>
                   <td className="px-4 py-3">

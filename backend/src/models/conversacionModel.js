@@ -2,7 +2,15 @@ const { query } = require('../config/db');
 
 async function listar(empresaId, { limit = 50, offset = 0 } = {}) {
   try {
-    const result = await query(`SELECT * FROM conversaciones WHERE empresa_id = $1 ORDER BY ultimo_mensaje_at DESC NULLS LAST LIMIT $2 OFFSET $3`, [empresaId, limit, offset]);
+    const result = await query(
+      `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono
+       FROM conversaciones conv
+       LEFT JOIN contactos c ON c.id = conv.contacto_id AND c.empresa_id = conv.empresa_id
+       WHERE conv.empresa_id = $1
+       ORDER BY conv.ultimo_mensaje_at DESC NULLS LAST
+       LIMIT $2 OFFSET $3`,
+      [empresaId, limit, offset]
+    );
     return result.rows;
   } catch (e) {
     return [];
@@ -10,7 +18,13 @@ async function listar(empresaId, { limit = 50, offset = 0 } = {}) {
 }
 
 async function getById(empresaId, id) {
-  const result = await query(`SELECT * FROM conversaciones WHERE id = $1 AND empresa_id = $2`, [id, empresaId]);
+  const result = await query(
+    `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono
+     FROM conversaciones conv
+     LEFT JOIN contactos c ON c.id = conv.contacto_id AND c.empresa_id = conv.empresa_id
+     WHERE conv.id = $1 AND conv.empresa_id = $2`,
+    [id, empresaId]
+  );
   return result.rows[0] || null;
 }
 

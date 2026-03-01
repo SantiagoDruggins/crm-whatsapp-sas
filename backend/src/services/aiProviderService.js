@@ -157,4 +157,33 @@ async function generateAnthropic(opts, config) {
   }
 }
 
-module.exports = { getAiConfig, generateContent, PROVIDERS };
+/**
+ * Transcribe audio (voice note) to text using Gemini. Audio as base64.
+ * @param {string} apiKey - Gemini API key
+ * @param {string} audioBase64 - base64-encoded audio
+ * @param {string} mimeType - e.g. 'audio/ogg', 'audio/mpeg'
+ * @returns {Promise<{ text: string, error: string | null }>}
+ */
+async function transcribeAudioGemini(apiKey, audioBase64, mimeType = 'audio/ogg') {
+  if (!apiKey || !audioBase64) return { text: '', error: 'Faltan apiKey o audio' };
+  const model = 'gemini-2.5-flash'; // Flash suele soportar audio y es rápido
+  const parts = [
+    { text: 'Transcribe this voice message to text. Reply only with the transcription, in the same language as the audio. Do not add any comment or greeting.' },
+    { inlineData: { mimeType: mimeType || 'audio/ogg', data: audioBase64 } }
+  ];
+  const payload = { contents: [{ role: 'user', parts }], generationConfig: { maxOutputTokens: 1024 } };
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const res = await axios.post(url, payload, { headers: { 'Content-Type': 'application/json' }, timeout: 30000 });
+    const data = res.data;
+    const candidate = data?.candidates?.[0];
+    const text = candidate?.content?.parts?.[0]?.text;
+    if (text && String(text).trim()) return { text: String(text).trim(), error: null };
+    return { text: '', error: 'La IA no devolvió transcripción' };
+  } catch (e) {
+    const msg = e.response?.data?.error?.message || e.message;
+    return { text: '', error: msg || 'Error al transcribir' };
+  }
+}
+
+module.exports = { getAiConfig, generateContent, transcribeAudioGemini, PROVIDERS };

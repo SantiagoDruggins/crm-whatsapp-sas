@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 
 export default function ConversacionDetalle() {
@@ -7,13 +7,24 @@ export default function ConversacionDetalle() {
   const navigate = useNavigate();
   const [conversacion, setConversacion] = useState(null);
   const [mensajes, setMensajes] = useState([]);
+  const [citas, setCitas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
 
   const load = () => {
-    api.get(`/crm/conversaciones/${id}/historial`).then((r) => { setConversacion(r.conversacion); setMensajes(r.mensajes || []); }).catch((e) => setError(e.message)).finally(() => setLoading(false));
+    api.get(`/crm/conversaciones/${id}/historial`).then((r) => {
+      setConversacion(r.conversacion);
+      setMensajes(r.mensajes || []);
+      if (r.conversacion?.contacto_id) {
+        api.get(`/crm/contactos/${r.conversacion.contacto_id}/appointments`).then((res) => {
+          setCitas(Array.isArray(res?.appointments) ? res.appointments : []);
+        }).catch(() => setCitas([]));
+      } else {
+        setCitas([]);
+      }
+    }).catch((e) => setError(e.message)).finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -31,14 +42,38 @@ export default function ConversacionDetalle() {
   if (error) return <p className="text-[#f87171]">{error}</p>;
   if (!conversacion) return <p className="text-[#8b9cad]">Conversación no encontrada.</p>;
 
-  const contacto = conversacion.contacto_nombre || conversacion.contacto_telefono || 'Contacto';
+  const nombreContacto = [conversacion.contacto_nombre, conversacion.contacto_apellidos].filter(Boolean).join(' ').trim() || 'Contacto';
+  const telefono = conversacion.contacto_telefono;
 
   return (
     <div>
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex flex-wrap items-center gap-4 mb-6">
         <button onClick={() => navigate('/dashboard/conversaciones')} className="text-[#8b9cad] hover:text-white text-sm">← Volver</button>
-        <h1 className="text-2xl font-bold text-white">Conversación con {contacto}</h1>
+        <h1 className="text-2xl font-bold text-white">Conversación con {nombreContacto}</h1>
+        {telefono && (
+          <a
+            href={`https://wa.me/${String(telefono).replace(/\D/g, '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg bg-[#00c896]/20 text-[#00c896] px-4 py-2 text-sm font-medium hover:bg-[#00c896]/30"
+          >
+            Contactar por WhatsApp · {telefono}
+          </a>
+        )}
       </div>
+      {citas.length > 0 && (
+        <div className="mb-4 p-3 rounded-xl bg-[#1a2129] border border-[#2d3a47]">
+          <p className="text-sm text-[#8b9cad] mb-2">Citas de este contacto</p>
+          <ul className="text-sm text-white space-y-1">
+            {citas.slice(0, 5).map((c) => (
+              <li key={c.id}>
+                {c.date ? new Date(c.date).toLocaleDateString() : ''} {c.time || ''} — {c.status || 'programada'} {c.notes ? `· ${c.notes}` : ''}
+              </li>
+            ))}
+          </ul>
+          <Link to="/dashboard/agenda" className="text-xs text-[#00c896] hover:underline mt-2 inline-block">Ver toda la agenda</Link>
+        </div>
+      )}
       <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-4 mb-4 min-h-[300px] max-h-[50vh] overflow-y-auto space-y-3">
         {mensajes.length === 0 ? (
           <p className="text-[#8b9cad] text-center py-8">No hay mensajes aún.</p>

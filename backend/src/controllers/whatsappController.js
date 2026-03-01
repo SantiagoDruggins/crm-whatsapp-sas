@@ -1,12 +1,40 @@
 const axios = require('axios');
 const config = require('../config/env');
-const { getWhatsappConfig, updateWhatsappConfig, getEmpresaByWhatsappPhoneNumberId } = require('../models/empresaModel');
+const { getWhatsappConfig, updateWhatsappConfig, getEmpresaByWhatsappPhoneNumberId, obtenerEmpresaPorId } = require('../models/empresaModel');
 const contactoModel = require('../models/contactoModel');
 const conversacionModel = require('../models/conversacionModel');
 const mensajeModel = require('../models/mensajeModel');
 const { generarRespuestaBot } = require('./iaController');
+const { getAiConfig, transcribeAudioGemini } = require('../services/aiProviderService');
 
 const CLOUD_API_BASE = (config.whatsapp && config.whatsapp.cloudApiBaseUrl) ? config.whatsapp.cloudApiBaseUrl.replace(/\/$/, '') : 'https://graph.facebook.com/v19.0';
+
+/** Sugiere lead_status según el contenido del mensaje (para actualización automática). */
+function sugerirLeadStatusDesdeTexto(contenido) {
+  if (!contenido || typeof contenido !== 'string') return null;
+  const t = contenido.trim().toLowerCase();
+  if (/\b(agendo|agendar|agendamos|cita|reservar|reserva)\b/.test(t)) return 'scheduled';
+  if (/\b(compré|comprado|ya compré|adquirí)\b/.test(t)) return 'buyer';
+  if (/\b(quiero comprar|comprar|me interesa|interesado|tomar el servicio)\b/.test(t)) return 'interested';
+  return null;
+}
+
+/** Obtiene la URL del medio de WhatsApp y descarga el contenido (para audios). */
+async function descargarMediaWhatsApp(mediaId, accessToken) {
+  const urlMeta = `${CLOUD_API_BASE}/${mediaId}`;
+  const resMeta = await axios.get(urlMeta, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    timeout: 10000,
+  });
+  const mediaUrl = resMeta.data?.url;
+  if (!mediaUrl) return { buffer: null, error: 'No URL en respuesta de media' };
+  const resFile = await axios.get(mediaUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    responseType: 'arraybuffer',
+    timeout: 15000,
+  });
+  return { buffer: Buffer.from(resFile.data), error: null };
+}
 
 async function cloudWebhookGet(req, res) {
   const mode = req.query['hub.mode'];
@@ -54,7 +82,32 @@ async function cloudWebhookPost(req, res) {
           for (const msg of value.messages) {
             const from = msg.from;
             const type = msg.type;
-            const text = type === 'text' ? (msg.text?.body || '') : type === 'button' ? (msg.button?.text || '') : '';
+            let text = type === 'text' ? (msg.text?.body || '') : type === 'button' ? (msg.button?.text || '') : '';
+
+            // Mensajes de audio: descargar y transcribir con IA para que el bot responda
+            if ((type === 'audio' || type === 'voice') && msg.audio?.id) {
+              try {
+                const waConfig = await getWhatsappConfig(empresa.id);
+                const token = waConfig?.whatsapp_cloud_access_token;
+                if (token) {
+                  const { buffer, error: errMedia } = await descargarMediaWhatsApp(msg.audio.id, token);
+                  if (buffer && buffer.length > 0) {
+                    const empresaFull = await obtenerEmpresaPorId(empresa.id);
+                    const aiConfig = getAiConfig(empresaFull, config);
+                    if (aiConfig?.apiKey) {
+                      const mime = msg.audio?.mime_type || 'audio/ogg';
+                      const b64 = buffer.toString('base64');
+                      const { text: transcribed, error: errTrans } = await transcribeAudioGemini(aiConfig.apiKey, b64, mime);
+                      if (transcribed && transcribed.trim()) text = transcribed.trim();
+                      else if (errTrans) console.warn('[WhatsApp] Transcripción audio:', errTrans);
+                    }
+                  } else if (errMedia) console.warn('[WhatsApp] Descarga audio:', errMedia);
+                }
+              } catch (errAudio) {
+                console.error('[WhatsApp] Error procesando audio:', errAudio.message);
+              }
+              if (!text) text = '[audio no transcrito]';
+            }
 
             const contacto = await contactoModel.getOrCreateByTelefono(empresa.id, from);
             const conversacion = await conversacionModel.getOrCreate(empresa.id, contacto.id, 'whatsapp');
@@ -62,6 +115,16 @@ async function cloudWebhookPost(req, res) {
             await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'cliente', contenido: contenidoEntrada, esEntrada: true });
             await conversacionModel.actualizarUltimoMensaje(conversacion.id);
             await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: contenidoEntrada, lastMessageAt: new Date() });
+
+            // Actualización automática de lead_status según palabras clave del mensaje
+            const sugerido = sugerirLeadStatusDesdeTexto(contenidoEntrada);
+            if (sugerido) {
+              try {
+                await contactoModel.actualizar(empresa.id, contacto.id, { lead_status: sugerido });
+              } catch (e) {
+                // ignorar si la columna no existe o falla
+              }
+            }
 
             if (text && text.trim()) {
               let respuestaEnviada = null;
