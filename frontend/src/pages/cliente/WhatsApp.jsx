@@ -62,10 +62,25 @@ export default function WhatsApp() {
 
   if (loading) return <p className="text-[#8b9cad]">Cargando...</p>;
 
+  const isBlockedError = error && /API access blocked|blocked|access.*blocked/i.test(error);
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-white mb-2">WhatsApp Cloud API</h1>
       <p className="text-[#8b9cad] text-sm mb-4">Conecta tu número de WhatsApp Business. Necesitas dos pasos: guardar aquí tu Access Token y Phone Number ID, y configurar el webhook en tu app de Meta.</p>
+
+      {error && (
+        <div className={`mb-6 rounded-xl p-4 border ${isBlockedError ? 'bg-red-500/10 border-red-500/40' : 'bg-red-500/10 border-red-500/30'}`}>
+          <p className="text-[#f87171] font-medium">{error}</p>
+          {isBlockedError && (
+            <p className="text-[#8b9cad] text-sm mt-3">
+              Este mensaje lo devuelve Meta cuando el acceso a la API está bloqueado. Revisa en{' '}
+              <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-[#00c896] hover:underline">Meta for Developers</a>:
+              que la app esté en modo Producción si ya la aprobaron, que el token no esté vencido o revocado, y que no haya restricciones en la cuenta de negocio o el número. Genera un nuevo Access Token (WhatsApp → API Setup) y actualiza las credenciales aquí.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="bg-[#232d38] border border-[#00c896]/50 rounded-xl p-6 mb-6">
         <h3 className="text-white font-semibold text-lg mb-1">Configuración del webhook en Meta (obligatorio)</h3>
@@ -90,8 +105,6 @@ export default function WhatsApp() {
         </div>
         <p className="text-[#8b9cad] text-xs mt-4">Sin configurar el webhook en Meta con esta URL y este verify token, no recibirás mensajes en el CRM.</p>
       </div>
-
-      {error && <p className="text-sm text-[#f87171] mb-4">{error}</p>}
 
       <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-6 mb-6 max-w-2xl">
         <h2 className="text-lg font-semibold text-white mb-2">Estado de la conexión</h2>

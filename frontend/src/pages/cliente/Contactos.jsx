@@ -140,6 +140,16 @@ export default function Contactos() {
     setError('');
   };
 
+  const handleEliminar = (c) => {
+    if (!c?.id) return;
+    const nombre = [c.nombre, c.apellidos].filter(Boolean).join(' ').trim() || c.telefono || 'este contacto';
+    if (!window.confirm(`¿Eliminar a ${nombre}? Se borrarán también sus conversaciones y mensajes. Esta acción no se puede deshacer.`)) return;
+    setError('');
+    api.delete(`/crm/contactos/${c.id}`)
+      .then(() => load())
+      .catch((e) => setError(e?.message || 'Error al eliminar'));
+  };
+
   const list = Array.isArray(contactos) ? contactos.filter((c) => c != null && typeof c === 'object') : [];
 
   return (
@@ -218,13 +228,20 @@ export default function Contactos() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-[#8b9cad]">{safeTags(c)}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => openEdit(c)}
                           className="text-[#00c896] hover:text-[#00e0a8] text-sm"
                         >
                           Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEliminar(c)}
+                          className="text-[#f87171] hover:text-red-300 text-sm"
+                        >
+                          Eliminar
                         </button>
                       </td>
                     </tr>

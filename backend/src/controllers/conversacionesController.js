@@ -1,5 +1,7 @@
 const { listar, getById, actualizar, actualizarUltimoMensaje } = require('../models/conversacionModel');
 const { listarPorConversacion, crear } = require('../models/mensajeModel');
+const { enviarMensajeEmpresa } = require('./whatsappController');
+const contactoModel = require('../models/contactoModel');
 
 async function listarConversaciones(req, res) {
   try {
@@ -50,9 +52,26 @@ async function enviarMensajeConversacion(req, res) {
     if (!contenido?.trim()) return res.status(400).json({ message: 'contenido es requerido' });
     const conversacion = await getById(req.user.empresaId, req.params.id);
     if (!conversacion) return res.status(404).json({ message: 'Conversación no encontrada' });
-    const mensaje = await crear(req.user.empresaId, conversacion.id, { origen: 'agente', usuarioId: req.user.id, contenido: contenido.trim(), esEntrada: false });
+    const texto = contenido.trim();
+    const mensaje = await crear(req.user.empresaId, conversacion.id, { origen: 'agente', usuarioId: req.user.id, contenido: texto, esEntrada: false });
     await actualizarUltimoMensaje(conversacion.id);
-    return res.status(201).json({ ok: true, mensaje });
+    let telefono = conversacion.contacto_telefono;
+    if (!telefono && conversacion.contacto_id) {
+      const contacto = await contactoModel.getById(req.user.empresaId, conversacion.contacto_id);
+      telefono = contacto?.telefono;
+    }
+    if (telefono) {
+      const sent = await enviarMensajeEmpresa(req.user.empresaId, telefono, texto);
+      if (!sent.ok) {
+        return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: false, error: sent.error || 'No se pudo enviar por WhatsApp' });
+      }
+    }
+    if (conversacion.contacto_id) {
+      try {
+        await contactoModel.actualizarUltimoMensajeContacto(req.user.empresaId, conversacion.contacto_id, { lastMessage: texto, lastMessageAt: new Date() });
+      } catch (e) {}
+    }
+    return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: !!telefono });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
   }

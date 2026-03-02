@@ -1,7 +1,7 @@
 const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const empresaEstadoMiddleware = require('../middleware/empresaEstadoMiddleware');
-const { listarContactos, obtenerContacto, crearContacto, actualizarContacto } = require('../controllers/contactosController');
+const { listarContactos, obtenerContacto, crearContacto, actualizarContacto, eliminarContacto } = require('../controllers/contactosController');
 const { listarConversaciones, obtenerConversacion, actualizarConversacion, historialConversacion, enviarMensajeConversacion } = require('../controllers/conversacionesController');
 const { listarProductos, obtenerProducto, crearProducto, actualizarProducto, eliminarProducto, subirImagenProducto } = require('../controllers/productosController');
 const { listarTags, obtenerTag, crearTag, actualizarTag, eliminarTag, listarTagsContacto, actualizarTagsContacto } = require('../controllers/tagsController');
@@ -32,6 +32,7 @@ router.get('/contactos', asyncHandler(listarContactos));
 router.get('/contactos/:id', asyncHandler(obtenerContacto));
 router.post('/contactos', asyncHandler(crearContacto));
 router.patch('/contactos/:id', asyncHandler(actualizarContacto));
+router.delete('/contactos/:id', asyncHandler(eliminarContacto));
 router.get('/conversaciones', asyncHandler(listarConversaciones));
 router.get('/conversaciones/:id', asyncHandler(obtenerConversacion));
 router.patch('/conversaciones/:id', asyncHandler(actualizarConversacion));

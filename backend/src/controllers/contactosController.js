@@ -1,4 +1,4 @@
-const { listar, getById, crear, actualizar, countByEmpresa } = require('../models/contactoModel');
+const { listar, getById, crear, actualizar, eliminar, countByEmpresa } = require('../models/contactoModel');
 const { getLimitsForEmpresa } = require('../models/planModel');
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -54,4 +54,14 @@ async function actualizarContacto(req, res) {
   }
 }
 
-module.exports = { listarContactos, obtenerContacto, crearContacto, actualizarContacto };
+async function eliminarContacto(req, res) {
+  try {
+    const deleted = await eliminar(req.user.empresaId, req.params.id);
+    if (!deleted) return res.status(404).json({ message: 'Contacto no encontrado' });
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
+module.exports = { listarContactos, obtenerContacto, crearContacto, actualizarContacto, eliminarContacto };

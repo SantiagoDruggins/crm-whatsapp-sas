@@ -198,17 +198,23 @@ export default function Landing() {
       <ModalNequi open={modalNequi} onClose={() => setModalNequi(false)} titulo="Pago por Nequi" />
 
       <footer className="border-t border-[#2d3a47] py-8 px-4">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-[#8b9cad] text-sm">
-          <div className="flex items-center gap-2">
-            <img src="/logo-delthaseg.png" alt="" className="h-8 w-auto object-contain opacity-90" />
-            <span className="font-semibold text-white">DELTHASEG</span>
-            <span>· SYSTEMS GROUP</span>
+        <div className="max-w-6xl mx-auto flex flex-col gap-4 text-[#8b9cad] text-sm">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <img src="/logo-delthaseg.png" alt="" className="h-8 w-auto object-contain opacity-90" />
+              <span className="font-semibold text-white">DELTHASEG</span>
+              <span>· SYSTEMS GROUP</span>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-6">
+              <a href="#planes" className="hover:text-white">Planes</a>
+              <Link to="/registro" className="hover:text-white">Registro</Link>
+              <Link to="/login" className="hover:text-white">Iniciar sesión</Link>
+              <Link to="/politica-de-privacidad" className="hover:text-white">Política de privacidad</Link>
+            </div>
           </div>
-          <div className="flex gap-6">
-            <a href="#planes" className="hover:text-white">Planes</a>
-            <Link to="/registro" className="hover:text-white">Registro</Link>
-            <Link to="/login" className="hover:text-white">Iniciar sesión</Link>
-          </div>
+          <p className="text-center sm:text-left text-[#6b7a8a] text-xs">
+            © {new Date().getFullYear()} DELTHASEG Systems Group. Todos los derechos reservados.
+          </p>
         </div>
       </footer>
     </div>

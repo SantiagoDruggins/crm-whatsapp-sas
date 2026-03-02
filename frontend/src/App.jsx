@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Landing from './pages/Landing';
+import PoliticaPrivacidad from './pages/PoliticaPrivacidad';
 import Registro from './pages/Registro';
 import Login from './pages/Login';
 import LayoutCliente from './components/LayoutCliente';
@@ -24,6 +25,7 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route path="/politica-de-privacidad" element={<PoliticaPrivacidad />} />
       <Route path="/registro" element={<Registro />} />
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={<LayoutCliente />}>

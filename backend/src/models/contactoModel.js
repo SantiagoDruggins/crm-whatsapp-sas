@@ -138,4 +138,9 @@ async function getOrCreateByTelefono(empresaId, telefono) {
   return crear(empresaId, { nombre: t || 'Sin nombre', telefono: t, origen: 'whatsapp' });
 }
 
-module.exports = { listar, getById, getByTelefono, crear, actualizar, actualizarUltimoMensajeContacto, getContactContext, getOrCreateByTelefono, countByEmpresa };
+async function eliminar(empresaId, id) {
+  const result = await query(`DELETE FROM contactos WHERE id = $1 AND empresa_id = $2 RETURNING id`, [id, empresaId]);
+  return result.rowCount > 0;
+}
+
+module.exports = { listar, getById, getByTelefono, crear, actualizar, actualizarUltimoMensajeContacto, getContactContext, getOrCreateByTelefono, countByEmpresa, eliminar };

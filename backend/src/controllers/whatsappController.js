@@ -517,4 +517,5 @@ module.exports = {
   cloudConfigUpdate,
   cloudSend,
   isCloudConfigurado,
+  enviarMensajeEmpresa,
 };

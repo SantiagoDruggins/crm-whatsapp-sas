@@ -35,7 +35,17 @@ export default function ConversacionDetalle() {
     e.preventDefault();
     if (!texto.trim()) return;
     setEnviando(true);
-    api.post(`/crm/conversaciones/${id}/mensajes`, { contenido: texto.trim() }).then(() => { setTexto(''); load(); }).catch((e) => setError(e.message)).finally(() => setEnviando(false));
+    setError('');
+    api.post(`/crm/conversaciones/${id}/mensajes`, { contenido: texto.trim() })
+      .then((r) => {
+        setTexto('');
+        load();
+        if (r && r.enviadoWhatsApp === false && r.error) {
+          setError(`Mensaje guardado en el CRM, pero no se pudo enviar por WhatsApp: ${r.error}`);
+        }
+      })
+      .catch((e) => setError(e?.message || e.message || 'Error al enviar'))
+      .finally(() => setEnviando(false));
   };
 
   if (loading) return <p className="text-[#8b9cad]">Cargando...</p>;
