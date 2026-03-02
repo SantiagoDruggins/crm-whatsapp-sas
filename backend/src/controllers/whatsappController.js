@@ -8,7 +8,7 @@ const appointmentModel = require('../models/appointmentModel');
 const productoModel = require('../models/productoModel');
 const planModel = require('../models/planModel');
 const { generarRespuestaBot } = require('./iaController');
-const { getAiConfig, transcribeAudioGemini } = require('../services/aiProviderService');
+const { getAiConfig, transcribeAudioGemini, textoAVozGemini } = require('../services/aiProviderService');
 
 const CLOUD_API_BASE = (config.whatsapp && config.whatsapp.cloudApiBaseUrl) ? config.whatsapp.cloudApiBaseUrl.replace(/\/$/, '') : 'https://graph.facebook.com/v19.0';
 
@@ -211,6 +211,23 @@ async function textoAVozOpenAI(texto, apiKey) {
   }
 }
 
+/**
+ * Decide si se debe enviar la respuesta también en audio (TTS). Opcional; no sustituye el envío en texto.
+ * @param {string} texto - Texto de la respuesta del bot
+ * @param {boolean} [useAudioEnv] - Si BOT_ENVIAR_RESPUESTA_EN_AUDIO está en true
+ * @returns {boolean}
+ */
+function debeUsarAudioParaRespuesta(texto, useAudioEnv) {
+  if (useAudioEnv === true) return true;
+  if (!texto || typeof texto !== 'string') return false;
+  const t = texto.trim().toLowerCase();
+  if (t.length < 10 || t.length > 2500) return false;
+  if (/\b(cita agendada|agendamos tu cita|te esperamos el|confirmamos tu cita|quedó agendad[oa])\b/.test(t)) return true;
+  if (/\b(instalación programada|confirmamos la instalación|instalación confirmada|agendamos la instalación)\b/.test(t)) return true;
+  if (/\b(bienvenid[oa]|hola, bienvenid[oa]|gracias por escribir|encantad[oa]s de atenderte)\b/.test(t)) return true;
+  return false;
+}
+
 /** Indica si el mensaje del usuario parece una consulta por productos/catálogo (para enviar fotos). */
 function esConsultaProductos(texto) {
   if (!texto || typeof texto !== 'string') return false;
@@ -337,12 +354,29 @@ async function cloudWebhookPost(req, res) {
                         console.warn('[WhatsApp] Error enviando fotos de productos:', eImg.message);
                       }
                     }
-                    if (process.env.BOT_ENVIAR_RESPUESTA_EN_AUDIO === 'true' && config.openai?.apiKey && textoEnviar.length >= 10 && textoEnviar.length <= 2500) {
+                    const useAudioEnv = process.env.BOT_ENVIAR_RESPUESTA_EN_AUDIO === 'true';
+                    const useAudio = useAudioEnv || debeUsarAudioParaRespuesta(textoEnviar, useAudioEnv);
+                    if (useAudio && textoEnviar.length >= 10 && textoEnviar.length <= 2500) {
                       try {
-                        const audioBuffer = await textoAVozOpenAI(textoEnviar, config.openai.apiKey);
+                        const empresaFull = await obtenerEmpresaPorId(empresa.id);
+                        const aiConfig = getAiConfig(empresaFull, config);
+                        const geminiKey = config.gemini?.apiKey || (aiConfig?.provider === 'gemini' ? aiConfig.apiKey : null);
+                        const ttsModel = config.gemini?.ttsModel || process.env.GEMINI_TTS_MODEL || 'gemini-2.5-pro-preview-tts';
+                        let audioBuffer = null;
+                        let audioMime = 'audio/mpeg';
+                        if (geminiKey) {
+                          const geminiAudio = await textoAVozGemini(textoEnviar, geminiKey, ttsModel);
+                          if (geminiAudio?.buffer) {
+                            audioBuffer = geminiAudio.buffer;
+                            audioMime = geminiAudio.mimeType || 'audio/mpeg';
+                          }
+                        }
+                        if (!audioBuffer && config.openai?.apiKey) {
+                          audioBuffer = await textoAVozOpenAI(textoEnviar, config.openai.apiKey);
+                        }
                         if (audioBuffer) {
                           await new Promise((r) => setTimeout(r, 400));
-                          await subirYEnviarAudioEmpresa(empresa.id, from, audioBuffer, 'audio/mpeg');
+                          await subirYEnviarAudioEmpresa(empresa.id, from, audioBuffer, audioMime);
                         }
                       } catch (eAudio) {
                         console.warn('[WhatsApp] Error enviando respuesta en audio:', eAudio.message);

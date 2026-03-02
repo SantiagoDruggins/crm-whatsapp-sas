@@ -158,6 +158,52 @@ async function generateAnthropic(opts, config) {
 }
 
 /**
+ * Genera audio desde texto usando Gemini TTS (modelo dedicado). Función separada; no modifica generateContent.
+ * @param {string} texto - Texto a convertir en voz (máx recomendado ~2500 caracteres)
+ * @param {string} apiKey - GEMINI_API_KEY
+ * @param {string} [ttsModel] - Modelo TTS (ej. gemini-2.5-pro-preview-tts). Por defecto desde env o fallback.
+ * @returns {Promise<{ buffer: Buffer, mimeType: string } | null>} Audio o null si falla
+ */
+async function textoAVozGemini(texto, apiKey, ttsModel) {
+  if (!texto || !apiKey || String(texto).trim().length === 0) return null;
+  const text = String(texto).trim().slice(0, 2500);
+  const model = (ttsModel || process.env.GEMINI_TTS_MODEL || 'gemini-2.5-pro-preview-tts').trim();
+  try {
+    const payload = {
+      contents: [{ role: 'user', parts: [{ text }] }],
+      generationConfig: {
+        responseModalities: ['AUDIO'],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Kore' }
+          }
+        }
+      }
+    };
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const res = await axios.post(url, payload, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 45000,
+      responseType: 'json'
+    });
+    const data = res.data;
+    const candidate = data?.candidates?.[0];
+    const part = candidate?.content?.parts?.[0];
+    const inlineData = part?.inlineData || part?.inline_data;
+    if (!inlineData?.data) {
+      console.warn('[TTS Gemini] Respuesta sin audio. finishReason:', candidate?.finishReason);
+      return null;
+    }
+    const buffer = Buffer.from(inlineData.data, 'base64');
+    const mimeType = (inlineData.mimeType || inlineData.mime_type || 'audio/wav').toLowerCase();
+    return { buffer, mimeType };
+  } catch (e) {
+    console.warn('[TTS Gemini]', e.response?.data?.error?.message || e.message);
+    return null;
+  }
+}
+
+/**
  * Transcribe audio (voice note) to text using Gemini. Audio as base64.
  * @param {string} apiKey - Gemini API key
  * @param {string} audioBase64 - base64-encoded audio
@@ -186,4 +232,4 @@ async function transcribeAudioGemini(apiKey, audioBase64, mimeType = 'audio/ogg'
   }
 }
 
-module.exports = { getAiConfig, generateContent, transcribeAudioGemini, PROVIDERS };
+module.exports = { getAiConfig, generateContent, transcribeAudioGemini, textoAVozGemini, PROVIDERS };
