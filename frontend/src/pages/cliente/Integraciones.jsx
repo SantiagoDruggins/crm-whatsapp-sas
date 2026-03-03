@@ -60,6 +60,14 @@ export default function Integraciones() {
 
   if (loading) return <p className="text-[#8b9cad]">Cargando...</p>;
 
+  const origin = typeof window !== 'undefined' ? window.location.origin.replace(/\/$/, '') : '';
+  const dropiWebhookUrl = form.dropi_token
+    ? `${origin}/api/integraciones-webhook/dropi?token=${encodeURIComponent(form.dropi_token)}`
+    : `${origin}/api/integraciones-webhook/dropi?token=TU_TOKEN_DROPI`;
+  const mastershopWebhookUrl = form.mastershop_token
+    ? `${origin}/api/integraciones-webhook/mastershop?token=${encodeURIComponent(form.mastershop_token)}`
+    : `${origin}/api/integraciones-webhook/mastershop?token=TU_TOKEN_MASTERSHOP`;
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-white mb-2">Integraciones (Dropshipping)</h1>
@@ -91,6 +99,14 @@ export default function Integraciones() {
               />
               <span className="text-sm text-[#8b9cad]">Subir nuevos pedidos automáticamente a Dropi</span>
             </label>
+            <div className="mt-3">
+              <p className="text-xs text-[#8b9cad] mb-1">Webhook de pedidos (pégalo en Dropi):</p>
+              <div className="bg-[#0f1419] border border-[#2d3a47] rounded-lg px-3 py-2">
+                <span className="text-[#00c896] text-xs font-mono break-all select-all">
+                  {dropiWebhookUrl}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
         <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-6">
@@ -116,6 +132,14 @@ export default function Integraciones() {
               />
               <span className="text-sm text-[#8b9cad]">Subir nuevos pedidos automáticamente a Mastershop</span>
             </label>
+            <div className="mt-3">
+              <p className="text-xs text-[#8b9cad] mb-1">Webhook de pedidos (pégalo en Mastershop):</p>
+              <div className="bg-[#0f1419] border border-[#2d3a47] rounded-lg px-3 py-2">
+                <span className="text-[#00c896] text-xs font-mono break-all select-all">
+                  {mastershopWebhookUrl}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
         <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-6">

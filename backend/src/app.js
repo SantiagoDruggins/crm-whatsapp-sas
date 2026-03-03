@@ -15,6 +15,7 @@ const pagosRoutes = require('./routes/pagosRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const integracionesRoutes = require('./routes/integracionesRoutes');
 const pedidosRoutes = require('./routes/pedidosRoutes');
+const integracionesWebhookRoutes = require('./routes/integracionesWebhookRoutes');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/api/pagos', pagosRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/integraciones', integracionesRoutes);
 app.use('/api/pedidos', pedidosRoutes);
+app.use('/api/integraciones-webhook', integracionesWebhookRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok', env: config.env }));
 
