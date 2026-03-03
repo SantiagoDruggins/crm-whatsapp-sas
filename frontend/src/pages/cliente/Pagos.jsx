@@ -26,6 +26,7 @@ export default function Pagos() {
   const [form, setForm] = useState({ plan: '', monto: '', referencia: '' });
   const [archivo, setArchivo] = useState(null);
   const [modalNequi, setModalNequi] = useState(false);
+  const [planSeleccionado, setPlanSeleccionado] = useState(null);
 
   const load = () => {
     Promise.all([
@@ -66,30 +67,77 @@ export default function Pagos() {
         <h2 className="text-lg font-semibold text-white mb-1">Planes disponibles</h2>
         <p className="text-[#8b9cad] text-sm mb-2">Precios en COP (Colombia). Pago por Nequi.</p>
         <p className="text-white font-medium mb-1">Nequi: {formatearNequiTelefono()} — {NEQUI_PAGO.nombre}</p>
-        <button type="button" onClick={() => setModalNequi(true)} className="text-[#00c896] text-sm hover:underline mb-4">Ver datos de pago Nequi</button>
+        <button
+          type="button"
+          onClick={() => setModalNequi(true)}
+          className="text-[#00c896] text-sm hover:underline mb-4"
+        >
+          Ver datos de pago Nequi
+        </button>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {planes.length === 0 ? (
             <p className="text-[#8b9cad] col-span-full">No hay planes cargados. Contacta al administrador.</p>
           ) : (
-            planes.filter((p) => p.codigo !== 'demo').map((p) => (
-              <div key={p.id} className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-5">
-                <h3 className="text-white font-semibold">{p.nombre}</h3>
-                <p className="text-[#8b9cad] text-sm">{p.descripcion}</p>
-                <p className="text-[#00c896] font-bold mt-2">${Number(p.precio_mensual || 0).toLocaleString('es-CO', { minimumFractionDigits: 0 })} COP / mes</p>
-                <p className="text-xs text-[#8b9cad]">Código: {p.codigo}</p>
-              </div>
-            ))
+            planes
+              .filter((p) => p.codigo !== 'demo')
+              .map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setPlanSeleccionado(p)}
+                  className={`text-left bg-[#1a2129] rounded-xl p-5 border transition ${
+                    planSeleccionado?.id === p.id
+                      ? 'border-[#00c896] shadow-[0_0_0_1px_rgba(0,200,150,0.4)]'
+                      : 'border-[#2d3a47] hover:border-[#00c896]/60'
+                  }`}
+                >
+                  <h3 className="text-white font-semibold">{p.nombre}</h3>
+                  <p className="text-[#8b9cad] text-sm">{p.descripcion}</p>
+                  <p className="text-[#00c896] font-bold mt-2">
+                    ${Number(p.precio_mensual || 0).toLocaleString('es-CO', { minimumFractionDigits: 0 })} COP / mes
+                  </p>
+                  <p className="text-xs text-[#8b9cad] mt-1">Código: {p.codigo}</p>
+                  <p className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#00c896]">
+                    Seleccionar este plan
+                    <span className="inline-block w-3 h-3 rounded-full bg-[#00c896]/30 border border-[#00c896]" />
+                  </p>
+                </button>
+              ))
           )}
         </div>
       </div>
 
       <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-6 mb-8 max-w-lg">
         <h2 className="text-lg font-semibold text-white mb-2">Subir comprobante (Nequi)</h2>
-        <p className="text-[#8b9cad] text-sm mb-3">Paga a Nequi {formatearNequiTelefono()} — {NEQUI_PAGO.nombre}. Luego sube aquí la captura.</p>
-        <button type="button" onClick={() => setModalNequi(true)} className="text-[#00c896] text-sm hover:underline mb-4">Ver datos en popup</button>
+        <p className="text-[#8b9cad] text-sm mb-3">
+          Paga a Nequi {formatearNequiTelefono()} — {NEQUI_PAGO.nombre}. Luego sube aquí la captura.
+        </p>
+        <button
+          type="button"
+          onClick={() => setModalNequi(true)}
+          className="text-[#00c896] text-sm hover:underline mb-4"
+        >
+          Ver datos en popup
+        </button>
         <form onSubmit={handleSubmit} className="space-y-3">
-          <input type="text" placeholder="Código del plan (ej: BASICO_MENSUAL)" value={form.plan} onChange={(e) => setForm((f) => ({ ...f, plan: e.target.value }))} className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]" required />
-          <input type="number" placeholder="Monto pagado" value={form.monto} onChange={(e) => setForm((f) => ({ ...f, monto: e.target.value }))} className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]" min="0" step="0.01" required />
+          <input
+            type="text"
+            placeholder="Código del plan (ej: BASICO_MENSUAL)"
+            value={form.plan}
+            onChange={(e) => setForm((f) => ({ ...f, plan: e.target.value }))}
+            className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
+            required
+          />
+          <input
+            type="number"
+            placeholder="Monto pagado"
+            value={form.monto}
+            onChange={(e) => setForm((f) => ({ ...f, monto: e.target.value }))}
+            className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
+            min="0"
+            step="0.01"
+            required
+          />
           <input type="text" placeholder="Referencia (opcional)" value={form.referencia} onChange={(e) => setForm((f) => ({ ...f, referencia: e.target.value }))} className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]" />
           <div>
             <label className="block text-sm text-[#8b9cad] mb-1">Comprobante (imagen) *</label>
@@ -133,6 +181,75 @@ export default function Pagos() {
       </div>
 
       <ModalNequi open={modalNequi} onClose={() => setModalNequi(false)} titulo="Datos para pagar por Nequi" />
+
+      {planSeleccionado && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-40 px-4"
+          onClick={() => setPlanSeleccionado(null)}
+        >
+          <div
+            className="bg-[#1a2129] border border-[#2d3a47] rounded-2xl p-6 w-full max-w-md shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Confirmar plan</h2>
+                <p className="text-xs text-[#8b9cad] mt-1">
+                  Usaremos este plan para rellenar automáticamente el código y el monto del formulario de pago.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPlanSeleccionado(null)}
+                className="text-[#8b9cad] hover:text-white text-lg leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="bg-[#0f1419] border border-[#2d3a47] rounded-xl p-4 mb-4">
+              <p className="text-sm font-semibold text-white">{planSeleccionado.nombre}</p>
+              <p className="text-xs text-[#8b9cad] mt-1">{planSeleccionado.descripcion}</p>
+              <p className="text-[#00c896] font-bold mt-2">
+                ${Number(planSeleccionado.precio_mensual || 0).toLocaleString('es-CO', { minimumFractionDigits: 0 })} COP / mes
+              </p>
+              <p className="text-xs text-[#8b9cad] mt-1">Código del plan: {planSeleccionado.codigo}</p>
+            </div>
+
+            <p className="text-xs text-[#8b9cad] mb-4">
+              Este pago se aplicará a la empresa con la que has iniciado sesión en el panel. Solo necesitas elegir el plan y subir
+              el comprobante de Nequi.
+            </p>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPlanSeleccionado(null)}
+                className="rounded-xl border border-[#2d3a47] px-4 py-2 text-sm text-[#8b9cad] hover:text-white"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setForm((f) => ({
+                    ...f,
+                    plan: planSeleccionado.codigo || f.plan,
+                    monto:
+                      planSeleccionado.precio_mensual != null
+                        ? String(planSeleccionado.precio_mensual)
+                        : f.monto,
+                  }));
+                  setPlanSeleccionado(null);
+                }}
+                className="rounded-xl bg-[#00c896] text-[#0f1419] px-4 py-2 text-sm font-semibold hover:bg-[#00e0a8]"
+              >
+                Usar este plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
