@@ -4,7 +4,12 @@ async function getDashboardEmpresa(req, res) {
   try {
     const empresaId = req.user.empresaId;
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
-    const empresaRes = await query(`SELECT id, nombre, estado, plan, demo_expires_at, fecha_expiracion FROM empresas WHERE id = $1`, [empresaId]);
+    const empresaRes = await query(
+      `SELECT id, nombre, estado, plan, demo_expires_at, fecha_expiracion, logo_url
+       FROM empresas
+       WHERE id = $1`,
+      [empresaId]
+    );
     const empresa = empresaRes.rows[0];
     if (!empresa) return res.status(404).json({ message: 'Empresa no encontrada' });
     let conversacionesStats = { abiertas: 0, pendientes: 0, cerradas: 0 };

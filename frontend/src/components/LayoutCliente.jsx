@@ -23,6 +23,7 @@ const nav = [
   { path: '/dashboard/automatizaciones', label: 'Automatizaciones' },
   { path: '/dashboard/integraciones', label: 'Integraciones' },
   { path: '/dashboard/pagos', label: 'Pagos' },
+  { path: '/dashboard/branding', label: 'Marca / logo' },
   { path: '/dashboard/ayuda', label: 'Ayuda' },
 ];
 
@@ -62,7 +63,8 @@ export default function LayoutCliente() {
     api.get('/dashboard').then((r) => {
       const estado = r?.estadoCuenta;
       const prev = JSON.parse(localStorage.getItem('empresa') || '{}');
-      const next = { ...prev, estado, plan: r?.planActual };
+      const empApi = r?.empresa || {};
+      const next = { ...prev, ...empApi, estado, plan: r?.planActual };
       localStorage.setItem('empresa', JSON.stringify(next));
       setEmpresa(next);
       if (estado === 'vencida' && !sessionStorage.getItem('nequi-vencida-shown')) {
@@ -170,8 +172,26 @@ export default function LayoutCliente() {
       {/* Sidebar */}
       <aside className="w-56 border-r border-[#2d3a47] bg-[#1a2129] flex flex-col shrink-0">
         <div className="p-4 border-b border-[#2d3a47]">
-          <Link to="/dashboard" className="font-bold text-lg text-white">
-            ChatProBusiness
+          <Link to="/dashboard" className="flex items-center gap-2">
+            {empresa.logo_url ? (
+              <img
+                src={empresa.logo_url}
+                alt={empresa.nombre || 'Logo'}
+                className="h-9 w-9 rounded-lg bg-[#020617] object-contain border border-[#2d3a47]"
+              />
+            ) : (
+              <div className="h-9 w-9 rounded-lg bg-[#00c896]/15 border border-[#00c896]/40 flex items-center justify-center text-[#00c896] font-bold text-sm">
+                {(empresa.nombre || 'CRM').trim().charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="font-bold text-sm text-white truncate max-w-[9rem]">
+                {empresa.nombre || 'ChatProBusiness'}
+              </p>
+              <p className="text-[11px] text-[#6b7a8a] truncate max-w-[9rem]">
+                Panel de WhatsApp + IA
+              </p>
+            </div>
           </Link>
         </div>
         <nav className="p-2 flex-1">

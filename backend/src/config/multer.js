@@ -6,9 +6,11 @@ const { v4: uuidv4 } = require('uuid');
 const dirComprobantes = path.join(process.cwd(), 'uploads', 'comprobantes');
 const dirBotConocimiento = path.join(process.cwd(), 'uploads', 'bot-conocimiento');
 const dirProductos = path.join(process.cwd(), 'uploads', 'productos');
+const dirEmpresas = path.join(process.cwd(), 'uploads', 'empresas');
 try { fs.mkdirSync(dirComprobantes, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirBotConocimiento, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirProductos, { recursive: true }); } catch (e) {}
+try { fs.mkdirSync(dirEmpresas, { recursive: true }); } catch (e) {}
 
 const storageComprobantes = multer.diskStorage({
   destination(req, file, cb) { cb(null, dirComprobantes); },
@@ -33,6 +35,15 @@ const storageProductos = multer.diskStorage({
   filename(req, file, cb) {
     const ext = (path.extname(file.originalname) || '.jpg').toLowerCase();
     const safe = /\.(jpe?g|png|gif|webp)$/i.test(ext) ? ext : '.jpg';
+    cb(null, uuidv4() + safe);
+  }
+});
+
+const storageEmpresaLogo = multer.diskStorage({
+  destination(req, file, cb) { cb(null, dirEmpresas); },
+  filename(req, file, cb) {
+    const ext = (path.extname(file.originalname) || '.png').toLowerCase();
+    const safe = /\.(jpe?g|png|gif|webp)$/i.test(ext) ? ext : '.png';
     cb(null, uuidv4() + safe);
   }
 });
@@ -68,4 +79,24 @@ const uploadProductoImagen = multer({
   }
 });
 
-module.exports = { uploadComprobante, uploadBotConocimiento, uploadProductoImagen, dirComprobantes, dirBotConocimiento, dirProductos };
+const uploadEmpresaLogo = multer({
+  storage: storageEmpresaLogo,
+  limits: { fileSize: 3 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    const ok = /\.(jpe?g|png|gif|webp)$/i.test(file.originalname) || (file.mimetype && file.mimetype.startsWith('image/'));
+    if (ok) cb(null, true);
+    else cb(new Error('Solo imágenes (jpg, png, gif, webp)'));
+  }
+});
+
+module.exports = {
+  uploadComprobante,
+  uploadBotConocimiento,
+  uploadProductoImagen,
+  uploadEmpresaLogo,
+  dirComprobantes,
+  dirBotConocimiento,
+  dirProductos,
+  dirEmpresas,
+};
+

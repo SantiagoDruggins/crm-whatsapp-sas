@@ -140,4 +140,28 @@ async function updateIntegracionesConfig(empresaId, { dropi_token, dropi_activo,
   return await getIntegracionesConfig(empresaId);
 }
 
-module.exports = { crearEmpresaConDemo, obtenerEmpresaPorEmail, actualizarEstadoEmpresa, obtenerEmpresaPorId, listarEmpresas, getWhatsappConfig, updateWhatsappConfig, getEmpresaByWhatsappPhoneNumberId, getIntegracionesConfig, updateIntegracionesConfig };
+async function actualizarBranding(empresaId, { logoUrl }) {
+  const result = await query(
+    `UPDATE empresas
+       SET logo_url = $2,
+           updated_at = now()
+     WHERE id = $1
+     RETURNING id, nombre, logo_url`,
+    [empresaId, logoUrl || null]
+  );
+  return result.rows[0] || null;
+}
+
+module.exports = {
+  crearEmpresaConDemo,
+  obtenerEmpresaPorEmail,
+  actualizarEstadoEmpresa,
+  obtenerEmpresaPorId,
+  listarEmpresas,
+  getWhatsappConfig,
+  updateWhatsappConfig,
+  getEmpresaByWhatsappPhoneNumberId,
+  getIntegracionesConfig,
+  updateIntegracionesConfig,
+  actualizarBranding,
+};

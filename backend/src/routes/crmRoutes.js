@@ -9,7 +9,8 @@ const { listarAppointments, obtenerAppointment, crearAppointment, actualizarAppo
 const { actividadReciente } = require('../controllers/activityController');
 const { listarFlows, obtenerFlow, crearFlow, actualizarFlow, eliminarFlow } = require('../controllers/flowsController');
 const { listarWebhooks, crearWebhook, actualizarWebhook, eliminarWebhook } = require('../controllers/webhooksController');
-const { uploadProductoImagen } = require('../config/multer');
+const { subirLogoEmpresa } = require('../controllers/empresaBrandingController');
+const { uploadProductoImagen, uploadEmpresaLogo } = require('../config/multer');
 const { query } = require('../config/db');
 
 const router = express.Router();
@@ -79,5 +80,8 @@ router.post('/productos', asyncHandler(crearProducto));
 router.patch('/productos/:id', asyncHandler(actualizarProducto));
 router.delete('/productos/:id', asyncHandler(eliminarProducto));
 router.post('/productos/:id/imagen', uploadProductoImagen.single('imagen'), asyncHandler(subirImagenProducto));
+
+// Branding empresa (logo)
+router.post('/empresa/logo', uploadEmpresaLogo.single('logo'), asyncHandler(subirLogoEmpresa));
 
 module.exports = router;
