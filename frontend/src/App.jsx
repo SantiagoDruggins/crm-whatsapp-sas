@@ -17,6 +17,7 @@ import Pagos from './pages/cliente/Pagos';
 import Integraciones from './pages/cliente/Integraciones';
 import Pedidos from './pages/cliente/Pedidos';
 import Agenda from './pages/cliente/Agenda';
+import Automatizaciones from './pages/cliente/Automatizaciones';
 import AdminMetricas from './pages/admin/AdminMetricas';
 import AdminEmpresas from './pages/admin/AdminEmpresas';
 import AdminPagos from './pages/admin/AdminPagos';
@@ -40,6 +41,7 @@ function App() {
         <Route path="integraciones" element={<Integraciones />} />
         <Route path="pedidos" element={<Pedidos />} />
         <Route path="agenda" element={<Agenda />} />
+        <Route path="automatizaciones" element={<Automatizaciones />} />
       </Route>
       <Route path="/admin" element={<LayoutSuperAdmin />}>
         <Route index element={<AdminMetricas />} />

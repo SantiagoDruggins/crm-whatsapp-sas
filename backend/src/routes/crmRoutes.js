@@ -7,6 +7,7 @@ const { listarProductos, obtenerProducto, crearProducto, actualizarProducto, eli
 const { listarTags, obtenerTag, crearTag, actualizarTag, eliminarTag, listarTagsContacto, actualizarTagsContacto } = require('../controllers/tagsController');
 const { listarAppointments, obtenerAppointment, crearAppointment, actualizarAppointment, eliminarAppointment, listarAppointmentsContacto } = require('../controllers/appointmentsController');
 const { actividadReciente } = require('../controllers/activityController');
+const { listarFlows, obtenerFlow, crearFlow, actualizarFlow, eliminarFlow } = require('../controllers/flowsController');
 const { uploadProductoImagen } = require('../config/multer');
 const { query } = require('../config/db');
 
@@ -39,6 +40,13 @@ router.patch('/conversaciones/:id', asyncHandler(actualizarConversacion));
 router.get('/conversaciones/:id/historial', asyncHandler(historialConversacion));
 router.post('/conversaciones/:id/mensajes', asyncHandler(enviarMensajeConversacion));
 router.get('/actividad-reciente', asyncHandler(actividadReciente));
+
+// Flujos / Automatizaciones
+router.get('/flows', asyncHandler(listarFlows));
+router.get('/flows/:id', asyncHandler(obtenerFlow));
+router.post('/flows', asyncHandler(crearFlow));
+router.patch('/flows/:id', asyncHandler(actualizarFlow));
+router.delete('/flows/:id', asyncHandler(eliminarFlow));
 
 // Tags
 router.get('/tags', asyncHandler(listarTags));

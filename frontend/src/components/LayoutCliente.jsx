@@ -20,6 +20,7 @@ const nav = [
   { path: '/dashboard/catalogo', label: 'Catálogo' },
   { path: '/dashboard/pedidos', label: 'Pedidos' },
   { path: '/dashboard/agenda', label: 'Agenda' },
+  { path: '/dashboard/automatizaciones', label: 'Automatizaciones' },
   { path: '/dashboard/integraciones', label: 'Integraciones' },
   { path: '/dashboard/pagos', label: 'Pagos' },
 ];

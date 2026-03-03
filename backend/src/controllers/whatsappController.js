@@ -7,6 +7,7 @@ const mensajeModel = require('../models/mensajeModel');
 const appointmentModel = require('../models/appointmentModel');
 const productoModel = require('../models/productoModel');
 const planModel = require('../models/planModel');
+const flowModel = require('../models/flowModel');
 const { generarRespuestaBot } = require('./iaController');
 const { getAiConfig, transcribeAudioGemini, textoAVozGemini } = require('../services/aiProviderService');
 
@@ -237,6 +238,106 @@ function esConsultaProductos(texto) {
     /qué\s+(venden|ofrecen|tienen)/i.test(t);
 }
 
+function normalizarTagsContacto(contacto) {
+  const t = contacto && contacto.tags;
+  if (!t && t !== 0) return [];
+  if (Array.isArray(t)) return t.map((x) => String(x).trim()).filter(Boolean);
+  if (typeof t === 'string') {
+    return t
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+  if (typeof t === 'object') {
+    try {
+      const vals = Object.values(t || {});
+      return vals.map((x) => String(x).trim()).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+async function ejecutarFlujosAutomatizados(empresaId, contacto, mensajeTexto, conversacion, fromPhone) {
+  try {
+    const texto = (mensajeTexto || '').trim();
+    if (!texto) return { handled: false };
+    const flows = await flowModel.listarActivosPorEmpresa(empresaId);
+    if (!flows || !flows.length) return { handled: false };
+
+    const t = texto.toLowerCase();
+    const leadStatus = (contacto.lead_status || '').toString().toLowerCase();
+    const tags = normalizarTagsContacto(contacto).map((x) => x.toLowerCase());
+
+    for (const flow of flows) {
+      const triggerType = (flow.trigger_type || '').toLowerCase();
+      const triggerValue = (flow.trigger_value || '').toLowerCase().trim();
+      if (!triggerType || !triggerValue) continue;
+
+      let match = false;
+      if (triggerType === 'keyword') {
+        if (t.includes(triggerValue)) match = true;
+      } else if (triggerType === 'lead_status') {
+        if (leadStatus && leadStatus === triggerValue) match = true;
+      } else if (triggerType === 'tag') {
+        if (tags.includes(triggerValue)) match = true;
+      }
+
+      if (!match) continue;
+
+      const accion = (flow.accion_tipo || '').toLowerCase();
+      const valor = flow.accion_valor || '';
+
+      if (accion === 'mensaje') {
+        const textoRespuesta = String(valor || '').trim();
+        if (!textoRespuesta) continue;
+        const sent = await enviarMensajeEmpresa(empresaId, fromPhone, textoRespuesta);
+        if (sent.ok) {
+          await mensajeModel.crear(empresaId, conversacion.id, { origen: 'bot', contenido: textoRespuesta, esEntrada: false });
+          await conversacionModel.actualizarUltimoMensaje(conversacion.id);
+          if (contacto.id) {
+            await contactoModel.actualizarUltimoMensajeContacto(empresaId, contacto.id, { lastMessage: textoRespuesta, lastMessageAt: new Date() });
+          }
+        }
+        return { handled: true };
+      }
+
+      if (accion === 'tag') {
+        const nuevoTag = String(valor || '').trim();
+        if (!nuevoTag || !contacto.id) return { handled: true };
+        const actuales = normalizarTagsContacto(contacto);
+        const existe = actuales.some((x) => x.toLowerCase() === nuevoTag.toLowerCase());
+        if (!existe) {
+          actuales.push(nuevoTag);
+          try {
+            await contactoModel.actualizar(empresaId, contacto.id, { tags: actuales });
+          } catch (e) {
+            console.warn('[Flows] Error actualizando tags', e.message);
+          }
+        }
+        return { handled: true };
+      }
+
+      if (accion === 'cambiar_estado') {
+        const nuevoEstado = String(valor || '').trim();
+        if (nuevoEstado && contacto.id) {
+          try {
+            await contactoModel.actualizar(empresaId, contacto.id, { lead_status: nuevoEstado });
+          } catch (e) {
+            console.warn('[Flows] Error cambiando lead_status', e.message);
+          }
+        }
+        return { handled: true };
+      }
+    }
+    return { handled: false };
+  } catch (e) {
+    console.warn('[Flows] Error ejecutando flujos', e.message);
+    return { handled: false };
+  }
+}
+
 async function cloudWebhookPost(req, res) {
   try {
     const body = req.body;
@@ -304,9 +405,16 @@ async function cloudWebhookPost(req, res) {
             if (sugerido) {
               try {
                 await contactoModel.actualizar(empresa.id, contacto.id, { lead_status: sugerido });
+                contacto.lead_status = sugerido;
               } catch (e) {
                 // ignorar si la columna no existe o falla
               }
+            }
+
+            // Flujos / automatizaciones antes de llamar a la IA
+            const resultadoFlujos = await ejecutarFlujosAutomatizados(empresa.id, contacto, contenidoEntrada, conversacion, from);
+            if (resultadoFlujos.handled) {
+              continue;
             }
 
             if (text && text.trim()) {
