@@ -15,8 +15,8 @@ const styles = {
 
 function HeroTypingTitle() {
   const TEXT = 'Atiende a tus clientes 24/7 y no pierdas ninguna venta por WhatsApp';
-  const [index, setIndex] = useState(0);
-  const [displayed, setDisplayed] = useState('');
+  const [index, setIndex] = useState(1);
+  const [displayed, setDisplayed] = useState(TEXT.slice(0, 1));
 
   useEffect(() => {
     if (index > TEXT.length) return;
@@ -30,9 +30,9 @@ function HeroTypingTitle() {
   const finished = index > TEXT.length;
 
   return (
-    <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 bg-gradient-to-r from-[#e9edef] via-[#00c896] to-[#e9edef] bg-clip-text text-transparent">
+    <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 text-white">
       <span className="relative">
-        {displayed || TEXT}
+        {displayed}
         <span
           className={`inline-block w-[2px] h-[1.1em] align-middle ml-1 ${
             finished ? 'bg-transparent' : 'bg-[#00c896] animate-pulse'
