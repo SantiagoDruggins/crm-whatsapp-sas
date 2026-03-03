@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const PROVIDERS = ['gemini', 'openai', 'anthropic'];
+const PROVIDERS = ['gemini', 'openai', 'anthropic', 'grok'];
 
 /**
  * Obtiene proveedor y API key para una empresa: clave de la empresa o la del servidor.
@@ -32,6 +32,7 @@ async function generateContent(opts, config = {}) {
   if (provider === 'gemini') return generateGemini(opts, config);
   if (provider === 'openai') return generateOpenAI(opts, config);
   if (provider === 'anthropic') return generateAnthropic(opts, config);
+  if (provider === 'grok') return generateGrok(opts, config);
   return { text: '', error: 'Proveedor de IA no soportado.' };
 }
 
@@ -154,6 +155,30 @@ async function generateAnthropic(opts, config) {
   } catch (e) {
     const msg = e.response?.data?.error?.message || e.message;
     return { text: '', error: msg || 'Error Anthropic' };
+  }
+}
+
+async function generateGrok(opts, config) {
+  const { apiKey, systemPrompt, userMessage, imageParts } = opts;
+  const content = [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }];
+  // La API de xAI es compatible con OpenAI; ignoramos imágenes por ahora.
+  const model = config.grok?.model || 'grok-2-latest';
+  const payload = {
+    model,
+    messages: content,
+    temperature: 0.7,
+    max_tokens: 1024,
+  };
+  try {
+    const res = await axios.post('https://api.x.ai/v1/chat/completions', payload, {
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      timeout: 30000,
+    });
+    const text = res.data?.choices?.[0]?.message?.content;
+    return { text: (text && text.trim()) || 'No pude generar una respuesta.', error: null };
+  } catch (e) {
+    const msg = e.response?.data?.error?.message || e.message;
+    return { text: '', error: msg || 'Error Grok/xAI' };
   }
 }
 

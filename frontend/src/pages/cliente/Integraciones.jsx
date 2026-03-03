@@ -153,13 +153,26 @@ export default function Integraciones() {
               <option value="gemini">Gemini (Google)</option>
               <option value="openai">OpenAI (ChatGPT)</option>
               <option value="anthropic">Anthropic (Claude)</option>
+              <option value="grok">Grok (xAI)</option>
             </select>
             <label className="block text-sm text-[#8b9cad]">API key (opcional)</label>
             <input
               type="password"
               value={form.ai_api_key}
               onChange={(e) => setForm((f) => ({ ...f, ai_api_key: e.target.value }))}
-              placeholder={form.ai_api_key === '********' ? '••••••••' : `Pega tu API key de ${form.ai_provider === 'gemini' ? 'Google AI Studio' : form.ai_provider === 'openai' ? 'OpenAI' : 'Anthropic'} (opcional)`}
+              placeholder={
+                form.ai_api_key === '********'
+                  ? '••••••••'
+                  : `Pega tu API key de ${
+                      form.ai_provider === 'gemini'
+                        ? 'Google AI Studio'
+                        : form.ai_provider === 'openai'
+                        ? 'OpenAI'
+                        : form.ai_provider === 'anthropic'
+                        ? 'Anthropic'
+                        : 'xAI (console.x.ai)'
+                    } (opcional)`
+              }
               className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
             />
           </div>

@@ -34,6 +34,10 @@ const config = {
     apiKey: process.env.ANTHROPIC_API_KEY || '',
     model: process.env.ANTHROPIC_MODEL || 'claude-3-5-haiku-20241022'
   },
+  grok: {
+    apiKey: process.env.GROK_API_KEY || '',
+    model: process.env.GROK_MODEL || 'grok-2-latest'
+  },
   whatsapp: {
     cloudVerifyToken: process.env.WHATSAPP_CLOUD_VERIFY_TOKEN || '',
     publicWebhookBaseUrl: (process.env.PUBLIC_API_URL || process.env.PUBLIC_WEBHOOK_BASE_URL || '').replace(/\/$/, ''),
