@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 
 const TIPOS_BOT = [
@@ -337,8 +338,18 @@ export default function BotIA() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">Bot IA</h1>
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Bot IA</h1>
+          <p className="text-[#8b9cad] text-sm mt-1">
+            Crea diferentes configuraciones de bot para tu empresa. Si quieres una explicación sin términos técnicos de
+            los módulos principales, visita{' '}
+            <Link to="/dashboard/ayuda" className="text-[#00c896] hover:text-[#00e0a8]">
+              Ayuda
+            </Link>
+            .
+          </p>
+        </div>
         <button onClick={() => openEdit(null)} className="rounded-xl bg-[#00c896] text-[#0f1419] font-semibold px-4 py-2 hover:bg-[#00e0a8]">
           Nuevo bot
         </button>

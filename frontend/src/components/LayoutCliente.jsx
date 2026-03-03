@@ -23,6 +23,7 @@ const nav = [
   { path: '/dashboard/automatizaciones', label: 'Automatizaciones' },
   { path: '/dashboard/integraciones', label: 'Integraciones' },
   { path: '/dashboard/pagos', label: 'Pagos' },
+  { path: '/dashboard/ayuda', label: 'Ayuda' },
 ];
 
 export default function LayoutCliente() {
