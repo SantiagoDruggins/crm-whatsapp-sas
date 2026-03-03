@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ModalNequi from '../components/ModalNequi';
 import { NEQUI_PAGO, formatearNequiTelefono } from '../lib/nequi';
@@ -12,6 +12,36 @@ const styles = {
   cta: 'inline-flex items-center justify-center gap-2 rounded-xl bg-[#00c896] text-[#0f1419] font-semibold px-8 py-4 hover:bg-[#00e0a8] transition-colors',
   ctaOutline: 'inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#00c896] text-[#00c896] font-semibold px-8 py-4 hover:bg-[#00c896]/10 transition-colors',
 };
+
+function HeroTypingTitle() {
+  const TEXT = 'Atiende a tus clientes 24/7 y no pierdas ninguna venta por WhatsApp';
+  const [index, setIndex] = useState(0);
+  const [displayed, setDisplayed] = useState('');
+
+  useEffect(() => {
+    if (index > TEXT.length) return;
+    const t = setTimeout(() => {
+      setDisplayed(TEXT.slice(0, index));
+      setIndex((i) => i + 1);
+    }, 30);
+    return () => clearTimeout(t);
+  }, [index]);
+
+  const finished = index > TEXT.length;
+
+  return (
+    <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 bg-gradient-to-r from-[#e9edef] via-[#00c896] to-[#e9edef] bg-clip-text text-transparent">
+      <span className="relative">
+        {displayed || TEXT}
+        <span
+          className={`inline-block w-[2px] h-[1.1em] align-middle ml-1 ${
+            finished ? 'bg-transparent' : 'bg-[#00c896] animate-pulse'
+          }`}
+        />
+      </span>
+    </h1>
+  );
+}
 
 export default function Landing() {
   const [modalNequi, setModalNequi] = useState(false);
@@ -44,9 +74,7 @@ export default function Landing() {
         <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16 max-w-6xl mx-auto">
           <div className="flex-1 max-w-3xl">
             <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-4">CRM con chatbot IA para WhatsApp</p>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-6">
-              Atiende a tus clientes 24/7 y no pierdas ninguna venta por WhatsApp
-            </h1>
+            <HeroTypingTitle />
             <p className={styles.p + ' mb-8'}>
               Conecta tu negocio a WhatsApp, automatiza respuestas con IA y gestiona todas las conversaciones desde un solo lugar. Prueba 3 días gratis, sin tarjeta.
             </p>
