@@ -61,12 +61,8 @@ export default function Integraciones() {
   if (loading) return <p className="text-[#8b9cad]">Cargando...</p>;
 
   const origin = typeof window !== 'undefined' ? window.location.origin.replace(/\/$/, '') : '';
-  const dropiWebhookUrl = form.dropi_token
-    ? `${origin}/api/integraciones-webhook/dropi?token=${encodeURIComponent(form.dropi_token)}`
-    : `${origin}/api/integraciones-webhook/dropi?token=TU_TOKEN_DROPI`;
-  const mastershopWebhookUrl = form.mastershop_token
-    ? `${origin}/api/integraciones-webhook/mastershop?token=${encodeURIComponent(form.mastershop_token)}`
-    : `${origin}/api/integraciones-webhook/mastershop?token=TU_TOKEN_MASTERSHOP`;
+  const dropiWebhookUrl = `${origin}/api/integraciones-webhook/dropi`;
+  const mastershopWebhookUrl = `${origin}/api/integraciones-webhook/mastershop`;
 
   return (
     <div>

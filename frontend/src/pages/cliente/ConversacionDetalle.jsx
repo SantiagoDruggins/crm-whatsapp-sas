@@ -1,6 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../../lib/api';
+
+function Avatar({ nombre }) {
+  const inicial = (nombre || '').trim().charAt(0).toUpperCase() || '?';
+  return (
+    <div className="w-9 h-9 rounded-full bg-[#00a884] flex items-center justify-center text-sm font-semibold text-white">
+      {inicial}
+    </div>
+  );
+}
 
 export default function ConversacionDetalle() {
   const { id } = useParams();
@@ -52,55 +61,117 @@ export default function ConversacionDetalle() {
   if (error) return <p className="text-[#f87171]">{error}</p>;
   if (!conversacion) return <p className="text-[#8b9cad]">Conversación no encontrada.</p>;
 
-  const nombreContacto = [conversacion.contacto_nombre, conversacion.contacto_apellidos].filter(Boolean).join(' ').trim() || 'Contacto';
+  const nombreContacto = useMemo(
+    () =>
+      [conversacion.contacto_nombre, conversacion.contacto_apellidos].filter(Boolean).join(' ').trim() ||
+      'Contacto',
+    [conversacion.contacto_nombre, conversacion.contacto_apellidos]
+  );
   const telefono = conversacion.contacto_telefono;
 
   return (
-    <div>
-      <div className="flex flex-wrap items-center gap-4 mb-6">
-        <button onClick={() => navigate('/dashboard/conversaciones')} className="text-[#8b9cad] hover:text-white text-sm">← Volver</button>
-        <h1 className="text-2xl font-bold text-white">Conversación con {nombreContacto}</h1>
+    <div className="flex flex-col h-full min-h-[500px] bg-[#0b141a] rounded-xl border border-[#202c33] overflow-hidden">
+      {/* Header tipo WhatsApp */}
+      <div className="h-14 px-4 flex items-center justify-between bg-[#202c33] border-b border-[#202c33]">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={() => navigate('/dashboard/conversaciones')}
+            className="text-[#8696a0] hover:text-white text-sm mr-1"
+          >
+            ←
+          </button>
+          <Avatar nombre={nombreContacto} />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white truncate">{nombreContacto}</p>
+            {telefono && (
+              <p className="text-xs text-[#8696a0] truncate">
+                {telefono}
+              </p>
+            )}
+          </div>
+        </div>
         {telefono && (
           <a
             href={`https://wa.me/${String(telefono).replace(/\D/g, '')}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg bg-[#00c896]/20 text-[#00c896] px-4 py-2 text-sm font-medium hover:bg-[#00c896]/30"
+            className="text-xs text-[#00a884] hover:text-[#25d366] font-medium"
           >
-            Contactar por WhatsApp · {telefono}
+            Abrir en WhatsApp
           </a>
         )}
       </div>
+
+      {/* Citas arriba del chat */}
       {citas.length > 0 && (
-        <div className="mb-4 p-3 rounded-xl bg-[#1a2129] border border-[#2d3a47]">
-          <p className="text-sm text-[#8b9cad] mb-2">Citas de este contacto</p>
-          <ul className="text-sm text-white space-y-1">
-            {citas.slice(0, 5).map((c) => (
-              <li key={c.id}>
-                {c.date ? new Date(c.date).toLocaleDateString() : ''} {c.time || ''} — {c.status || 'programada'} {c.notes ? `· ${c.notes}` : ''}
-              </li>
+        <div className="px-4 py-2 bg-[#202c33] border-b border-[#202c33]">
+          <p className="text-xs text-[#8696a0] mb-1">Citas de este contacto</p>
+          <div className="flex flex-wrap gap-2">
+            {citas.slice(0, 3).map((c) => (
+              <span
+                key={c.id}
+                className="inline-flex items-center rounded-full bg-[#0b141a] border border-[#2d3a47] px-3 py-1 text-xs text-[#e9edef]"
+              >
+                {c.date ? new Date(c.date).toLocaleDateString() : ''} {c.time || ''}{' '}
+                {c.notes ? `· ${c.notes}` : ''}
+              </span>
             ))}
-          </ul>
-          <Link to="/dashboard/agenda" className="text-xs text-[#00c896] hover:underline mt-2 inline-block">Ver toda la agenda</Link>
+            <Link
+              to="/dashboard/agenda"
+              className="text-[11px] text-[#00a884] hover:underline ml-auto self-center"
+            >
+              Ver toda la agenda
+            </Link>
+          </div>
         </div>
       )}
-      <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-4 mb-4 min-h-[300px] max-h-[50vh] overflow-y-auto space-y-3">
+
+      {/* Área de mensajes con fondo tipo WhatsApp */}
+      <div className="flex-1 overflow-y-auto px-3 py-3 bg-[radial-gradient(circle_at_top,_#202c33_0,_#0b141a_55%,_#0b141a_100%)]">
         {mensajes.length === 0 ? (
-          <p className="text-[#8b9cad] text-center py-8">No hay mensajes aún.</p>
+          <div className="h-full flex items-center justify-center">
+            <p className="text-[#8696a0] text-sm text-center px-4">
+              No hay mensajes aún. Cuando el cliente escriba por WhatsApp verás la conversación aquí.
+            </p>
+          </div>
         ) : (
-          mensajes.map((m) => (
-            <div key={m.id} className={`flex ${m.es_entrada ? 'justify-start' : 'justify-end'}`}>
-              <div className={`max-w-[80%] rounded-xl px-4 py-2 ${m.es_entrada ? 'bg-[#232d38] text-white' : 'bg-[#00c896]/20 text-white'}`}>
-                <p className="text-xs text-[#8b9cad] mb-1">{m.origen} · {new Date(m.created_at).toLocaleString()}</p>
-                <p className="whitespace-pre-wrap">{m.contenido}</p>
+          mensajes.map((m) => {
+            const esEntrada = m.es_entrada;
+            const fecha = new Date(m.created_at);
+            const hora = fecha.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return (
+              <div
+                key={m.id}
+                className={`flex mb-1 ${esEntrada ? 'justify-start pr-10' : 'justify-end pl-10'}`}
+              >
+                <div
+                  className={`relative max-w-[75%] rounded-lg px-3 py-2 text-sm shadow-sm ${
+                    esEntrada ? 'bg-[#202c33] text-[#e9edef]' : 'bg-[#005c4b] text-[#e9edef]'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap break-words">{m.contenido}</p>
+                  <span className="block text-[11px] text-[#8696a0] text-right mt-1">{hora}</span>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
-      <form onSubmit={enviar} className="flex gap-2">
-        <input type="text" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Escribe un mensaje..." className="flex-1 rounded-xl bg-[#1a2129] border border-[#2d3a47] px-4 py-3 text-white placeholder-[#6b7a8a]" />
-        <button type="submit" disabled={enviando || !texto.trim()} className="rounded-xl bg-[#00c896] text-[#0f1419] font-semibold px-6 py-3 hover:bg-[#00e0a8] disabled:opacity-50">
+
+      {/* Caja de texto */}
+      <form onSubmit={enviar} className="border-t border-[#202c33] bg-[#202c33] px-3 py-2 flex gap-2">
+        <input
+          type="text"
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          placeholder="Escribe un mensaje..."
+          className="flex-1 rounded-full bg-[#2a3942] border border-transparent px-4 py-2 text-sm text-[#e9edef] placeholder-[#8696a0] focus:outline-none focus:border-[#00a884]"
+        />
+        <button
+          type="submit"
+          disabled={enviando || !texto.trim()}
+          className="rounded-full bg-[#00a884] text-[#0b141a] font-semibold px-5 py-2 text-sm hover:bg-[#25d366] disabled:opacity-50"
+        >
           {enviando ? 'Enviando...' : 'Enviar'}
         </button>
       </form>
