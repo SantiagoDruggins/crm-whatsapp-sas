@@ -2,6 +2,7 @@ const pedidoModel = require('../models/pedidoModel');
 const { getIntegracionesConfig } = require('../models/empresaModel');
 const dropiService = require('../services/dropiService');
 const mastershopService = require('../services/mastershopService');
+const { EVENTOS, dispararWebhooks } = require('../services/webhookService');
 
 async function listar(req, res) {
   try {
@@ -19,7 +20,8 @@ async function crear(req, res) {
   try {
     const { contacto_id, conversacion_id, estado, total, datos, direccion } = req.body;
     const totalNum = Number(total) || 0;
-    const pedido = await pedidoModel.crear(req.user.empresaId, {
+    const empresaId = req.user.empresaId;
+    const pedido = await pedidoModel.crear(empresaId, {
       contacto_id: contacto_id || null,
       conversacion_id: conversacion_id || null,
       estado: estado || 'pendiente',
@@ -27,11 +29,17 @@ async function crear(req, res) {
       datos: datos || {},
       direccion: direccion || {},
     });
-    const integraciones = await getIntegracionesConfig(req.user.empresaId);
+    // Webhook: nuevo pedido
+    dispararWebhooks(empresaId, EVENTOS.NUEVO_PEDIDO, {
+      tipo: 'pedido',
+      pedido,
+    });
+
+    const integraciones = await getIntegracionesConfig(empresaId);
     let dropiEnviado = null;
     let mastershopEnviado = null;
     if (integraciones?.dropi_activo && integraciones?.dropi_token) {
-      const full = await pedidoModel.getById(req.user.empresaId, pedido.id);
+      const full = await pedidoModel.getById(empresaId, pedido.id);
       const result = await dropiService.enviarPedido(full, integraciones.dropi_token);
       if (result.ok && result.externalId) {
         await pedidoModel.actualizarEnvioDropi(pedido.id, req.user.empresaId, result.externalId);
@@ -39,14 +47,14 @@ async function crear(req, res) {
       }
     }
     if (integraciones?.mastershop_activo && integraciones?.mastershop_token) {
-      const full = await pedidoModel.getById(req.user.empresaId, pedido.id);
+      const full = await pedidoModel.getById(empresaId, pedido.id);
       const result = await mastershopService.enviarPedido(full, integraciones.mastershop_token);
       if (result.ok && result.externalId) {
         await pedidoModel.actualizarEnvioMastershop(pedido.id, req.user.empresaId, result.externalId);
         mastershopEnviado = result.externalId;
       }
     }
-    const actualizado = await pedidoModel.getById(req.user.empresaId, pedido.id);
+    const actualizado = await pedidoModel.getById(empresaId, pedido.id);
     return res.status(201).json({ ok: true, pedido: actualizado, dropi_enviado: dropiEnviado, mastershop_enviado: mastershopEnviado });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });

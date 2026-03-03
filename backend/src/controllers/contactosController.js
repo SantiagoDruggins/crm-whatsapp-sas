@@ -1,4 +1,5 @@
 const { listar, getById, crear, actualizar, eliminar, countByEmpresa } = require('../models/contactoModel');
+const { EVENTOS, dispararWebhooks } = require('../services/webhookService');
 const { getLimitsForEmpresa } = require('../models/planModel');
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -38,6 +39,11 @@ async function crearContacto(req, res) {
     const { nombre, apellidos, email, telefono, tags, notas } = req.body;
     if (!nombre?.trim()) return res.status(400).json({ message: 'nombre es requerido' });
     const contacto = await crear(empresaId, { nombre: nombre.trim(), apellidos, email, telefono, tags: tags || [], notas });
+    // Disparar webhook de nuevo contacto / lead
+    dispararWebhooks(empresaId, EVENTOS.NUEVO_CONTACTO, {
+      tipo: 'contacto',
+      contacto,
+    });
     return res.status(201).json({ ok: true, contacto });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });

@@ -8,6 +8,7 @@ const { listarTags, obtenerTag, crearTag, actualizarTag, eliminarTag, listarTags
 const { listarAppointments, obtenerAppointment, crearAppointment, actualizarAppointment, eliminarAppointment, listarAppointmentsContacto } = require('../controllers/appointmentsController');
 const { actividadReciente } = require('../controllers/activityController');
 const { listarFlows, obtenerFlow, crearFlow, actualizarFlow, eliminarFlow } = require('../controllers/flowsController');
+const { listarWebhooks, crearWebhook, actualizarWebhook, eliminarWebhook } = require('../controllers/webhooksController');
 const { uploadProductoImagen } = require('../config/multer');
 const { query } = require('../config/db');
 
@@ -47,6 +48,12 @@ router.get('/flows/:id', asyncHandler(obtenerFlow));
 router.post('/flows', asyncHandler(crearFlow));
 router.patch('/flows/:id', asyncHandler(actualizarFlow));
 router.delete('/flows/:id', asyncHandler(eliminarFlow));
+
+// Webhooks salientes
+router.get('/webhooks', asyncHandler(listarWebhooks));
+router.post('/webhooks', asyncHandler(crearWebhook));
+router.patch('/webhooks/:id', asyncHandler(actualizarWebhook));
+router.delete('/webhooks/:id', asyncHandler(eliminarWebhook));
 
 // Tags
 router.get('/tags', asyncHandler(listarTags));

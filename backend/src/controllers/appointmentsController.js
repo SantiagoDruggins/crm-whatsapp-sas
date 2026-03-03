@@ -1,5 +1,6 @@
 const appointmentModel = require('../models/appointmentModel');
 const contactoModel = require('../models/contactoModel');
+const { EVENTOS, dispararWebhooks } = require('../services/webhookService');
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -34,9 +35,15 @@ async function crearAppointment(req, res) {
   try {
     const { contact_id, date, time, status, notes } = req.body;
     if (!contact_id || !date) return res.status(400).json({ message: 'contact_id y date son requeridos' });
-    const contacto = await contactoModel.getById(req.user.empresaId, contact_id);
+    const empresaId = req.user.empresaId;
+    const contacto = await contactoModel.getById(empresaId, contact_id);
     if (!contacto) return res.status(404).json({ message: 'Contacto no encontrado' });
-    const appointment = await appointmentModel.crear(req.user.empresaId, { contact_id, date, time, status, notes });
+    const appointment = await appointmentModel.crear(empresaId, { contact_id, date, time, status, notes });
+    dispararWebhooks(empresaId, EVENTOS.NUEVA_CITA, {
+      tipo: 'cita',
+      cita: appointment,
+      contacto: { id: contacto.id, nombre: contacto.nombre, apellidos: contacto.apellidos, telefono: contacto.telefono, email: contacto.email },
+    });
     return res.status(201).json({ ok: true, appointment });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
