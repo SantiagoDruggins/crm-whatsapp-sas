@@ -20,9 +20,11 @@ import Agenda from './pages/cliente/Agenda';
 import Automatizaciones from './pages/cliente/Automatizaciones';
 import Ayuda from './pages/cliente/Ayuda';
 import Branding from './pages/cliente/Branding';
+import Sugerencias from './pages/cliente/Sugerencias';
 import AdminMetricas from './pages/admin/AdminMetricas';
 import AdminEmpresas from './pages/admin/AdminEmpresas';
 import AdminPagos from './pages/admin/AdminPagos';
+import AdminFeedback from './pages/admin/AdminFeedback';
 
 function App() {
   return (
@@ -46,11 +48,13 @@ function App() {
         <Route path="automatizaciones" element={<Automatizaciones />} />
         <Route path="ayuda" element={<Ayuda />} />
         <Route path="branding" element={<Branding />} />
+        <Route path="sugerencias" element={<Sugerencias />} />
       </Route>
       <Route path="/admin" element={<LayoutSuperAdmin />}>
         <Route index element={<AdminMetricas />} />
         <Route path="empresas" element={<AdminEmpresas />} />
         <Route path="pagos" element={<AdminPagos />} />
+        <Route path="feedback" element={<AdminFeedback />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

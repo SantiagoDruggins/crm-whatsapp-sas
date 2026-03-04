@@ -10,6 +10,7 @@ const { actividadReciente } = require('../controllers/activityController');
 const { listarFlows, obtenerFlow, crearFlow, actualizarFlow, eliminarFlow } = require('../controllers/flowsController');
 const { listarWebhooks, crearWebhook, actualizarWebhook, eliminarWebhook } = require('../controllers/webhooksController');
 const { subirLogoEmpresa } = require('../controllers/empresaBrandingController');
+const { crearFeedback } = require('../controllers/feedbackController');
 const { uploadProductoImagen, uploadEmpresaLogo } = require('../config/multer');
 const { query } = require('../config/db');
 
@@ -83,5 +84,8 @@ router.post('/productos/:id/imagen', uploadProductoImagen.single('imagen'), asyn
 
 // Branding empresa (logo)
 router.post('/empresa/logo', uploadEmpresaLogo.single('logo'), asyncHandler(subirLogoEmpresa));
+
+// Feedback / sugerencias
+router.post('/feedback', asyncHandler(crearFeedback));
 
 module.exports = router;

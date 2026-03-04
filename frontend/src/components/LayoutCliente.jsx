@@ -24,6 +24,7 @@ const nav = [
   { path: '/dashboard/integraciones', label: 'Integraciones' },
   { path: '/dashboard/pagos', label: 'Pagos' },
   { path: '/dashboard/branding', label: 'Marca / logo' },
+  { path: '/dashboard/sugerencias', label: 'Sugerencias' },
   { path: '/dashboard/ayuda', label: 'Ayuda' },
 ];
 

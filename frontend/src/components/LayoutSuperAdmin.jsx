@@ -4,6 +4,7 @@ const nav = [
   { path: '/admin', label: 'Métricas' },
   { path: '/admin/empresas', label: 'Empresas' },
   { path: '/admin/pagos', label: 'Pagos pendientes' },
+  { path: '/admin/feedback', label: 'Feedback' },
 ];
 
 export default function LayoutSuperAdmin() {
