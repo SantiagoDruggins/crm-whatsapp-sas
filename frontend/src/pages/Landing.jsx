@@ -65,6 +65,7 @@ export default function Landing() {
             <a href="#solucion" className="text-[#8b9cad] hover:text-white text-sm font-medium">Solución</a>
             <a href="#beneficios" className="text-[#8b9cad] hover:text-white text-sm font-medium">Beneficios</a>
             <a href="#planes" className="text-[#8b9cad] hover:text-white text-sm font-medium">Planes</a>
+            <a href="#marca-blanca" className="text-[#8b9cad] hover:text-white text-sm font-medium">Marca blanca</a>
             <button onClick={scrollToDemo} className={styles.cta + ' text-sm'}>Crear demo gratis</button>
           </nav>
         </div>
@@ -187,6 +188,30 @@ export default function Landing() {
               </div>
             ))}
           </div>
+
+          <div id="marca-blanca" className="mt-16 pt-16 border-t border-[#2d3a47]">
+            <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Para empresas y agencias</p>
+            <h2 className={styles.h2}>¿Quieres tu propio ecosistema en marca blanca?</h2>
+            <p className={styles.p + ' mb-8'}>
+              Te entregamos el CRM con WhatsApp e IA bajo tu marca: dominio, logo, colores y panel totalmente personalizado. Ideal para agencias, franquicias o empresas que quieren ofrecer el servicio a sus clientes como propio.
+            </p>
+            <div className="rounded-2xl border-2 border-[#00c896] bg-[#00c896]/10 p-8 max-w-2xl">
+              <div className="flex flex-wrap items-baseline gap-3 mb-4">
+                <span className="text-[#00c896] font-bold text-3xl md:text-4xl">500 USD</span>
+                <span className="text-[#8b9cad]">pago único — ecosistema completo en tu marca</span>
+              </div>
+              <ul className="space-y-2 text-[#e9edef] mb-6">
+                <li className="flex items-center gap-2"><span className="text-[#00c896]">✓</span> Panel y landing con tu logo, nombre y dominio</li>
+                <li className="flex items-center gap-2"><span className="text-[#00c896]">✓</span> CRM + Bot IA + WhatsApp Cloud listo para usar</li>
+                <li className="flex items-center gap-2"><span className="text-[#00c896]">✓</span> Soporte técnico y acompañamiento en la puesta en marcha</li>
+                <li className="flex items-center gap-2"><span className="text-[#00c896]">✓</span> Todo lo necesario para que lo vendas o lo uses como tuyo</li>
+              </ul>
+              <Link to="/registro" className={styles.cta + ' text-lg px-8 py-3'}>
+                Solicitar marca blanca
+              </Link>
+              <p className="text-[#8b9cad] text-sm mt-3">Regístrate y en el mensaje indica que te interesa la opción marca blanca. Te contactamos con los detalles.</p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -235,6 +260,7 @@ export default function Landing() {
             </div>
             <div className="flex flex-wrap items-center justify-center gap-6">
               <a href="#planes" className="hover:text-white">Planes</a>
+              <a href="#marca-blanca" className="hover:text-white">Marca blanca</a>
               <Link to="/registro" className="hover:text-white">Registro</Link>
               <Link to="/login" className="hover:text-white">Iniciar sesión</Link>
               <Link to="/politica-de-privacidad" className="hover:text-white">Política de privacidad</Link>
