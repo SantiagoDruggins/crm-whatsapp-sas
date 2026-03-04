@@ -1,0 +1,15 @@
+# DELTHASEG - CRM WhatsApp con IA
+# https://www.robotstxt.org/robotstxt.html
+
+User-agent: *
+Allow: /
+Allow: /registro
+Allow: /login
+Allow: /politica-de-privacidad
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /olvide-password
+Disallow: /reset-password
+
+# Sitemap (reemplaza el dominio si es distinto al de producción)
+Sitemap: https://dsgchatbot.pro/sitemap.xml

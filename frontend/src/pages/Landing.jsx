@@ -30,7 +30,7 @@ function HeroTypingTitle() {
   const finished = index > TEXT.length;
 
   return (
-    <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 text-white">
+    <h1 id="hero-heading" className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 text-white">
       <span className="relative">
         {displayed}
         <span
@@ -51,16 +51,16 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-50 border-b border-[#2d3a47] bg-[#0f1419]/95 backdrop-blur">
+      <header className="sticky top-0 z-50 border-b border-[#2d3a47] bg-[#0f1419]/95 backdrop-blur" role="banner">
         <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo-delthaseg.png" alt="DELTHASEG" className="h-10 w-auto object-contain" />
+            <img src="/logo-delthaseg.png" alt="DELTHASEG Systems Group - CRM e IA para WhatsApp" className="h-10 w-auto object-contain" width="120" height="40" />
             <div>
               <span className="font-bold text-xl text-white block leading-tight">DELTHASEG</span>
               <span className="text-xs text-[#8b9cad] tracking-wide">SYSTEMS GROUP</span>
             </div>
           </div>
-          <nav className="flex items-center gap-6">
+          <nav className="flex items-center gap-6" aria-label="Navegación principal">
             <a href="#problema" className="text-[#8b9cad] hover:text-white text-sm font-medium">Problema</a>
             <a href="#solucion" className="text-[#8b9cad] hover:text-white text-sm font-medium">Solución</a>
             <a href="#beneficios" className="text-[#8b9cad] hover:text-white text-sm font-medium">Beneficios</a>
@@ -71,7 +71,8 @@ export default function Landing() {
         </div>
       </header>
 
-      <section className={styles.section + ' pt-12 md:pt-20'}>
+      <main id="contenido-principal">
+      <section className={styles.section + ' pt-12 md:pt-20'} aria-labelledby="hero-heading">
         <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16 max-w-6xl mx-auto">
           <div className="flex-1 max-w-3xl">
             <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-4">CRM con chatbot IA para WhatsApp</p>
@@ -253,11 +254,13 @@ export default function Landing() {
 
       <ModalNequi open={modalNequi} onClose={() => setModalNequi(false)} titulo="Pago por Nequi" />
 
-      <footer className="border-t border-[#2d3a47] py-8 px-4">
+      </main>
+
+      <footer className="border-t border-[#2d3a47] py-8 px-4" role="contentinfo">
         <div className="max-w-6xl mx-auto flex flex-col gap-4 text-[#8b9cad] text-sm">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <img src="/logo-delthaseg.png" alt="" className="h-8 w-auto object-contain opacity-90" />
+              <img src="/logo-delthaseg.png" alt="DELTHASEG Systems Group" className="h-8 w-auto object-contain opacity-90" width="96" height="32" />
               <span className="font-semibold text-white">DELTHASEG</span>
               <span>· SYSTEMS GROUP</span>
             </div>
