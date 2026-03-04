@@ -8,14 +8,14 @@ ROOT="$PWD"
 
 echo "=== Instalando dependencias backend ==="
 cd "$ROOT/backend"
-npm install --production
+npm install --omit=dev
 
 echo "=== Instalando dependencias y build frontend ==="
 cd "$ROOT/frontend"
 npm install
 npm run build
 
-echo "=== Reiniciando API con PM2 ==="
+echo "=== PM2: reiniciar o iniciar crm-api ==="
 cd "$ROOT/backend"
 if pm2 describe crm-api >/dev/null 2>&1; then
   pm2 restart crm-api

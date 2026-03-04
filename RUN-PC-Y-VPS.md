@@ -36,19 +36,22 @@ Conéctate por SSH al VPS y ejecuta (ajusta la ruta del proyecto):
 cd /var/www/crm-whatsapp-sas
 # o la ruta donde tengas el proyecto
 
-# Bajar últimos cambios
-git pull origin main
+# Bajar últimos cambios (--no-rebase evita el error "divergent branches")
+git pull origin main --no-rebase
+
+# Si prefieres que el VPS quede exactamente igual que GitHub (sin commits locales):
+# git fetch origin && git reset --hard origin/main
 
 # Reinstalar deps y rebuild frontend + reiniciar API
-cd backend && npm install --production && cd ..
+cd backend && npm install --omit=dev && cd ..
 cd frontend && npm install && npm run build && cd ..
-cd backend && pm2 restart crm-api && pm2 save
+cd backend && (pm2 describe crm-api >/dev/null 2>&1 && pm2 restart crm-api || pm2 start src/server.js --name crm-api) && pm2 save
 ```
 
 **Todo en una línea (VPS):**
 
 ```bash
-cd /var/www/crm-whatsapp-sas && git pull origin main && (cd backend && npm install --production) && (cd frontend && npm install && npm run build) && (cd backend && pm2 restart crm-api && pm2 save)
+cd /var/www/crm-whatsapp-sas && git pull origin main --no-rebase && (cd backend && npm install --omit=dev) && (cd frontend && npm install && npm run build) && (cd backend && (pm2 describe crm-api >/dev/null 2>&1 && pm2 restart crm-api || pm2 start src/server.js --name crm-api) && pm2 save)
 ```
 
 **Scripts:**  

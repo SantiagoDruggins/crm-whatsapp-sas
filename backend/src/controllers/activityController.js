@@ -1,4 +1,5 @@
 const { query } = require('../config/db');
+const { countPideAgente } = require('../models/conversacionModel');
 
 /**
  * GET /crm/actividad-reciente
@@ -9,7 +10,7 @@ async function actividadReciente(req, res) {
     const empresaId = req.user.empresaId;
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
 
-    const [convRes, citasRes, pedidosRes] = await Promise.all([
+    const [convRes, citasRes, pedidosRes, pideAgenteCount] = await Promise.all([
       query(
         `SELECT c.id, c.ultimo_mensaje_at, co.nombre AS contacto_nombre, co.apellidos AS contacto_apellidos, co.telefono AS contacto_telefono
          FROM conversaciones c
@@ -36,7 +37,8 @@ async function actividadReciente(req, res) {
          ORDER BY p.created_at DESC
          LIMIT 10`,
         [empresaId]
-      )
+      ),
+      countPideAgente(empresaId)
     ]);
 
     const conversaciones = (convRes.rows || []).map((r) => ({
@@ -52,7 +54,8 @@ async function actividadReciente(req, res) {
       ok: true,
       conversaciones,
       citas_proximas,
-      pedidos_recientes
+      pedidos_recientes,
+      pide_agente_count: typeof pideAgenteCount === 'number' ? pideAgenteCount : 0
     });
   } catch (err) {
     console.error('actividadReciente', err);

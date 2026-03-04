@@ -8,7 +8,10 @@ export default function Conversaciones() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get('/crm/conversaciones').then((r) => setConversaciones(r.conversaciones || [])).catch((e) => setError(e.message)).finally(() => setLoading(false));
+    api.get('/crm/conversaciones').then((r) => {
+      const list = r.conversaciones || [];
+      setConversaciones(list);
+    }).catch((e) => setError(e.message)).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <p className="text-[#8b9cad]">Cargando conversaciones...</p>;
@@ -24,16 +27,17 @@ export default function Conversaciones() {
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Contacto</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Teléfono</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Estado</th>
+              <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Aviso</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Último mensaje</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium w-24">Acción</th>
             </tr>
           </thead>
           <tbody>
             {conversaciones.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-[#8b9cad] text-center">No hay conversaciones. Conecta WhatsApp para recibir mensajes.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-[#8b9cad] text-center">No hay conversaciones. Conecta WhatsApp para recibir mensajes.</td></tr>
             ) : (
               conversaciones.map((c) => (
-                <tr key={c.id} className="border-b border-[#2d3a47] hover:bg-[#232d38]/50">
+                <tr key={c.id} className={`border-b border-[#2d3a47] hover:bg-[#232d38]/50 ${c.pide_agente_humano ? 'bg-amber-500/10' : ''}`}>
                   <td className="px-4 py-3 text-white">{c.contacto_nombre || '—'} {c.contacto_apellidos || ''}</td>
                   <td className="px-4 py-3 text-[#8b9cad] font-mono">
                     {c.contacto_telefono ? (
@@ -43,6 +47,13 @@ export default function Conversaciones() {
                     ) : '—'}
                   </td>
                   <td className="px-4 py-3 text-[#8b9cad]">{c.estado || '—'}</td>
+                  <td className="px-4 py-3">
+                    {c.pide_agente_humano ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 text-amber-400 px-2 py-0.5 text-xs font-medium" title="El cliente pidió hablar con una persona">
+                        Pide agente
+                      </span>
+                    ) : '—'}
+                  </td>
                   <td className="px-4 py-3 text-[#8b9cad]">{c.ultimo_mensaje_at ? new Date(c.ultimo_mensaje_at).toLocaleString() : '—'}</td>
                   <td className="px-4 py-3">
                     <Link to={`/dashboard/conversaciones/${c.id}`} className="text-[#00c896] hover:text-[#00e0a8] text-sm">Ver historial</Link>

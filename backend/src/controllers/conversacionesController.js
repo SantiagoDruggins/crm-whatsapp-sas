@@ -1,4 +1,4 @@
-const { listar, getById, actualizar, actualizarUltimoMensaje } = require('../models/conversacionModel');
+const { listar, getById, actualizar, actualizarUltimoMensaje, desmarcarPideAgente, countPideAgente } = require('../models/conversacionModel');
 const { listarPorConversacion, crear } = require('../models/mensajeModel');
 const { enviarMensajeEmpresa } = require('./whatsappController');
 const contactoModel = require('../models/contactoModel');
@@ -7,8 +7,11 @@ async function listarConversaciones(req, res) {
   try {
     const empresaId = req.user.empresaId;
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
-    const conversaciones = await listar(empresaId, { limit: Number(req.query.limit) || 50, offset: Number(req.query.offset) || 0 });
-    return res.status(200).json({ ok: true, conversaciones });
+    const [conversaciones, pideAgenteCount] = await Promise.all([
+      listar(empresaId, { limit: Number(req.query.limit) || 50, offset: Number(req.query.offset) || 0 }),
+      countPideAgente(empresaId),
+    ]);
+    return res.status(200).json({ ok: true, conversaciones, pideAgenteCount });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
   }
@@ -71,6 +74,7 @@ async function enviarMensajeConversacion(req, res) {
         await contactoModel.actualizarUltimoMensajeContacto(req.user.empresaId, conversacion.contacto_id, { lastMessage: texto, lastMessageAt: new Date() });
       } catch (e) {}
     }
+    await desmarcarPideAgente(conversacion.id);
     return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: !!telefono });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });

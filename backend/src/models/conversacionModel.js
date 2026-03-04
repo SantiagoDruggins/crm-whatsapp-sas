@@ -37,4 +37,27 @@ async function actualizarUltimoMensaje(id) {
   await query(`UPDATE conversaciones SET ultimo_mensaje_at = now() WHERE id = $1`, [id]);
 }
 
-module.exports = { listar, getById, actualizar, actualizarUltimoMensaje, getOrCreate: async (e, c, canal, opts) => { const r = await query(`SELECT * FROM conversaciones WHERE empresa_id = $1 AND contacto_id = $2 AND canal = $3 LIMIT 1`, [e, c, canal || 'whatsapp']); if (r.rows[0]) return r.rows[0]; const ins = await query(`INSERT INTO conversaciones (empresa_id, contacto_id, canal, estado) VALUES ($1, $2, $3, 'abierta') RETURNING *`, [e, c, canal || 'whatsapp']); return ins.rows[0]; } };
+async function marcarPideAgente(conversacionId) {
+  try {
+    await query(`UPDATE conversaciones SET pide_agente_humano = true, pide_agente_humano_at = COALESCE(pide_agente_humano_at, now()), updated_at = now() WHERE id = $1`, [conversacionId]);
+  } catch (e) {
+    // Columna puede no existir si no se corrió la migración
+  }
+}
+
+async function desmarcarPideAgente(conversacionId) {
+  try {
+    await query(`UPDATE conversaciones SET pide_agente_humano = false, pide_agente_humano_at = NULL, updated_at = now() WHERE id = $1`, [conversacionId]);
+  } catch (e) {}
+}
+
+async function countPideAgente(empresaId) {
+  try {
+    const r = await query(`SELECT COUNT(*) AS total FROM conversaciones WHERE empresa_id = $1 AND pide_agente_humano = true`, [empresaId]);
+    return parseInt(r.rows[0]?.total || 0, 10);
+  } catch (e) {
+    return 0;
+  }
+}
+
+module.exports = { listar, getById, actualizar, actualizarUltimoMensaje, marcarPideAgente, desmarcarPideAgente, countPideAgente, getOrCreate: async (e, c, canal, opts) => { const r = await query(`SELECT * FROM conversaciones WHERE empresa_id = $1 AND contacto_id = $2 AND canal = $3 LIMIT 1`, [e, c, canal || 'whatsapp']); if (r.rows[0]) return r.rows[0]; const ins = await query(`INSERT INTO conversaciones (empresa_id, contacto_id, canal, estado) VALUES ($1, $2, $3, 'abierta') RETURNING *`, [e, c, canal || 'whatsapp']); return ins.rows[0]; } };

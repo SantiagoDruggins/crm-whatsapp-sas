@@ -23,6 +23,23 @@ function sugerirLeadStatusDesdeTexto(contenido) {
   return null;
 }
 
+/** Indica si el mensaje del cliente pide hablar con una persona/agente real (para avisar en el CRM). */
+function clientePideAgenteHumano(contenido) {
+  if (!contenido || typeof contenido !== 'string') return false;
+  const t = contenido.trim().toLowerCase();
+  const frases = [
+    /\b(quiero|necesito|deseo|puedo)\s+(hablar|escribir|comunicarme)\s+con\s+(un\s+)?(humano|agente|persona|asesor|operador|alguien)\b/,
+    /\b(hablar|escribir|atender)\s+con\s+(un\s+)?(humano|agente|persona|asesor|operador)\b/,
+    /\b(no\s+quiero\s+)?(robot|bot|ia|inteligencia\s+artificial)\b.*\b(quiero\s+)?(persona|humano|agente)\b/,
+    /\bpersona\s+real\b/,
+    /\b(agente|operador|asesor)\s+humano\b/,
+    /\b(ponme|pásame|pásenme|conecten)\s+(con\s+)?(un\s+)?(agente|operador|persona)\b/,
+    /\b(atención\s+)?(humana|personal)\b/,
+    /\b(contactar|hablar)\s+con\s+(alguien|alguien\s+de)\b/,
+  ];
+  return frases.some((r) => r.test(t));
+}
+
 /** Parsea [IMAGEN: path] y [AUDIO: url] en la respuesta; devuelve { textoLimpio, urlsImagen, urlsAudio }. */
 function extraerImagenesYAudiosDeRespuesta(respuesta, baseUrl) {
   if (!respuesta || typeof respuesta !== 'string') return { textoLimpio: respuesta, urlsImagen: [], urlsAudio: [] };
@@ -409,6 +426,13 @@ async function cloudWebhookPost(req, res) {
               } catch (e) {
                 // ignorar si la columna no existe o falla
               }
+            }
+
+            // Si el cliente pide hablar con una persona/agente real, marcar para avisar en el CRM
+            if (clientePideAgenteHumano(contenidoEntrada)) {
+              try {
+                await conversacionModel.marcarPideAgente(conversacion.id);
+              } catch (e) {}
             }
 
             // Flujos / automatizaciones antes de llamar a la IA

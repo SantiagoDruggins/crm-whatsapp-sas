@@ -49,6 +49,7 @@ export default function LayoutCliente() {
 
   const [toasts, setToasts] = useState([]);
   const [popup, setPopup] = useState({ open: false, type: '', title: '', detail: '', linkTo: '', linkLabel: '' });
+  const [pideAgenteCount, setPideAgenteCount] = useState(0);
   const lastActivityRef = useRef(null);
 
   const dismissToast = useCallback((id) => {
@@ -149,7 +150,20 @@ export default function LayoutCliente() {
             }
           }
         }
-        lastActivityRef.current = { conversaciones, citas_proximas, pedidos_recientes };
+        const newCount = r.pide_agente_count ?? 0;
+        const prevCount = lastActivityRef.current?.pide_agente_count ?? 0;
+        if (newCount > prevCount && newCount > 0) {
+          const n = newCount - prevCount;
+          addToast({
+            type: 'mensaje',
+            title: 'Cliente pide agente',
+            message: n === 1 ? 'Un cliente quiere hablar con una persona' : `${n} clientes quieren hablar con una persona`,
+            linkTo: '/dashboard/conversaciones',
+            linkLabel: 'Ver conversaciones',
+          });
+        }
+        lastActivityRef.current = { conversaciones, citas_proximas, pedidos_recientes, pide_agente_count: newCount };
+        setPideAgenteCount(newCount);
       }).catch(() => {});
     };
     fetchActivity();
@@ -198,15 +212,21 @@ export default function LayoutCliente() {
         <nav className="p-2 flex-1">
           {nav.map((item) => {
             const active = location.pathname === item.path || (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+            const showPideAgente = item.path === '/dashboard/conversaciones' && pideAgenteCount > 0;
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`block px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                   active ? 'bg-[#00c896]/20 text-[#00c896]' : 'text-[#8b9cad] hover:text-white hover:bg-[#232d38]'
                 }`}
               >
-                {item.label}
+                <span>{item.label}</span>
+                {showPideAgente && (
+                  <span className="shrink-0 min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-amber-500/90 text-[#0f1419] text-xs font-bold" title="Clientes piden hablar con un agente">
+                    {pideAgenteCount > 99 ? '99+' : pideAgenteCount}
+                  </span>
+                )}
               </Link>
             );
           })}
