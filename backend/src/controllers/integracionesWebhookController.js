@@ -1,6 +1,8 @@
+const crypto = require('crypto');
 const { query } = require('../config/db');
 const pedidoModel = require('../models/pedidoModel');
 const contactoModel = require('../models/contactoModel');
+const { getEmpresaByShopifyShopDomain } = require('../models/empresaModel');
 
 async function obtenerEmpresaPorTokenDropi(token) {
   if (!token) return null;
@@ -113,8 +115,85 @@ async function webhookMastershop(req, res) {
   }
 }
 
+/** Normaliza el payload de un order de Shopify (orders/create) al formato que usa crearPedidoDesdeWebhook. */
+function normalizarPedidoDesdeShopify(shopifyOrder) {
+  const o = shopifyOrder || {};
+  const id = o.id;
+  const total = Number(o.total_price) || Number(o.total_price_set?.shop_money?.amount) || 0;
+  const customer = o.customer || {};
+  const shipping = o.shipping_address || o.billing_address || {};
+  const nombre = [customer.first_name, customer.last_name].filter(Boolean).join(' ').trim() || (o.email || '').slice(0, 50);
+  const email = customer.email || o.email || '';
+  const telefono = customer.phone || shipping.phone || '';
+  return {
+    reference: id ? String(id) : null,
+    total,
+    customer: { name: nombre, email, phone: telefono },
+    shipping: {
+      first_name: shipping.first_name,
+      last_name: shipping.last_name,
+      address1: shipping.address1,
+      city: shipping.city,
+      province: shipping.province,
+      country: shipping.country,
+      zip: shipping.zip,
+      phone: shipping.phone,
+    },
+    telefono,
+    nombre,
+    email,
+    shopify_order_id: id ? String(id) : null,
+    raw: o,
+  };
+}
+
+/** Webhook Shopify: orders/create. req.body es el Buffer raw (para HMAC). */
+async function webhookShopify(req, res) {
+  try {
+    const shopDomain = (req.headers['x-shopify-shop-domain'] || '').toString().trim();
+    const hmacHeader = (req.headers['x-shopify-hmac-sha256'] || '').toString().trim();
+    const rawBody = req.body;
+    if (!shopDomain) return res.status(400).json({ message: 'Falta X-Shopify-Shop-Domain' });
+
+    const empresa = await getEmpresaByShopifyShopDomain(shopDomain);
+    if (!empresa?.id) return res.status(404).json({ message: 'Tienda Shopify no vinculada a ninguna empresa en el CRM' });
+
+    if (empresa.shopify_webhook_secret && hmacHeader) {
+      const hmac = crypto.createHmac('sha256', empresa.shopify_webhook_secret);
+      hmac.update(Buffer.isBuffer(rawBody) ? rawBody : (typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody)));
+      const computed = hmac.digest('base64');
+      if (computed !== hmacHeader) return res.status(401).json({ message: 'HMAC inválido' });
+    }
+
+    const body = Buffer.isBuffer(rawBody) ? JSON.parse(rawBody.toString('utf8')) : rawBody;
+    const topic = (req.headers['x-shopify-topic'] || '').toString();
+    if (topic !== 'orders/create' && topic !== 'orders/updated') {
+      return res.status(200).json({ ok: true, message: 'Evento ignorado' });
+    }
+
+    const shopifyId = body?.id ? String(body.id) : null;
+    if (shopifyId) {
+      const existente = await pedidoModel.getByShopifyOrderId(empresa.id, shopifyId);
+      if (existente) return res.status(200).json({ ok: true, pedido_id: existente.id, duplicate: true });
+    }
+
+    const normalizado = normalizarPedidoDesdeShopify(body);
+    const { reference, total, customer, shipping, telefono, nombre, email, shopify_order_id } = normalizado;
+    const payload = { reference, total, customer, shipping, telefono, nombre, email, status: body?.financial_status || 'paid' };
+    const pedido = await crearPedidoDesdeWebhook(empresa.id, 'shopify', payload);
+    if (shopify_order_id) {
+      await query(`UPDATE pedidos SET shopify_order_id = $1 WHERE id = $2`, [shopify_order_id, pedido.id]);
+    }
+    return res.status(200).json({ ok: true, pedido_id: pedido.id });
+  } catch (err) {
+    console.error('webhookShopify:', err);
+    return res.status(500).json({ message: err.message || 'Error procesando webhook de Shopify' });
+  }
+}
+
 module.exports = {
   webhookDropi,
   webhookMastershop,
+  webhookShopify,
 };
 

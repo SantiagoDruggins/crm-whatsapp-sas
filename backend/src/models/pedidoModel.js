@@ -2,8 +2,8 @@ const { query } = require('../config/db');
 
 async function crear(empresaId, data) {
   const result = await query(
-    `INSERT INTO pedidos (empresa_id, contacto_id, conversacion_id, estado, total, datos, direccion)
-     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)
+    `INSERT INTO pedidos (empresa_id, contacto_id, conversacion_id, estado, total, datos, direccion, shopify_order_id)
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8)
      RETURNING *`,
     [
       empresaId,
@@ -13,9 +13,19 @@ async function crear(empresaId, data) {
       Number(data.total) || 0,
       JSON.stringify(data.datos || {}),
       JSON.stringify(data.direccion || {}),
+      data.shopify_order_id || null,
     ]
   );
   return result.rows[0];
+}
+
+async function getByShopifyOrderId(empresaId, shopifyOrderId) {
+  if (!shopifyOrderId) return null;
+  const result = await query(
+    `SELECT id FROM pedidos WHERE empresa_id = $1 AND shopify_order_id = $2 LIMIT 1`,
+    [empresaId, String(shopifyOrderId)]
+  );
+  return result.rows[0] || null;
 }
 
 async function listarPorEmpresa(empresaId, { limit = 50, offset = 0 } = {}) {
@@ -58,4 +68,4 @@ async function actualizarEnvioMastershop(id, empresaId, mastershopId) {
   return result.rows[0] || null;
 }
 
-module.exports = { crear, listarPorEmpresa, getById, actualizarEnvioDropi, actualizarEnvioMastershop };
+module.exports = { crear, listarPorEmpresa, getById, getByShopifyOrderId, actualizarEnvioDropi, actualizarEnvioMastershop };

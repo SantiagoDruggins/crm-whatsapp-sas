@@ -73,7 +73,7 @@ async function getEmpresaByWhatsappPhoneNumberId(phoneNumberId) {
 
 async function getIntegracionesConfig(empresaId) {
   const result = await query(
-    `SELECT dropi_token, dropi_activo, dropi_api_base_url, mastershop_token, mastershop_activo, gemini_api_key, ai_provider, ai_api_key FROM empresas WHERE id = $1`,
+    `SELECT dropi_token, dropi_activo, dropi_api_base_url, mastershop_token, mastershop_activo, gemini_api_key, ai_provider, ai_api_key, shopify_store_url, shopify_access_token, shopify_activo, shopify_webhook_secret FROM empresas WHERE id = $1`,
     [empresaId]
   );
   const row = result.rows[0];
@@ -85,6 +85,10 @@ async function getIntegracionesConfig(empresaId) {
     dropi_api_base_url: (row.dropi_api_base_url || '').trim() || null,
     mastershop_token: row.mastershop_token || '',
     mastershop_activo: !!row.mastershop_activo,
+    shopify_store_url: (row.shopify_store_url || '').trim() || '',
+    shopify_access_token: row.shopify_access_token ? '********' : '',
+    shopify_activo: !!row.shopify_activo,
+    shopify_webhook_secret: row.shopify_webhook_secret ? '********' : '',
     gemini_api_key: row.gemini_api_key ? '********' : '',
     gemini_configurado: !!(row.gemini_api_key && row.gemini_api_key.trim()),
     ai_provider: (row.ai_provider && row.ai_provider.trim()) || 'gemini',
@@ -93,7 +97,7 @@ async function getIntegracionesConfig(empresaId) {
   };
 }
 
-async function updateIntegracionesConfig(empresaId, { dropi_token, dropi_activo, dropi_api_base_url, mastershop_token, mastershop_activo, gemini_api_key, ai_provider, ai_api_key }) {
+async function updateIntegracionesConfig(empresaId, { dropi_token, dropi_activo, dropi_api_base_url, mastershop_token, mastershop_activo, gemini_api_key, ai_provider, ai_api_key, shopify_store_url, shopify_access_token, shopify_activo, shopify_webhook_secret }) {
   const updates = [];
   const values = [empresaId];
   let i = 2;
@@ -123,6 +127,33 @@ async function updateIntegracionesConfig(empresaId, { dropi_token, dropi_activo,
     values.push(!!mastershop_activo);
     i++;
   }
+  if (shopify_store_url !== undefined) {
+    const val = typeof shopify_store_url === 'string' ? shopify_store_url.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '') : '';
+    updates.push(`shopify_store_url = $${i}`);
+    values.push(val === '' ? null : val);
+    i++;
+  }
+  if (shopify_access_token !== undefined) {
+    const val = typeof shopify_access_token === 'string' ? shopify_access_token.trim() : '';
+    if (val !== '' && val !== '********') {
+      updates.push(`shopify_access_token = $${i}`);
+      values.push(val);
+      i++;
+    }
+  }
+  if (shopify_activo !== undefined) {
+    updates.push(`shopify_activo = $${i}`);
+    values.push(!!shopify_activo);
+    i++;
+  }
+  if (shopify_webhook_secret !== undefined) {
+    const val = typeof shopify_webhook_secret === 'string' ? shopify_webhook_secret.trim() : '';
+    if (val !== '' && val !== '********') {
+      updates.push(`shopify_webhook_secret = $${i}`);
+      values.push(val);
+      i++;
+    }
+  }
   if (gemini_api_key !== undefined) {
     const val = typeof gemini_api_key === 'string' ? gemini_api_key.trim() : '';
     updates.push(`gemini_api_key = $${i}`);
@@ -145,6 +176,17 @@ async function updateIntegracionesConfig(empresaId, { dropi_token, dropi_activo,
   if (updates.length === 0) return await getIntegracionesConfig(empresaId);
   await query(`UPDATE empresas SET ${updates.join(', ')}, updated_at = now() WHERE id = $1`, values);
   return await getIntegracionesConfig(empresaId);
+}
+
+async function getEmpresaByShopifyShopDomain(shopDomain) {
+  if (!shopDomain || typeof shopDomain !== 'string') return null;
+  const normalized = shopDomain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '').split('/')[0];
+  if (!normalized) return null;
+  const result = await query(
+    `SELECT id, shopify_webhook_secret FROM empresas WHERE LOWER(TRIM(shopify_store_url)) = $1 AND shopify_activo = true LIMIT 1`,
+    [normalized]
+  );
+  return result.rows[0] || null;
 }
 
 async function actualizarBranding(empresaId, { logoUrl }) {
@@ -170,5 +212,6 @@ module.exports = {
   getEmpresaByWhatsappPhoneNumberId,
   getIntegracionesConfig,
   updateIntegracionesConfig,
+  getEmpresaByShopifyShopDomain,
   actualizarBranding,
 };
