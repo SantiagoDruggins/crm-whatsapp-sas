@@ -5,7 +5,10 @@ async function getDashboardEmpresa(req, res) {
     const empresaId = req.user.empresaId;
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
     const empresaRes = await query(
-      `SELECT id, nombre, estado, plan, demo_expires_at, fecha_expiracion, logo_url
+      `SELECT id, nombre, estado, plan, demo_expires_at, fecha_expiracion, logo_url,
+              COALESCE(shopify_activo, false) AS shopify_activo,
+              COALESCE(dropi_activo, false) AS dropi_activo,
+              COALESCE(mastershop_activo, false) AS mastershop_activo
        FROM empresas
        WHERE id = $1`,
       [empresaId]
@@ -33,7 +36,12 @@ async function getDashboardEmpresa(req, res) {
     } catch (e) {}
     const diasRestantes = empresa.fecha_expiracion ? Math.max(0, Math.ceil((new Date(empresa.fecha_expiracion) - new Date()) / (1000 * 60 * 60 * 24))) : null;
     const diasDemoRestantes = empresa.demo_expires_at ? Math.max(0, Math.ceil((new Date(empresa.demo_expires_at) - new Date()) / (1000 * 60 * 60 * 24))) : null;
-    return res.json({ ok: true, empresa, estadoCuenta: empresa.estado, diasRestantes, diasDemoRestantes, conversaciones: { abiertas: Number(conversacionesStats.abiertas || 0), pendientes: Number(conversacionesStats.pendientes || 0), cerradas: Number(conversacionesStats.cerradas || 0) }, leadsNuevos7Dias: leadsNuevos, estadoWhatsapp: whatsappEstado, estadoBot: botEstado, planActual: empresa.plan });
+    const integraciones = {
+      shopify_activo: !!empresa.shopify_activo,
+      dropi_activo: !!empresa.dropi_activo,
+      mastershop_activo: !!empresa.mastershop_activo,
+    };
+    return res.json({ ok: true, empresa, estadoCuenta: empresa.estado, diasRestantes, diasDemoRestantes, conversaciones: { abiertas: Number(conversacionesStats.abiertas || 0), pendientes: Number(conversacionesStats.pendientes || 0), cerradas: Number(conversacionesStats.cerradas || 0) }, leadsNuevos7Dias: leadsNuevos, estadoWhatsapp: whatsappEstado, estadoBot: botEstado, planActual: empresa.plan, integraciones });
   } catch (err) {
     console.error('getDashboardEmpresa', err);
     return res.status(500).json({ message: err.message || 'Error al obtener dashboard' });

@@ -123,9 +123,10 @@ export default function Landing() {
           </p>
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <ul className="space-y-4 text-[#8b9cad]">
-              <li className="flex gap-3"><span className="text-[#00c896] font-bold">1.</span><span><strong className="text-white">Chatbot con IA (Gemini)</strong> que responde consultas frecuentes y califica leads.</span></li>
-              <li className="flex gap-3"><span className="text-[#00c896] font-bold">2.</span><span><strong className="text-white">CRM integrado:</strong> contactos, tags, notas e historial por conversación.</span></li>
-              <li className="flex gap-3"><span className="text-[#00c896] font-bold">3.</span><span><strong className="text-white">Asignación a tu equipo:</strong> pasa conversaciones a agentes cuando hace falta.</span></li>
+              <li className="flex gap-3"><span className="text-[#00c896] font-bold">1.</span><span><strong className="text-white">Chatbot con IA (Gemini)</strong> que responde consultas, califica leads y puede cerrar ventas.</span></li>
+              <li className="flex gap-3"><span className="text-[#00c896] font-bold">2.</span><span><strong className="text-white">CRM integrado:</strong> contactos, catálogo, pedidos, tags, notas e historial por conversación.</span></li>
+              <li className="flex gap-3"><span className="text-[#00c896] font-bold">3.</span><span><strong className="text-white">Integraciones opcionales:</strong> Shopify, Dropi y Mastershop para que los pedidos lleguen solos al CRM.</span></li>
+              <li className="flex gap-3"><span className="text-[#00c896] font-bold">4.</span><span><strong className="text-white">Aviso cuando piden agente:</strong> el sistema te avisa y puedes tomar la conversación.</span></li>
             </ul>
             <div className="bg-[#232d38] rounded-2xl border border-[#2d3a47] p-6 text-center">
               <p className="text-white font-semibold mb-2">Demo 3 días gratis</p>
@@ -144,8 +145,10 @@ export default function Landing() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { title: 'WhatsApp Cloud API', desc: 'API oficial de Meta para WhatsApp Business. Conexión profesional y escalable.' },
-              { title: 'IA que entiende y responde', desc: 'Prompt configurable por empresa.' },
-              { title: 'Contactos y conversaciones', desc: 'Tags, notas e historial completo.' },
+              { title: 'IA que entiende y responde', desc: 'Bot configurable por empresa: ventas, soporte o agenda.' },
+              { title: 'CRM + Contactos + Conversaciones', desc: 'Tags, notas, historial y aviso cuando piden hablar con una persona.' },
+              { title: 'Catálogo y pedidos', desc: 'Productos para el bot; pedidos manuales o automáticos por Shopify, Dropi o Mastershop.' },
+              { title: 'Integraciones opcionales', desc: 'Shopify (webhook), Dropi y Mastershop. Activa solo las que uses.' },
               { title: 'Pago con Nequi', desc: 'Subes comprobante y activamos tu plan.', nequi: true },
             ].map((item, i) => (
               <div
