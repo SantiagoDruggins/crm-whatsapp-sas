@@ -8,6 +8,7 @@ export default function Integraciones() {
   const [form, setForm] = useState({
     dropi_token: '',
     dropi_activo: false,
+    dropi_api_base_url: '',
     mastershop_token: '',
     mastershop_activo: false,
     gemini_api_key: '',
@@ -25,6 +26,7 @@ export default function Integraciones() {
         setForm({
           dropi_token: i.dropi_token || '',
           dropi_activo: !!i.dropi_activo,
+          dropi_api_base_url: i.dropi_api_base_url || '',
           mastershop_token: i.mastershop_token || '',
           mastershop_activo: !!i.mastershop_activo,
           gemini_api_key: i.gemini_configurado ? '********' : (i.gemini_api_key || ''),
@@ -55,6 +57,7 @@ export default function Integraciones() {
         setForm({
           dropi_token: r.integraciones?.dropi_token ?? form.dropi_token,
           dropi_activo: !!r.integraciones?.dropi_activo,
+          dropi_api_base_url: r.integraciones?.dropi_api_base_url ?? form.dropi_api_base_url,
           mastershop_token: r.integraciones?.mastershop_token ?? form.mastershop_token,
           mastershop_activo: !!r.integraciones?.mastershop_activo,
           gemini_api_key: r.integraciones?.gemini_configurado ? '********' : (r.integraciones?.gemini_api_key ?? form.gemini_api_key),
@@ -84,17 +87,30 @@ export default function Integraciones() {
         <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-6">
           <h2 className="text-lg font-semibold text-white mb-3">Dropi</h2>
           <p className="text-[#8b9cad] text-sm mb-4">
-            En Dropi (Dropify) obtén el token de integración en la configuración de tu tienda y pégalo aquí.
+            Gestiona pedidos con Dropi usando solo tu token. Obtén el token en la configuración de tu tienda en Dropi y, si Dropi te da una URL de API, pégala abajo.
           </p>
           <div className="space-y-3">
-            <label className="block text-sm text-[#8b9cad]">Token de integración</label>
-            <input
-              type="password"
-              value={form.dropi_token}
-              onChange={(e) => setForm((f) => ({ ...f, dropi_token: e.target.value }))}
-              placeholder="Token Dropi"
-              className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
-            />
+            <div>
+              <label className="block text-sm text-[#8b9cad] mb-1">URL base de la API de Dropi (opcional)</label>
+              <input
+                type="url"
+                value={form.dropi_api_base_url}
+                onChange={(e) => setForm((f) => ({ ...f, dropi_api_base_url: e.target.value.trim() }))}
+                placeholder="https://api.dropi.co o la URL que te indique Dropi"
+                className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
+              />
+              <p className="text-xs text-[#6b7a8a] mt-1">Si Dropi te dio una URL de API en su panel, pégala aquí. Si no, el administrador del servidor puede configurar DROPI_API_BASE_URL.</p>
+            </div>
+            <div>
+              <label className="block text-sm text-[#8b9cad] mb-1">Token de integración</label>
+              <input
+                type="password"
+                value={form.dropi_token}
+                onChange={(e) => setForm((f) => ({ ...f, dropi_token: e.target.value }))}
+                placeholder="Token Dropi"
+                className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
+              />
+            </div>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"

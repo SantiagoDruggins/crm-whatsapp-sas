@@ -3,6 +3,8 @@ import Landing from './pages/Landing';
 import PoliticaPrivacidad from './pages/PoliticaPrivacidad';
 import Registro from './pages/Registro';
 import Login from './pages/Login';
+import OlvidePassword from './pages/OlvidePassword';
+import ResetPassword from './pages/ResetPassword';
 import LayoutCliente from './components/LayoutCliente';
 import LayoutSuperAdmin from './components/LayoutSuperAdmin';
 import DashboardResumen from './pages/cliente/DashboardResumen';
@@ -21,6 +23,7 @@ import Automatizaciones from './pages/cliente/Automatizaciones';
 import Ayuda from './pages/cliente/Ayuda';
 import Branding from './pages/cliente/Branding';
 import Sugerencias from './pages/cliente/Sugerencias';
+import MiCuenta from './pages/cliente/MiCuenta';
 import AdminMetricas from './pages/admin/AdminMetricas';
 import AdminEmpresas from './pages/admin/AdminEmpresas';
 import AdminPagos from './pages/admin/AdminPagos';
@@ -33,6 +36,8 @@ function App() {
       <Route path="/politica-de-privacidad" element={<PoliticaPrivacidad />} />
       <Route path="/registro" element={<Registro />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/olvide-password" element={<OlvidePassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/dashboard" element={<LayoutCliente />}>
         <Route index element={<DashboardResumen />} />
         <Route path="contactos" element={<ErrorBoundary><Contactos /></ErrorBoundary>} />
@@ -49,6 +54,7 @@ function App() {
         <Route path="ayuda" element={<Ayuda />} />
         <Route path="branding" element={<Branding />} />
         <Route path="sugerencias" element={<Sugerencias />} />
+        <Route path="mi-cuenta" element={<MiCuenta />} />
       </Route>
       <Route path="/admin" element={<LayoutSuperAdmin />}>
         <Route index element={<AdminMetricas />} />

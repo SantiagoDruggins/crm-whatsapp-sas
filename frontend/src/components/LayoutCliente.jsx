@@ -26,6 +26,7 @@ const nav = [
   { path: '/dashboard/branding', label: 'Marca / logo' },
   { path: '/dashboard/sugerencias', label: 'Sugerencias' },
   { path: '/dashboard/ayuda', label: 'Ayuda' },
+  { path: '/dashboard/mi-cuenta', label: 'Mi cuenta' },
 ];
 
 export default function LayoutCliente() {

@@ -52,6 +52,14 @@ const config = {
   mastershop: {
     apiBaseUrl: process.env.MASTERSHOP_API_BASE_URL || '',
     apiKeyHeader: process.env.MASTERSHOP_API_KEY_HEADER || 'Authorization'
+  },
+  smtp: {
+    host: process.env.SMTP_HOST || '',
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_SECURE === 'true',
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.EMAIL_FROM || process.env.SMTP_USER || 'noreply@example.com'
   }
 };
 

@@ -73,7 +73,7 @@ async function getEmpresaByWhatsappPhoneNumberId(phoneNumberId) {
 
 async function getIntegracionesConfig(empresaId) {
   const result = await query(
-    `SELECT dropi_token, dropi_activo, mastershop_token, mastershop_activo, gemini_api_key, ai_provider, ai_api_key FROM empresas WHERE id = $1`,
+    `SELECT dropi_token, dropi_activo, dropi_api_base_url, mastershop_token, mastershop_activo, gemini_api_key, ai_provider, ai_api_key FROM empresas WHERE id = $1`,
     [empresaId]
   );
   const row = result.rows[0];
@@ -82,6 +82,7 @@ async function getIntegracionesConfig(empresaId) {
   return {
     dropi_token: row.dropi_token || '',
     dropi_activo: !!row.dropi_activo,
+    dropi_api_base_url: (row.dropi_api_base_url || '').trim() || null,
     mastershop_token: row.mastershop_token || '',
     mastershop_activo: !!row.mastershop_activo,
     gemini_api_key: row.gemini_api_key ? '********' : '',
@@ -92,7 +93,7 @@ async function getIntegracionesConfig(empresaId) {
   };
 }
 
-async function updateIntegracionesConfig(empresaId, { dropi_token, dropi_activo, mastershop_token, mastershop_activo, gemini_api_key, ai_provider, ai_api_key }) {
+async function updateIntegracionesConfig(empresaId, { dropi_token, dropi_activo, dropi_api_base_url, mastershop_token, mastershop_activo, gemini_api_key, ai_provider, ai_api_key }) {
   const updates = [];
   const values = [empresaId];
   let i = 2;
@@ -104,6 +105,12 @@ async function updateIntegracionesConfig(empresaId, { dropi_token, dropi_activo,
   if (dropi_activo !== undefined) {
     updates.push(`dropi_activo = $${i}`);
     values.push(!!dropi_activo);
+    i++;
+  }
+  if (dropi_api_base_url !== undefined) {
+    const val = typeof dropi_api_base_url === 'string' ? dropi_api_base_url.trim() : '';
+    updates.push(`dropi_api_base_url = $${i}`);
+    values.push(val === '' ? null : val);
     i++;
   }
   if (mastershop_token !== undefined) {

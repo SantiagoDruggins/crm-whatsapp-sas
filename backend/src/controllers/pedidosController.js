@@ -40,7 +40,7 @@ async function crear(req, res) {
     let mastershopEnviado = null;
     if (integraciones?.dropi_activo && integraciones?.dropi_token) {
       const full = await pedidoModel.getById(empresaId, pedido.id);
-      const result = await dropiService.enviarPedido(full, integraciones.dropi_token);
+      const result = await dropiService.enviarPedido(full, integraciones.dropi_token, integraciones.dropi_api_base_url);
       if (result.ok && result.externalId) {
         await pedidoModel.actualizarEnvioDropi(pedido.id, req.user.empresaId, result.externalId);
         dropiEnviado = result.externalId;
@@ -77,7 +77,7 @@ async function syncDropi(req, res) {
     if (!pedido) return res.status(404).json({ message: 'Pedido no encontrado' });
     const integraciones = await getIntegracionesConfig(req.user.empresaId);
     if (!integraciones?.dropi_token) return res.status(400).json({ message: 'Configura el token de Dropi en Integraciones' });
-    const result = await dropiService.enviarPedido(pedido, integraciones.dropi_token);
+    const result = await dropiService.enviarPedido(pedido, integraciones.dropi_token, integraciones.dropi_api_base_url);
     if (!result.ok) return res.status(400).json({ message: result.error || 'Error al enviar a Dropi' });
     if (result.externalId) await pedidoModel.actualizarEnvioDropi(pedido.id, req.user.empresaId, result.externalId);
     const actualizado = await pedidoModel.getById(req.user.empresaId, pedido.id);
