@@ -224,6 +224,13 @@ export default function BotIA() {
   const [subiendoArchivo, setSubiendoArchivo] = useState(false);
   const fileInputRef = useRef(null);
   const [plantillaNegocio, setPlantillaNegocio] = useState('');
+  const [mostrarGenerador, setMostrarGenerador] = useState(true);
+  const [generador, setGenerador] = useState({
+    paso: 1,
+    descripcion: '', // todo en uno: negocio, qué necesita el cliente, productos/precios
+    datosRecopilar: '',
+    tono: 'amable',
+  });
 
   const load = () => {
     api.get('/ia/bots').then((r) => setBots(r.bots || [])).catch((e) => setError(e.message)).finally(() => setLoading(false));
@@ -243,6 +250,30 @@ export default function BotIA() {
     const data = PLANTILLAS_NEGOCIO[plantillaNegocio];
     if (!data) return;
     setForm((f) => ({ ...f, prompt_base: data.prompt }));
+  };
+
+  const generarPromptDesdeGenerador = () => {
+    const info = (generador.descripcion || '').trim() || 'Negocio por WhatsApp. Atender consultas, dar información y guiar al cliente.';
+    const datos = (generador.datosRecopilar || '').trim() || 'Nombre, teléfono, y si aplica: ciudad, dirección.';
+    const tono = generador.tono === 'formal' ? 'formal y profesional' : generador.tono === 'cercano' ? 'cercano y amigable' : 'amable y profesional';
+
+    const prompt = `Eres el asistente por WhatsApp de este negocio.
+
+INFORMACIÓN DEL NEGOCIO (usa SOLO esto y el catálogo/base de conocimiento; no inventes nada):
+${info}
+
+DATOS A RECOPILAR cuando el cliente quiera comprar, agendar o solicitar algo:
+${datos}
+
+REGLAS:
+1. Tono ${tono}.
+2. No inventes precios, productos ni condiciones que no estén en la información anterior o en el CRM.
+3. Todo por WhatsApp; no pidas email salvo que sea necesario.
+4. Si no sabes algo, dilo y ofrece otro canal o contacto humano.
+5. Antes de cerrar una venta o reserva, recopila los datos indicados y confirma el resumen.`;
+
+    setForm((f) => ({ ...f, prompt_base: prompt }));
+    setMostrarGenerador(false);
   };
 
   const handleSubmit = (e) => {
@@ -291,6 +322,7 @@ export default function BotIA() {
       conocimiento,
     });
     setNuevoTexto('');
+    setGenerador({ paso: 1, descripcion: '', datosRecopilar: '', tono: 'amable' });
     setError('');
   };
 
@@ -457,6 +489,107 @@ export default function BotIA() {
                   Al aplicar, se rellena/reemplaza el prompt base con un texto optimizado para ese tipo de negocio. Luego puedes ajustarlo a tu gusto.
                 </p>
               </div>
+
+              <div className="border border-[#2d3a47] rounded-xl overflow-hidden bg-[#0f1419]/40">
+                <button
+                  type="button"
+                  onClick={() => setMostrarGenerador((v) => !v)}
+                  className="flex items-center justify-between w-full px-4 py-3 text-left hover:bg-white/[0.03] transition-colors"
+                >
+                  <span className="text-sm font-medium text-white">Generador de prompt</span>
+                  <span className="text-[#6b7a8a] text-xs">{mostrarGenerador ? 'Ocultar' : 'Mostrar'}</span>
+                </button>
+                {mostrarGenerador && (
+                  <div className="px-4 pb-4 pt-0 border-t border-[#2d3a47]">
+                    {/* Pasos */}
+                    <div className="flex gap-1 mb-4">
+                      <button
+                        type="button"
+                        onClick={() => setGenerador((g) => ({ ...g, paso: 1 }))}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${generador.paso === 1 ? 'bg-[#00c896]/20 text-[#00c896]' : 'text-[#6b7a8a] hover:text-[#8b9cad]'}`}
+                      >
+                        1. Tu negocio
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGenerador((g) => ({ ...g, paso: 2 }))}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${generador.paso === 2 ? 'bg-[#00c896]/20 text-[#00c896]' : 'text-[#6b7a8a] hover:text-[#8b9cad]'}`}
+                      >
+                        2. Ajustes
+                      </button>
+                    </div>
+
+                    {generador.paso === 1 && (
+                      <div>
+                        <p className="text-xs text-[#8b9cad] mb-2">
+                          Describe en un párrafo: nombre del negocio, qué vendes o ofreces, y qué suelen preguntar (precios, envíos, reservas). Incluye precios si los tienes; si no, el bot usará el catálogo del CRM.
+                        </p>
+                        <textarea
+                          value={generador.descripcion}
+                          onChange={(e) => setGenerador((g) => ({ ...g, descripcion: e.target.value }))}
+                          placeholder="Ej: Panadería Dulce. Pan, facturas y café. Preguntan por precios y pedidos. Pan de molde $800, baguette $600. Envíos por zona. Horario 8–20h. / O: Peluquería Estilo. Corte, barba y tintes. Reservas por WhatsApp. Precios desde $X."
+                          rows={4}
+                          className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-3 text-white text-sm placeholder-[#6b7a8a] focus:border-[#00c896]/50 outline-none transition-colors"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setGenerador((g) => ({ ...g, paso: 2 }))}
+                          className="mt-3 w-full rounded-xl border border-[#00c896] text-[#00c896] py-2 text-sm font-medium hover:bg-[#00c896]/10"
+                        >
+                          Siguiente: Ajustes
+                        </button>
+                      </div>
+                    )}
+
+                    {generador.paso === 2 && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-medium text-[#8b9cad] mb-1">Datos a pedir cuando cierre venta o reserva (opcional)</label>
+                          <input
+                            type="text"
+                            value={generador.datosRecopilar}
+                            onChange={(e) => setGenerador((g) => ({ ...g, datosRecopilar: e.target.value }))}
+                            placeholder="Nombre, teléfono, ciudad, dirección"
+                            className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white text-sm placeholder-[#6b7a8a]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-[#8b9cad] mb-1">Tono del bot</label>
+                          <div className="flex gap-2">
+                            {['amable', 'formal', 'cercano'].map((t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => setGenerador((g) => ({ ...g, tono: t }))}
+                                className={`flex-1 py-2 rounded-lg text-sm capitalize ${generador.tono === t ? 'bg-[#00c896] text-[#0f1419] font-medium' : 'bg-[#0f1419] border border-[#2d3a47] text-[#8b9cad] hover:border-[#00c896]/50'}`}
+                              >
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setGenerador((g) => ({ ...g, paso: 1 }))}
+                            className="flex-1 rounded-xl border border-[#2d3a47] text-[#8b9cad] py-2 text-sm hover:text-white"
+                          >
+                            Atrás
+                          </button>
+                          <button
+                            type="button"
+                            onClick={generarPromptDesdeGenerador}
+                            className="flex-1 rounded-xl bg-[#00c896] text-[#0f1419] font-semibold py-2 text-sm hover:bg-[#00e0a8]"
+                          >
+                            Generar prompt
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-medium text-[#8b9cad]">Prompt base</label>
