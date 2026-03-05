@@ -86,8 +86,12 @@ export default function Landing() {
             </div>
           </div>
           <div className="flex-shrink-0 w-full max-w-sm lg:max-w-md">
-            <div className="rounded-2xl border border-[#2d3a47] bg-[#1a2129] p-6 shadow-xl shadow-black/30 ring-1 ring-white/5">
-              <img src="/logo-delthaseg.png" alt="DELTHASEG Systems Group" className="w-full h-auto object-contain" />
+            <div className="rounded-2xl border border-[#2d3a47] bg-[#0f1419] p-4 shadow-xl shadow-black/30 ring-1 ring-white/5 flex items-center justify-center">
+              <img
+                src="/logo-dsg.png"
+                alt="DSG Chatbot - CRM con IA para WhatsApp"
+                className="max-h-56 w-auto object-contain"
+              />
             </div>
           </div>
         </div>
