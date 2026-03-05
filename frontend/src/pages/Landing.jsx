@@ -85,12 +85,12 @@ export default function Landing() {
               <a href="#como-funciona" className={styles.ctaOutline}>Cómo funciona</a>
             </div>
           </div>
-          <div className="flex-shrink-0 w-full max-w-sm lg:max-w-md">
-            <div className="rounded-2xl border border-[#2d3a47] bg-[#0f1419] p-4 shadow-xl shadow-black/30 ring-1 ring-white/5 flex items-center justify-center">
+          <div className="flex-shrink-0 w-full lg:w-auto lg:max-w-lg">
+            <div className="rounded-2xl border border-[#2d3a47] bg-[#0f1419] p-3 sm:p-4 shadow-xl shadow-black/30 ring-1 ring-white/5 flex items-center justify-center">
               <img
                 src="/logo-dsg.png"
                 alt="DSG Chatbot - CRM con IA para WhatsApp"
-                className="max-h-56 w-auto object-contain"
+                className="w-full h-auto max-h-72 object-contain"
               />
             </div>
           </div>
