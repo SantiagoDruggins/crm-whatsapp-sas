@@ -25,3 +25,6 @@ Thumbs.db
 
 # Uploads (archivos subidos por usuarios; opcional subirlos)
 # backend/uploads/
+
+# App de escritorio local (Electron) - solo uso en PC
+desktop/

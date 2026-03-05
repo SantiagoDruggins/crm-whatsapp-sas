@@ -106,10 +106,10 @@ export default function Catalogo() {
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-[#2d3a47]">
+              <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium w-20">Foto</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Nombre</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Tipo</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Precio</th>
-              <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Imagen</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium w-32">Acciones</th>
             </tr>
           </thead>
@@ -123,6 +123,26 @@ export default function Catalogo() {
             ) : (
               items.map((p) => (
                 <tr key={p.id} className="border-b border-[#2d3a47] hover:bg-[#232d38]/50">
+                  <td className="px-4 py-3">
+                    {p.imagen_url ? (
+                      <a
+                        href={p.imagen_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block h-12 w-12 rounded-lg overflow-hidden border border-[#2d3a47] bg-[#0f1419]"
+                      >
+                        <img
+                          src={p.imagen_url}
+                          alt={p.nombre || 'Producto'}
+                          className="h-full w-full object-cover"
+                        />
+                      </a>
+                    ) : (
+                      <div className="h-12 w-12 rounded-lg border border-dashed border-[#2d3a47] flex items-center justify-center text-[10px] text-[#6b7a8a]">
+                        Sin foto
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-white">
                     <div className="font-medium">{p.nombre}</div>
                     {p.descripcion && <div className="text-xs text-[#8b9cad] line-clamp-2">{p.descripcion}</div>}
@@ -130,15 +150,6 @@ export default function Catalogo() {
                   <td className="px-4 py-3 text-[#8b9cad] text-sm">{p.tipo || 'producto'}</td>
                   <td className="px-4 py-3 text-[#8b9cad] text-sm">
                     {Number(p.precio).toLocaleString('es-CO')} {p.moneda || 'COP'}
-                  </td>
-                  <td className="px-4 py-3 text-[#8b9cad] text-xs">
-                    {p.imagen_url ? (
-                      <a href={p.imagen_url} target="_blank" rel="noopener noreferrer" className="text-[#00c896] hover:text-[#00e0a8]">
-                        Ver imagen
-                      </a>
-                    ) : (
-                      <span className="text-[#6b7a8a]">Sin imagen</span>
-                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
