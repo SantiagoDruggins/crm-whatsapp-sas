@@ -58,6 +58,26 @@ cd /var/www/crm-whatsapp-sas && git pull origin main --no-rebase && (cd backend 
 - **PC (Windows):** `scripts\git-subir-pc.bat "mensaje del commit"` — hace add, commit y push.  
 - **VPS:** después de `git pull`, ejecuta `./scripts/git-actualizar-vps.sh` (o `./scripts/start-vps.sh`). Si el proyecto está en otra ruta: `PROYECTO=/ruta/al/proyecto ./scripts/git-actualizar-vps.sh`.
 
+### Migración en el VPS (cuando haya nuevas migraciones)
+
+Si en el repo hay nuevos archivos en `backend/migrations/`, ejecuta en el VPS (una vez por migración nueva):
+
+```bash
+cd /var/www/crm-whatsapp-sas
+# Ajusta usuario, base de datos y ruta si no usas postgres/saas_crm_multitenant
+psql -U postgres -d saas_crm_multitenant -f backend/migrations/019_mensajes_media_url.sql
+```
+
+O con variables (si tienes `backend/.env` con DB_USER, DB_NAME, etc.):
+
+```bash
+cd /var/www/crm-whatsapp-sas/backend
+source .env 2>/dev/null || true
+psql -U "${DB_USER:-postgres}" -d "${DB_NAME:-saas_crm_multitenant}" -h "${DB_HOST:-localhost}" -f migrations/019_mensajes_media_url.sql
+```
+
+**Esta actualización (019):** añade la columna `media_url` a la tabla `mensajes` para poder reproducir audios de clientes en el panel de conversaciones.
+
 ---
 
 ## Requisitos comunes
