@@ -39,17 +39,18 @@ async function getByTelefono(empresaId, telefono) {
 }
 
 async function crear(empresaId, data) {
-  const vals = [empresaId, data.nombre || 'Sin nombre', data.apellidos || null, data.email || null, data.telefono ? normalizarTelefono(data.telefono) : null, data.origen || 'manual', Array.isArray(data.tags) ? data.tags : [], data.notas || null];
+  const tagsVal = normalizarTags(data.tags);
+  const vals = [empresaId, data.nombre || 'Sin nombre', data.apellidos || null, data.email || null, data.telefono ? normalizarTelefono(data.telefono) : null, data.origen || 'manual', JSON.stringify(tagsVal), data.notas || null];
   try {
     const leadStatus = (data.lead_status && String(data.lead_status).trim()) || 'new';
     const result = await query(
-      `INSERT INTO contactos (empresa_id, nombre, apellidos, email, telefono, origen, tags, notas, lead_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      `INSERT INTO contactos (empresa_id, nombre, apellidos, email, telefono, origen, tags, notas, lead_status) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9) RETURNING *`,
       [...vals, leadStatus]
     );
     return result.rows[0];
   } catch (e) {
     const result = await query(
-      `INSERT INTO contactos (empresa_id, nombre, apellidos, email, telefono, origen, tags, notas) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      `INSERT INTO contactos (empresa_id, nombre, apellidos, email, telefono, origen, tags, notas) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8) RETURNING *`,
       vals
     );
     return result.rows[0];

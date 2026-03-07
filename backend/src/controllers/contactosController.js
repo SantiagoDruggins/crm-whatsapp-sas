@@ -1,4 +1,18 @@
 const { listar, getById, crear, actualizar, eliminar, countByEmpresa } = require('../models/contactoModel');
+
+function normalizarTagsBody(val) {
+  if (val == null) return [];
+  if (Array.isArray(val)) return val.map((t) => String(t).trim()).filter(Boolean);
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed.map((t) => String(t).trim()).filter(Boolean) : [];
+    } catch {
+      return val.split(',').map((t) => t.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
 const { EVENTOS, dispararWebhooks } = require('../services/webhookService');
 const { getLimitsForEmpresa } = require('../models/planModel');
 
@@ -38,7 +52,7 @@ async function crearContacto(req, res) {
     }
     const { nombre, apellidos, email, telefono, tags, notas } = req.body;
     if (!nombre?.trim()) return res.status(400).json({ message: 'nombre es requerido' });
-    const contacto = await crear(empresaId, { nombre: nombre.trim(), apellidos, email, telefono, tags: tags || [], notas });
+    const contacto = await crear(empresaId, { nombre: nombre.trim(), apellidos, email, telefono, tags: normalizarTagsBody(tags), notas });
     // Disparar webhook de nuevo contacto / lead
     dispararWebhooks(empresaId, EVENTOS.NUEVO_CONTACTO, {
       tipo: 'contacto',
@@ -52,7 +66,9 @@ async function crearContacto(req, res) {
 
 async function actualizarContacto(req, res) {
   try {
-    const contacto = await actualizar(req.user.empresaId, req.params.id, req.body);
+    const body = { ...req.body };
+    if (body.tags !== undefined) body.tags = normalizarTagsBody(body.tags);
+    const contacto = await actualizar(req.user.empresaId, req.params.id, body);
     if (!contacto) return res.status(404).json({ message: 'Contacto no encontrado' });
     return res.status(200).json({ ok: true, contacto });
   } catch (err) {
