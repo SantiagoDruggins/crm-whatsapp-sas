@@ -1,16 +1,18 @@
 const { query } = require('../config/db');
 
-async function listar(empresaId, { limit = 50, offset = 0 } = {}) {
+async function listar(empresaId, { limit = 50, offset = 0, pideAgente = false } = {}) {
   try {
-    const result = await query(
-      `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono
+    let sql = `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono
        FROM conversaciones conv
        LEFT JOIN contactos c ON c.id = conv.contacto_id AND c.empresa_id = conv.empresa_id
-       WHERE conv.empresa_id = $1
-       ORDER BY conv.ultimo_mensaje_at DESC NULLS LAST
-       LIMIT $2 OFFSET $3`,
-      [empresaId, limit, offset]
-    );
+       WHERE conv.empresa_id = $1`;
+    const vals = [empresaId];
+    if (pideAgente) {
+      sql += ` AND conv.pide_agente_humano = true`;
+    }
+    sql += ` ORDER BY conv.pide_agente_humano_at DESC NULLS LAST, conv.ultimo_mensaje_at DESC NULLS LAST LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`;
+    vals.push(limit, offset);
+    const result = await query(sql, vals);
     return result.rows;
   } catch (e) {
     return [];

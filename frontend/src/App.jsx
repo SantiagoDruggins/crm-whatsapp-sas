@@ -19,6 +19,7 @@ import Pagos from './pages/cliente/Pagos';
 import Integraciones from './pages/cliente/Integraciones';
 import Pedidos from './pages/cliente/Pedidos';
 import Agenda from './pages/cliente/Agenda';
+import PideAgente from './pages/cliente/PideAgente';
 import Automatizaciones from './pages/cliente/Automatizaciones';
 import Ayuda from './pages/cliente/Ayuda';
 import Branding from './pages/cliente/Branding';
@@ -43,6 +44,7 @@ function App() {
         <Route path="contactos" element={<ErrorBoundary><Contactos /></ErrorBoundary>} />
         <Route path="conversaciones" element={<Conversaciones />} />
         <Route path="conversaciones/:id" element={<ConversacionDetalle />} />
+        <Route path="pide-agente" element={<PideAgente />} />
         <Route path="whatsapp" element={<WhatsApp />} />
         <Route path="ia" element={<BotIA />} />
         <Route path="catalogo" element={<Catalogo />} />

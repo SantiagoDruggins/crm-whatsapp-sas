@@ -7,8 +7,9 @@ async function listarConversaciones(req, res) {
   try {
     const empresaId = req.user.empresaId;
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
+    const pideAgenteOnly = req.query.pide_agente === '1' || req.query.pide_agente === 'true';
     const [conversaciones, pideAgenteCount] = await Promise.all([
-      listar(empresaId, { limit: Number(req.query.limit) || 50, offset: Number(req.query.offset) || 0 }),
+      listar(empresaId, { limit: Number(req.query.limit) || 50, offset: Number(req.query.offset) || 0, pideAgente: pideAgenteOnly }),
       countPideAgente(empresaId),
     ]);
     return res.status(200).json({ ok: true, conversaciones, pideAgenteCount });
