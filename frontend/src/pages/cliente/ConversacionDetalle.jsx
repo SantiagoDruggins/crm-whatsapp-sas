@@ -61,6 +61,15 @@ export default function ConversacionDetalle() {
   if (error) return <p className="text-[#f87171]">{error}</p>;
   if (!conversacion) return <p className="text-[#8b9cad]">Conversación no encontrada.</p>;
 
+  /** URL absoluta para reproducir audio/imagen (rutas /uploads/...). */
+  const mediaSrc = (url) => {
+    if (!url || !String(url).trim()) return null;
+    const u = String(url).trim();
+    if (u.startsWith('http://') || u.startsWith('https://')) return u;
+    const base = import.meta.env.VITE_UPLOADS_BASE || window.location.origin;
+    return u.startsWith('/') ? base + u : base + '/' + u;
+  };
+
   const nombreContacto = useMemo(
     () =>
       [conversacion.contacto_nombre, conversacion.contacto_apellidos].filter(Boolean).join(' ').trim() ||
@@ -145,11 +154,27 @@ export default function ConversacionDetalle() {
                 className={`flex mb-1 ${esEntrada ? 'justify-start pr-10' : 'justify-end pl-10'}`}
               >
                 <div
-                  className={`relative max-w-[75%] rounded-lg px-3 py-2 text-sm shadow-sm ${
+                  className={`relative max-w-[85%] rounded-lg px-3 py-2 text-sm shadow-sm ${
                     esEntrada ? 'bg-[#202c33] text-[#e9edef]' : 'bg-[#005c4b] text-[#e9edef]'
                   }`}
                 >
-                  <p className="whitespace-pre-wrap break-words">{m.contenido}</p>
+                  {(m.message_type === 'audio' && m.media_url) ? (
+                    <div className="space-y-2">
+                      <audio
+                        controls
+                        src={mediaSrc(m.media_url)}
+                        className="w-full max-w-[240px] h-9"
+                        preload="metadata"
+                      >
+                        Tu navegador no soporta audio.
+                      </audio>
+                      {m.contenido && m.contenido !== '[audio no transcrito]' && (
+                        <p className="text-xs text-[#8696a0] italic">Transcripción: {m.contenido}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap break-words">{m.contenido}</p>
+                  )}
                   <span className="block text-[11px] text-[#8696a0] text-right mt-1">{hora}</span>
                 </div>
               </div>

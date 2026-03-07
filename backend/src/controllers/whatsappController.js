@@ -1,4 +1,7 @@
 const axios = require('axios');
+const path = require('path');
+const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 const config = require('../config/env');
 const { getWhatsappConfig, updateWhatsappConfig, getEmpresaByWhatsappPhoneNumberId, obtenerEmpresaPorId } = require('../models/empresaModel');
 const contactoModel = require('../models/contactoModel');
@@ -384,7 +387,8 @@ async function cloudWebhookPost(req, res) {
             const type = msg.type;
             let text = type === 'text' ? (msg.text?.body || '') : type === 'button' ? (msg.button?.text || '') : '';
 
-            // Mensajes de audio: descargar y transcribir con IA para que el bot responda
+            // Mensajes de audio: descargar, guardar archivo para el CRM, transcribir con IA
+            let audioMediaUrl = null;
             if ((type === 'audio' || type === 'voice') && msg.audio?.id) {
               try {
                 const waConfig = await getWhatsappConfig(empresa.id);
@@ -392,10 +396,18 @@ async function cloudWebhookPost(req, res) {
                 if (token) {
                   const { buffer, error: errMedia } = await descargarMediaWhatsApp(msg.audio.id, token);
                   if (buffer && buffer.length > 0) {
+                    const mime = msg.audio?.mime_type || 'audio/ogg';
+                    const ext = mime.includes('mpeg') || mime.includes('mp3') ? '.mp3' : mime.includes('m4a') || mime.includes('mp4') ? '.m4a' : '.ogg';
+                    const dirAudios = path.join(process.cwd(), 'uploads', 'audios', String(empresa.id));
+                    fs.mkdirSync(dirAudios, { recursive: true });
+                    const filename = `${uuidv4()}${ext}`;
+                    const filePath = path.join(dirAudios, filename);
+                    fs.writeFileSync(filePath, buffer);
+                    audioMediaUrl = `/uploads/audios/${empresa.id}/${filename}`;
+
                     const empresaFull = await obtenerEmpresaPorId(empresa.id);
                     const aiConfig = getAiConfig(empresaFull, config);
                     if (aiConfig?.apiKey) {
-                      const mime = msg.audio?.mime_type || 'audio/ogg';
                       const b64 = buffer.toString('base64');
                       const { text: transcribed, error: errTrans } = await transcribeAudioGemini(aiConfig.apiKey, b64, mime);
                       if (transcribed && transcribed.trim()) text = transcribed.trim();
@@ -423,7 +435,12 @@ async function cloudWebhookPost(req, res) {
             }
             const conversacion = await conversacionModel.getOrCreate(empresa.id, contacto.id, 'whatsapp');
             const contenidoEntrada = text || '[mensaje no texto]';
-            await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'cliente', contenido: contenidoEntrada, esEntrada: true });
+            const payloadMensaje = { origen: 'cliente', contenido: contenidoEntrada, esEntrada: true };
+            if (audioMediaUrl) {
+              payloadMensaje.message_type = 'audio';
+              payloadMensaje.media_url = audioMediaUrl;
+            }
+            await mensajeModel.crear(empresa.id, conversacion.id, payloadMensaje);
             await conversacionModel.actualizarUltimoMensaje(conversacion.id);
             await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: contenidoEntrada, lastMessageAt: new Date() });
 

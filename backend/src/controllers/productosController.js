@@ -6,7 +6,7 @@ async function listarProductos(req, res) {
   try {
     const empresaId = req.user.empresaId;
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
-    const productos = await productoModel.listar(empresaId, {
+    const productos = await productoModel.listarActivos(empresaId, {
       limit: Number(req.query.limit) || 100,
       offset: Number(req.query.offset) || 0,
     });

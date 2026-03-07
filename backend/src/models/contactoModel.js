@@ -56,6 +56,21 @@ async function crear(empresaId, data) {
   }
 }
 
+/** Normaliza tags a array para la columna jsonb (evita "invalid input syntax for type json"). */
+function normalizarTags(val) {
+  if (val == null) return [];
+  if (Array.isArray(val)) return val.map((t) => (typeof t === 'string' ? t.trim() : String(t))).filter(Boolean);
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed.map((t) => String(t).trim()).filter(Boolean) : [];
+    } catch {
+      return val.split(',').map((t) => t.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
 async function actualizar(empresaId, id, data) {
   const updates = ['nombre', 'apellidos', 'email', 'tags', 'notas', 'lead_status', 'conversation_status', 'assigned_to'];
   const setClause = [];
@@ -64,7 +79,8 @@ async function actualizar(empresaId, id, data) {
   for (const key of updates) {
     if (data[key] !== undefined) {
       setClause.push(`${key} = $${idx}`);
-      values.push(key === 'tags' && !Array.isArray(data[key]) ? data[key] : data[key]);
+      const val = key === 'tags' ? normalizarTags(data[key]) : data[key];
+      values.push(key === 'tags' ? JSON.stringify(val) : val);
       idx++;
     }
   }

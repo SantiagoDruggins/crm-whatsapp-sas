@@ -6,6 +6,15 @@ const TIPOS = [
   { value: 'servicio', label: 'Servicio' },
 ];
 
+/** URL pública para la imagen del producto (rutas relativas /uploads/... se resuelven al mismo origen o VITE_UPLOADS_BASE). */
+function getImageSrc(imagenUrl) {
+  if (!imagenUrl || !String(imagenUrl).trim()) return null;
+  const u = String(imagenUrl).trim();
+  if (u.startsWith('http://') || u.startsWith('https://')) return u;
+  const base = import.meta.env.VITE_UPLOADS_BASE || window.location.origin;
+  return u.startsWith('/') ? base + u : base + '/' + u;
+}
+
 export default function Catalogo() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -124,15 +133,15 @@ export default function Catalogo() {
               items.map((p) => (
                 <tr key={p.id} className="border-b border-[#2d3a47] hover:bg-[#232d38]/50">
                   <td className="px-4 py-3">
-                    {p.imagen_url ? (
+                    {getImageSrc(p.imagen_url) ? (
                       <a
-                        href={p.imagen_url}
+                        href={getImageSrc(p.imagen_url)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block h-12 w-12 rounded-lg overflow-hidden border border-[#2d3a47] bg-[#0f1419]"
                       >
                         <img
-                          src={p.imagen_url}
+                          src={getImageSrc(p.imagen_url)}
                           alt={p.nombre || 'Producto'}
                           className="h-full w-full object-cover"
                         />

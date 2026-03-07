@@ -11,6 +11,22 @@ function nextToastId() {
   return `toast-${++toastId}-${Date.now()}`;
 }
 
+function haceCuanto(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffH = Math.floor(diffMs / 3600000);
+  const diffD = Math.floor(diffMs / 86400000);
+  if (diffMin < 1) return 'Ahora';
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  if (diffH < 24) return `Hace ${diffH} h`;
+  if (diffD === 1) return 'Ayer';
+  if (diffD < 7) return `Hace ${diffD} días`;
+  return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
+}
+
 const nav = [
   { path: '/dashboard', label: 'Panel' },
   { path: '/dashboard/contactos', label: 'Contactos' },
@@ -51,7 +67,10 @@ export default function LayoutCliente() {
   const [toasts, setToasts] = useState([]);
   const [popup, setPopup] = useState({ open: false, type: '', title: '', detail: '', linkTo: '', linkLabel: '' });
   const [pideAgenteCount, setPideAgenteCount] = useState(0);
+  const [actividadReciente, setActividadReciente] = useState({ conversaciones: [], citas_proximas: [], pedidos_recientes: [] });
+  const [bellOpen, setBellOpen] = useState(false);
   const lastActivityRef = useRef(null);
+  const bellPanelRef = useRef(null);
 
   const dismissToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -165,12 +184,23 @@ export default function LayoutCliente() {
         }
         lastActivityRef.current = { conversaciones, citas_proximas, pedidos_recientes, pide_agente_count: newCount };
         setPideAgenteCount(newCount);
+        setActividadReciente({ conversaciones, citas_proximas, pedidos_recientes });
       }).catch(() => {});
     };
     fetchActivity();
     const interval = setInterval(fetchActivity, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [addToast]);
+
+  // Cerrar panel de la campanita al hacer clic fuera
+  useEffect(() => {
+    if (!bellOpen) return;
+    const handleClickOutside = (e) => {
+      if (bellPanelRef.current && !bellPanelRef.current.contains(e.target)) setBellOpen(false);
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [bellOpen]);
 
   if (typeof window !== 'undefined' && !localStorage.getItem('token')) {
     return <Navigate to="/login" replace />;
@@ -252,14 +282,65 @@ export default function LayoutCliente() {
           <span className="text-[#8b9cad] text-sm">
             {nav.find((n) => location.pathname === n.path || (n.path !== '/dashboard' && location.pathname.startsWith(n.path)))?.label || 'Panel'}
           </span>
-          <div className="relative flex items-center" title="Notificaciones">
-            <svg className="w-5 h-5 text-[#8b9cad] hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-            {toasts.length > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#00c896] text-[#0f1419] text-xs font-bold">
-                {toasts.length > 99 ? '99+' : toasts.length}
-              </span>
+          <div className="relative flex items-center" ref={bellPanelRef}>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setBellOpen((o) => !o); }}
+              className="relative p-1 rounded-lg text-[#8b9cad] hover:text-white hover:bg-[#232d38] transition-colors"
+              title="Mensajes recientes y notificaciones"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              {(() => {
+                const n = (actividadReciente.conversaciones?.length || 0) + (pideAgenteCount > 0 ? 1 : 0);
+                return n > 0 ? (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#00c896] text-[#0f1419] text-xs font-bold">
+                    {n > 99 ? '99+' : n}
+                  </span>
+                ) : null;
+              })()}
+            </button>
+            {bellOpen && (
+              <div className="absolute top-full right-0 mt-2 w-[320px] max-h-[min(70vh,420px)] overflow-hidden rounded-xl border border-[#2d3a47] bg-[#1a2129] shadow-xl z-50 flex flex-col">
+                <div className="p-3 border-b border-[#2d3a47] flex items-center justify-between">
+                  <span className="font-semibold text-white text-sm">Mensajes recientes</span>
+                  <Link to="/dashboard/conversaciones" className="text-xs text-[#00c896] hover:text-[#00e0a8]" onClick={() => setBellOpen(false)}>Ver todas</Link>
+                </div>
+                <div className="overflow-y-auto flex-1">
+                  {pideAgenteCount > 0 && (
+                    <Link
+                      to="/dashboard/conversaciones"
+                      onClick={() => setBellOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-[#232d38] border-b border-[#2d3a47]"
+                    >
+                      <span className="text-xl">⚠️</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-amber-400">Cliente(s) piden hablar con agente</p>
+                        <p className="text-xs text-[#8b9cad]">{pideAgenteCount} sin atender</p>
+                      </div>
+                    </Link>
+                  )}
+                  {(actividadReciente.conversaciones || []).length === 0 && pideAgenteCount === 0 ? (
+                    <p className="px-4 py-6 text-sm text-[#8b9cad] text-center">No hay conversaciones recientes</p>
+                  ) : (
+                    (actividadReciente.conversaciones || []).map((c) => (
+                      <Link
+                        key={c.id}
+                        to={`/dashboard/conversaciones/${c.id}`}
+                        onClick={() => setBellOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-[#232d38] border-b border-[#2d3a47] last:border-b-0"
+                      >
+                        <span className="text-lg">💬</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{c.contacto_nombre || c.contacto_telefono || 'Contacto'}</p>
+                          <p className="text-xs text-[#8b9cad]">{haceCuanto(c.ultimo_mensaje_at)}</p>
+                        </div>
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </header>

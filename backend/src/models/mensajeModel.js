@@ -1,7 +1,13 @@
 const { query } = require('../config/db');
 
 async function crear(empresaId, conversacionId, data) {
-  const result = await query(`INSERT INTO mensajes (empresa_id, conversacion_id, origen, usuario_id, contenido, es_entrada) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`, [empresaId, conversacionId, data.origen || 'cliente', data.usuarioId, data.contenido, data.esEntrada !== false]);
+  const messageType = data.message_type || 'text';
+  const mediaUrl = data.media_url || null;
+  const result = await query(
+    `INSERT INTO mensajes (empresa_id, conversacion_id, origen, usuario_id, contenido, es_entrada, message_type, media_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [empresaId, conversacionId, data.origen || 'cliente', data.usuarioId, data.contenido, data.esEntrada !== false, messageType, mediaUrl]
+  );
   return result.rows[0];
 }
 
