@@ -7,6 +7,19 @@ const { getAiConfig, generateContent } = require('../services/aiProviderService'
 const contactoModel = require('../models/contactoModel');
 const appointmentModel = require('../models/appointmentModel');
 
+/** Prompt esencial obligatorio para todos los bots: evita errores, invenciones y malas experiencias. */
+const REGLAS_OBLIGATORIAS =
+  '\n\n--- REGLAS OBLIGATORIAS (cumple siempre) ---\n' +
+  '1. Responde en UNA sola respuesta coherente; no repitas el mensaje del usuario ni tu propia respuesta anterior.\n' +
+  '2. No inventes precios, productos, ofertas ni datos que no estén en el catálogo o en la información que te dieron.\n' +
+  '3. Si no sabes algo, di amablemente que un asesor lo puede confirmar o que puede escribir de nuevo en un momento.\n' +
+  '4. Sé breve y claro; evita mensajes excesivamente largos o repetitivos.\n' +
+  '5. No prometas plazos, descuentos, envíos ni condiciones que no te hayan sido indicadas explícitamente.\n' +
+  '6. Nunca des datos personales, contraseñas ni información de otros clientes.\n' +
+  '7. Si el usuario insulta o se sale del tema de forma grosera, responde con cortesía y vuelve a ofrecer ayuda.\n' +
+  '8. Responde siempre en el mismo idioma en que te escribe el usuario.\n' +
+  '--- FIN REGLAS ---';
+
 /** Genera respuesta del bot por empresa y mensaje (para webhook WhatsApp, etc.). opts: { contactId, conversacionId } para memoria. Retorna { respuesta?, error? }. */
 async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
   if (!mensaje?.trim()) return { error: 'mensaje vacío' };
@@ -66,7 +79,9 @@ async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
           }
           if (ctx.lastMessages && ctx.lastMessages.length) {
             bloque += '\nÚltimos mensajes (para mantener contexto):\n';
-            ctx.lastMessages.forEach((m) => {
+            // Excluir el último mensaje: es el actual que estamos respondiendo (evita duplicado y que la IA confunda su respuesta con la del usuario)
+            const mensajesParaContexto = ctx.lastMessages.slice(0, -1);
+            mensajesParaContexto.forEach((m) => {
               bloque += (m.role === 'user' ? 'Usuario: ' : 'Asistente: ') + (m.content || '').slice(0, 500) + '\n';
             });
           }
@@ -98,6 +113,7 @@ async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
         .replace(/\[DIRECCION\]/gi, 'consultar con nosotros')
         .replace(/\[HORARIOS\]/gi, 'consultar con nosotros')
         .replace(/\[PRODUCTOS_SERVICIOS\]/gi, 'nuestros productos y servicios') +
+      REGLAS_OBLIGATORIAS +
       '\n\nIMPORTANTE: El usuario te escribe por WhatsApp. Cuando pida contacto, comprar o más información, indícale que puede seguir escribiendo por WhatsApp en esta conversación. No sugieras enviar email ni Gmail.' +
       '\n\nCITAS EN EL CRM: Cuando confirmes una cita con fecha y hora concretas, DEBES añadir al final de tu mensaje (en una sola línea, sin explicar al usuario) la marca: CITA:YYYY-MM-DD|HH:MM|Breve descripción. Ejemplo: CITA:2025-02-26|08:00|Instalación segundo vehículo. Usa la fecha en formato año-mes-día y la hora en 24h (ej. 08:00, 14:30). El sistema quitará esta línea antes de enviar el mensaje al usuario. Solo añade CITA: cuando realmente estés confirmando una cita con fecha y hora acordadas.' +
       '\n\nFOTOS DE PRODUCTOS: Cuando el usuario pida una foto o quieras mostrar un producto del catálogo, añade en una línea: [IMAGEN: ruta] usando la ruta exacta que aparece en el catálogo (ej. /uploads/productos/nombre-archivo.jpg). Puedes poner varias líneas [IMAGEN: ruta] si quieres enviar más de una. El sistema enviará cada imagen por WhatsApp y quitará estas líneas del mensaje.' +
@@ -166,6 +182,7 @@ async function responder(req, res) {
         .replace(/\[DIRECCION\]/gi, 'consultar con nosotros')
         .replace(/\[HORARIOS\]/gi, 'consultar con nosotros')
         .replace(/\[PRODUCTOS_SERVICIOS\]/gi, 'nuestros productos y servicios') +
+      REGLAS_OBLIGATORIAS +
       '\n\nIMPORTANTE: El usuario te escribe por WhatsApp. Cuando pida contacto, comprar o más información, indícale que puede seguir escribiendo por WhatsApp en esta conversación. No sugieras enviar email ni Gmail.';
 
     const imageParts = [];

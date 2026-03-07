@@ -13,6 +13,10 @@ const { getAiConfig, transcribeAudioGemini, textoAVozGemini } = require('../serv
 
 const CLOUD_API_BASE = (config.whatsapp && config.whatsapp.cloudApiBaseUrl) ? config.whatsapp.cloudApiBaseUrl.replace(/\/$/, '') : 'https://graph.facebook.com/v19.0';
 
+/** IDs de mensajes ya procesados (evita doble respuesta por reintentos del webhook o ecos). */
+const processedMessageIds = new Set();
+const MAX_PROCESSED_IDS = 10000;
+
 /** Sugiere lead_status según el contenido del mensaje (para actualización automática). */
 function sugerirLeadStatusDesdeTexto(contenido) {
   if (!contenido || typeof contenido !== 'string') return null;
@@ -370,6 +374,12 @@ async function cloudWebhookPost(req, res) {
 
         if (value?.messages) {
           for (const msg of value.messages) {
+            const msgId = msg.id;
+            if (!msgId) continue;
+            if (processedMessageIds.has(msgId)) continue;
+            processedMessageIds.add(msgId);
+            if (processedMessageIds.size > MAX_PROCESSED_IDS) processedMessageIds.clear();
+
             const from = msg.from;
             const type = msg.type;
             let text = type === 'text' ? (msg.text?.body || '') : type === 'button' ? (msg.button?.text || '') : '';
