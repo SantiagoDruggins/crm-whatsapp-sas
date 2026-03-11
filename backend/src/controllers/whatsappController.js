@@ -7,6 +7,7 @@ const { getWhatsappConfig, updateWhatsappConfig, getEmpresaByWhatsappPhoneNumber
 const contactoModel = require('../models/contactoModel');
 const conversacionModel = require('../models/conversacionModel');
 const mensajeModel = require('../models/mensajeModel');
+const pedidoModel = require('../models/pedidoModel');
 const appointmentModel = require('../models/appointmentModel');
 const productoModel = require('../models/productoModel');
 const planModel = require('../models/planModel');
@@ -28,6 +29,103 @@ function sugerirLeadStatusDesdeTexto(contenido) {
   if (/\b(compré|comprado|ya compré|adquirí)\b/.test(t)) return 'buyer';
   if (/\b(quiero comprar|comprar|me interesa|interesado|tomar el servicio)\b/.test(t)) return 'interested';
   return null;
+}
+
+function normalizeText(s) {
+  return (s || '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function pareceConfirmacionCompra(texto) {
+  const t = normalizeText(texto);
+  if (!t) return false;
+  return (
+    /\b(confirmo|confirmar|listo|de una|hagale|hágale|lo quiero|la quiero|quiero ese|quiero ese producto|me lo llevo|comprar ya|si lo compro|si compro|ok lo compro|ok compro|dale|dale compra)\b/.test(t) ||
+    (/\bquiero\b/.test(t) && /\bcomprar|pedido|orden\b/.test(t))
+  );
+}
+
+function matchProductoPorNombre(texto, productos) {
+  const t = normalizeText(texto);
+  if (!t || !Array.isArray(productos) || productos.length === 0) return null;
+  let best = null;
+  let bestScore = 0;
+  for (const p of productos) {
+    const nombre = normalizeText(p?.nombre);
+    if (!nombre) continue;
+    if (nombre.length >= 4 && t.includes(nombre)) {
+      const score = Math.min(1000, nombre.length);
+      if (score > bestScore) {
+        best = p;
+        bestScore = score;
+      }
+      continue;
+    }
+    const words = nombre.split(' ').filter((w) => w.length >= 4);
+    if (words.length) {
+      const hits = words.filter((w) => t.includes(w)).length;
+      if (hits > 0) {
+        const score = hits * 10 + nombre.length;
+        if (score > bestScore) {
+          best = p;
+          bestScore = score;
+        }
+      }
+    }
+  }
+  return best;
+}
+
+async function tryCrearPedidoDesdeWhatsapp({ empresaId, contacto, conversacion, fromPhone, texto }) {
+  if (!empresaId || !conversacion?.id || !contacto?.id) return { ok: false };
+  if (!pareceConfirmacionCompra(texto)) return { ok: false };
+  const productos = await productoModel.listarActivos(empresaId, { limit: 200, offset: 0 });
+  const producto = matchProductoPorNombre(texto, productos);
+  if (!producto?.id) return { ok: false };
+
+  // Evitar duplicados recientes (misma conversación + mismo producto)
+  const reciente = await pedidoModel.getRecientePorConversacionProducto(empresaId, conversacion.id, producto.id, { minutos: 15 });
+  if (reciente?.id) return { ok: true, yaExistia: true, pedidoId: reciente.id, producto };
+
+  const precio = Number(producto.precio) || 0;
+  const moneda = producto.moneda || 'COP';
+  const datos = {
+    origen: 'whatsapp_auto',
+    producto_id: String(producto.id),
+    producto_nombre: producto.nombre || '',
+    tipo: producto.tipo || 'producto',
+    cantidad: 1,
+    precio_unitario: precio,
+    moneda,
+    items: [
+      {
+        producto_id: String(producto.id),
+        nombre: producto.nombre || '',
+        cantidad: 1,
+        precio_unitario: precio,
+        moneda,
+      },
+    ],
+    telefono: String(fromPhone || '').replace(/\D/g, ''),
+  };
+
+  const pedido = await pedidoModel.crear(empresaId, {
+    contacto_id: contacto.id,
+    conversacion_id: conversacion.id,
+    estado: 'pendiente',
+    total: precio,
+    datos,
+    direccion: {},
+  });
+
+  return { ok: true, pedido, producto };
 }
 
 /** Indica si el mensaje del cliente pide hablar con una persona/agente real (para avisar en el CRM). */
@@ -466,6 +564,33 @@ async function cloudWebhookPost(req, res) {
             const resultadoFlujos = await ejecutarFlujosAutomatizados(empresa.id, contacto, contenidoEntrada, conversacion, from);
             if (resultadoFlujos.handled) {
               continue;
+            }
+
+            // Auto-crear pedido si el cliente confirma compra de un producto del catálogo
+            try {
+              const rPedido = await tryCrearPedidoDesdeWhatsapp({
+                empresaId: empresa.id,
+                contacto,
+                conversacion,
+                fromPhone: from,
+                texto: contenidoEntrada,
+              });
+              if (rPedido?.ok && (rPedido.pedido || rPedido.yaExistia)) {
+                const pedidoId = rPedido.pedido?.id || rPedido.pedidoId;
+                const prod = rPedido.producto;
+                const textoRespuesta = rPedido.yaExistia
+                  ? `Perfecto. Ya tengo tu pedido en proceso (ID: ${pedidoId}). Para finalizar, envíame:\n1) Nombre completo\n2) Ciudad\n3) Dirección\n4) Barrio / punto de referencia\n5) Forma de pago`
+                  : `Listo, confirmado. Te acabo de crear el pedido (ID: ${pedidoId}) para: ${prod?.nombre || 'el producto'}.\n\nPara finalizar, envíame:\n1) Nombre completo\n2) Ciudad\n3) Dirección\n4) Barrio / punto de referencia\n5) Forma de pago`;
+                const sent = await enviarMensajeEmpresa(empresa.id, from, textoRespuesta);
+                if (sent.ok) {
+                  await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: textoRespuesta, esEntrada: false });
+                  await conversacionModel.actualizarUltimoMensaje(conversacion.id);
+                  await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: textoRespuesta, lastMessageAt: new Date() });
+                }
+                continue;
+              }
+            } catch (ePedido) {
+              console.warn('[WhatsApp] Error creando pedido automático:', ePedido.message);
             }
 
             if (text && text.trim()) {

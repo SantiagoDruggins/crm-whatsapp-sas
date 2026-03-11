@@ -41,6 +41,23 @@ async function listarPorEmpresa(empresaId, { limit = 50, offset = 0 } = {}) {
   return result.rows;
 }
 
+async function getRecientePorConversacionProducto(empresaId, conversacionId, productoId, { minutos = 15 } = {}) {
+  if (!empresaId || !conversacionId || !productoId) return null;
+  const mins = Number(minutos) || 15;
+  const result = await query(
+    `SELECT id, created_at
+     FROM pedidos
+     WHERE empresa_id = $1
+       AND conversacion_id = $2
+       AND (datos->>'producto_id') = $3
+       AND created_at >= (now() - ($4 || ' minutes')::interval)
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [empresaId, conversacionId, String(productoId), String(mins)]
+  );
+  return result.rows[0] || null;
+}
+
 async function getById(empresaId, id) {
   const result = await query(
     `SELECT p.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono, c.email AS contacto_email
@@ -68,4 +85,4 @@ async function actualizarEnvioMastershop(id, empresaId, mastershopId) {
   return result.rows[0] || null;
 }
 
-module.exports = { crear, listarPorEmpresa, getById, getByShopifyOrderId, actualizarEnvioDropi, actualizarEnvioMastershop };
+module.exports = { crear, listarPorEmpresa, getRecientePorConversacionProducto, getById, getByShopifyOrderId, actualizarEnvioDropi, actualizarEnvioMastershop };
