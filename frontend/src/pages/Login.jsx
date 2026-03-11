@@ -8,6 +8,12 @@ export default function Login() {
   const [error, setError] = useState('');
   const [form, setForm] = useState({ email: '', password: '' });
 
+  const trackDemo = () => {
+    try {
+      if (typeof window !== 'undefined' && typeof window.fbq === 'function') window.fbq('trackCustom', 'ClickDemo');
+    } catch {}
+  };
+
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setError('');
@@ -95,7 +101,7 @@ export default function Login() {
           </form>
           <p className="text-center text-[#8b9cad] text-sm mt-6">
             ¿No tienes cuenta?{' '}
-            <Link to="/registro" className="text-[#00c896] hover:text-[#00e0a8] font-medium">
+            <Link to="/registro" onClick={trackDemo} className="text-[#00c896] hover:text-[#00e0a8] font-medium">
               Crear demo gratis
             </Link>
           </p>

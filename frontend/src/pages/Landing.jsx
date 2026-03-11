@@ -45,7 +45,13 @@ function HeroTypingTitle() {
 
 export default function Landing() {
   const [modalNequi, setModalNequi] = useState(false);
+  const trackDemo = () => {
+    try {
+      if (typeof window !== 'undefined' && typeof window.fbq === 'function') window.fbq('trackCustom', 'ClickDemo');
+    } catch {}
+  };
   const scrollToDemo = () => {
+    trackDemo();
     document.getElementById('cta-demo')?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -87,7 +93,7 @@ export default function Landing() {
               Conecta tu negocio a WhatsApp, automatiza respuestas con IA y gestiona todas las conversaciones desde un solo lugar. Prueba 3 días gratis, sin tarjeta.
             </p>
             <div id="cta-demo" className="flex flex-wrap gap-4">
-              <Link to="/registro" className={styles.cta}>Crear mi demo gratis (3 días)</Link>
+              <Link to="/registro" onClick={trackDemo} className={styles.cta}>Crear mi demo gratis (3 días)</Link>
               <a href="#como-funciona" className={styles.ctaOutline}>Cómo funciona</a>
             </div>
           </div>
@@ -142,7 +148,7 @@ export default function Landing() {
             <div className="bg-[#232d38] rounded-2xl border border-[#2d3a47] p-6 text-center">
               <p className="text-white font-semibold mb-2">Demo 3 días gratis</p>
               <p className="text-[#8b9cad] text-sm mb-4">Sin tarjeta. Acceso completo al CRM y al bot.</p>
-              <Link to="/registro" className={styles.cta}>Crear mi demo</Link>
+              <Link to="/registro" onClick={trackDemo} className={styles.cta}>Crear mi demo</Link>
             </div>
           </div>
         </div>
@@ -250,7 +256,7 @@ export default function Landing() {
               <p className="text-[#8b9cad] text-sm">Defines el tono y las respuestas. El bot trabaja por ti.</p>
             </div>
           </div>
-          <Link to="/registro" className={styles.cta}>Crear mi demo gratis (3 días)</Link>
+          <Link to="/registro" onClick={trackDemo} className={styles.cta}>Crear mi demo gratis (3 días)</Link>
         </div>
       </section>
 
@@ -258,7 +264,7 @@ export default function Landing() {
         <div className="max-w-2xl mx-auto text-center">
           <h2 className={styles.h2 + ' mb-4'}>Prueba sin compromiso</h2>
           <p className={styles.p + ' mb-8'}>3 días de acceso completo. Sin tarjeta. Si te convence, activas tu plan con un pago por Nequi.</p>
-          <Link to="/registro" className={styles.cta + ' text-lg px-10 py-4'}>Crear demo ahora</Link>
+          <Link to="/registro" onClick={trackDemo} className={styles.cta + ' text-lg px-10 py-4'}>Crear demo ahora</Link>
         </div>
       </section>
 
