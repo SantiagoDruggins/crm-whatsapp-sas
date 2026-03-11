@@ -1,6 +1,6 @@
 const { listar, getById, actualizar, actualizarUltimoMensaje, desmarcarPideAgente, countPideAgente } = require('../models/conversacionModel');
 const { listarPorConversacion, crear } = require('../models/mensajeModel');
-const { enviarMensajeEmpresa } = require('./whatsappController');
+const { enviarMensajeEmpresa, enviarAudioTtsEmpresa } = require('./whatsappController');
 const contactoModel = require('../models/contactoModel');
 
 async function listarConversaciones(req, res) {
@@ -52,7 +52,7 @@ async function historialConversacion(req, res) {
 
 async function enviarMensajeConversacion(req, res) {
   try {
-    const { contenido } = req.body;
+    const { contenido, enviar_audio } = req.body;
     if (!contenido?.trim()) return res.status(400).json({ message: 'contenido es requerido' });
     const conversacion = await getById(req.user.empresaId, req.params.id);
     if (!conversacion) return res.status(404).json({ message: 'Conversación no encontrada' });
@@ -64,10 +64,20 @@ async function enviarMensajeConversacion(req, res) {
       const contacto = await contactoModel.getById(req.user.empresaId, conversacion.contacto_id);
       telefono = contacto?.telefono;
     }
+    let enviadoWhatsApp = false;
+    let enviadoAudio = false;
+    let errorAudio = null;
     if (telefono) {
       const sent = await enviarMensajeEmpresa(req.user.empresaId, telefono, texto);
       if (!sent.ok) {
         return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: false, error: sent.error || 'No se pudo enviar por WhatsApp' });
+      }
+      enviadoWhatsApp = true;
+      const wantsAudio = enviar_audio === true || enviar_audio === 1 || enviar_audio === '1' || enviar_audio === 'true';
+      if (wantsAudio) {
+        const a = await enviarAudioTtsEmpresa(req.user.empresaId, telefono, texto);
+        if (a?.ok) enviadoAudio = true;
+        else errorAudio = a?.error || 'No se pudo enviar audio';
       }
     }
     if (conversacion.contacto_id) {
@@ -76,7 +86,7 @@ async function enviarMensajeConversacion(req, res) {
       } catch (e) {}
     }
     await desmarcarPideAgente(conversacion.id);
-    return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: !!telefono });
+    return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp, enviadoAudio, errorAudio });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
   }

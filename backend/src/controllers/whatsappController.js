@@ -334,6 +334,37 @@ async function textoAVozOpenAI(texto, apiKey) {
   }
 }
 
+/** Genera y envía un audio TTS (texto a voz) a un cliente por WhatsApp. */
+async function enviarAudioTtsEmpresa(empresaId, toPhone, texto) {
+  if (!texto || String(texto).trim().length < 3) return { ok: false, error: 'Texto vacío' };
+  const text = String(texto).trim().slice(0, 2500);
+  try {
+    const empresaFull = await obtenerEmpresaPorId(empresaId);
+    const aiConfig = getAiConfig(empresaFull, config);
+    const geminiKey = config.gemini?.apiKey || (aiConfig?.provider === 'gemini' ? aiConfig.apiKey : null);
+    const ttsModel = config.gemini?.ttsModel || process.env.GEMINI_TTS_MODEL || 'gemini-2.5-pro-preview-tts';
+
+    let audioBuffer = null;
+    let audioMime = 'audio/mpeg';
+    if (geminiKey) {
+      const geminiAudio = await textoAVozGemini(text, geminiKey, ttsModel);
+      if (geminiAudio?.buffer) {
+        audioBuffer = geminiAudio.buffer;
+        audioMime = geminiAudio.mimeType || 'audio/mpeg';
+      }
+    }
+    if (!audioBuffer && config.openai?.apiKey) {
+      audioBuffer = await textoAVozOpenAI(text, config.openai.apiKey);
+      audioMime = 'audio/mpeg';
+    }
+    if (!audioBuffer) return { ok: false, error: 'No hay proveedor TTS configurado' };
+    const sent = await subirYEnviarAudioEmpresa(empresaId, toPhone, audioBuffer, audioMime);
+    return sent?.ok ? { ok: true } : { ok: false, error: sent?.error || 'No se pudo enviar audio' };
+  } catch (e) {
+    return { ok: false, error: e.message || 'Error TTS' };
+  }
+}
+
 /**
  * Decide si se debe enviar la respuesta también en audio (TTS). Opcional; no sustituye el envío en texto.
  * @param {string} texto - Texto de la respuesta del bot
@@ -802,4 +833,5 @@ module.exports = {
   cloudSend,
   isCloudConfigurado,
   enviarMensajeEmpresa,
+  enviarAudioTtsEmpresa,
 };
