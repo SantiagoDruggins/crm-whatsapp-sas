@@ -79,9 +79,17 @@ async function actualizar(empresaId, id, data) {
   let idx = 3;
   for (const key of updates) {
     if (data[key] !== undefined) {
-      setClause.push(`${key} = $${idx}`);
-      const val = key === 'tags' ? normalizarTags(data[key]) : data[key];
-      values.push(key === 'tags' ? JSON.stringify(val) : val);
+      const isJsonb = key === 'tags';
+      setClause.push(isJsonb ? `${key} = $${idx}::jsonb` : `${key} = $${idx}`);
+      let val = isJsonb ? normalizarTags(data[key]) : data[key];
+      if (isJsonb) {
+        try {
+          val = Array.isArray(val) ? JSON.stringify(val) : '[]';
+        } catch {
+          val = '[]';
+        }
+      }
+      values.push(val);
       idx++;
     }
   }

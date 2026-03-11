@@ -90,13 +90,14 @@ export default function Contactos() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const tags = form.tags ? form.tags.split(',').map((t) => t.trim()).filter(Boolean) : [];
+    const tagsRaw = form.tags != null ? String(form.tags).trim() : '';
+    const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : [];
     const payload = {
       nombre: form.nombre,
       apellidos: form.apellidos || null,
       email: form.email || null,
       telefono: form.telefono || null,
-      tags,
+      tags: Array.isArray(tags) ? tags : [],
       notas: form.notas || null,
       lead_status: form.lead_status || 'new',
     };
