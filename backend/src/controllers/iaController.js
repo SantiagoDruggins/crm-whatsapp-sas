@@ -44,12 +44,50 @@ async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
     } catch (e) {}
     const aiConfig = getAiConfig(empresa, config);
     if (!aiConfig) return { respuesta: '', error: 'Configura una clave de IA en Integraciones o usa la incluida en tu plan.' };
+
+    // Selección de modelo por tarea (solo admin). Defaults recomendados (Gemini):
+    const defaults = {
+      router: 'gemini-2.5-flash',
+      support: 'gemini-2.5-flash',
+      pedidos: 'gemini-2.5-flash',
+      agenda: 'gemini-2.5-flash',
+    };
+    const mode = (opts.mode || 'support').toString().toLowerCase();
+    const modelFromEmpresa =
+      mode === 'pedidos' ? empresa?.ai_model_pedidos :
+      mode === 'agenda' ? empresa?.ai_model_agenda :
+      empresa?.ai_model_support;
+    const aiModel = (opts.aiModel || modelFromEmpresa || defaults[mode] || defaults.support).toString().trim();
+
     let systemPrompt = 'Eres un asistente amable y profesional. Responde en el mismo idioma que el usuario.';
     if (bot?.prompt_base) {
       systemPrompt = bot.prompt_base;
       const conocimiento = Array.isArray(bot.conocimiento) ? bot.conocimiento : [];
       const textos = conocimiento.filter((c) => c.tipo === 'texto' && c.contenido).map((c) => c.contenido);
       if (textos.length) systemPrompt += '\n\nInformación de referencia que puedes usar:\n' + textos.join('\n\n');
+    }
+
+    // Modo especializado (pedidos/agenda) con instrucciones más estructuradas
+    if (mode === 'pedidos') {
+      systemPrompt +=
+        '\n\n--- MODO PEDIDOS (ventas) ---\n' +
+        'Objetivo: cerrar la compra y crear/confirmar el pedido.\n' +
+        '1) Identifica el producto/servicio del catálogo.\n' +
+        '2) Confirma precio y qué incluye.\n' +
+        '3) Pide datos mínimos: nombre, ciudad, dirección, barrio/punto de referencia, forma de pago.\n' +
+        '4) Resume el pedido y confirma.\n' +
+        'Sé directo y orientado a cierre.\n' +
+        '--- FIN MODO PEDIDOS ---';
+    }
+    if (mode === 'agenda') {
+      systemPrompt +=
+        '\n\n--- MODO AGENDA (citas) ---\n' +
+        'Objetivo: agendar una cita con fecha/hora y confirmarla.\n' +
+        '1) Pregunta por fecha y hora preferida.\n' +
+        '2) Si el horario está ocupado (ver lista), propone 2 alternativas.\n' +
+        '3) Confirma fecha/hora y motivo.\n' +
+        '4) Al confirmar, añade la marca CITA:YYYY-MM-DD|HH:MM|Descripción.\n' +
+        '--- FIN MODO AGENDA ---';
     }
     if (catalogo.length) {
       const resumen = catalogo
@@ -131,9 +169,10 @@ async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
         }
       } catch (e) {}
     }
+    const localConfig = { ...config, gemini: { ...(config.gemini || {}), model: aiModel } };
     const result = await generateContent(
       { provider: aiConfig.provider, apiKey: aiConfig.apiKey, systemPrompt, userMessage: mensaje.trim(), imageParts },
-      config
+      localConfig
     );
     return { respuesta: result.text || '', error: result.error };
   } catch (err) {

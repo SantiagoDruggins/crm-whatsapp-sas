@@ -1,4 +1,4 @@
-const { listarEmpresas, obtenerEmpresaPorId, actualizarEstadoEmpresa } = require('../models/empresaModel');
+const { listarEmpresas, obtenerEmpresaPorId, actualizarEstadoEmpresa, getAiModels, updateAiModels } = require('../models/empresaModel');
 const { query } = require('../config/db');
 
 async function listarEmpresasAdmin(req, res) {
@@ -83,4 +83,31 @@ async function actualizarPlanEmpresaAdmin(req, res) {
   }
 }
 
-module.exports = { listarEmpresasAdmin, metricasAdmin, actualizarEstadoEmpresaAdmin, actualizarPlanEmpresaAdmin };
+async function getAiModelsEmpresaAdmin(req, res) {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'Falta id de empresa' });
+    const empresa = await obtenerEmpresaPorId(id);
+    if (!empresa) return res.status(404).json({ message: 'Empresa no encontrada' });
+    const models = await getAiModels(id);
+    return res.status(200).json({ ok: true, models: models || {} });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
+async function updateAiModelsEmpresaAdmin(req, res) {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'Falta id de empresa' });
+    const empresa = await obtenerEmpresaPorId(id);
+    if (!empresa) return res.status(404).json({ message: 'Empresa no encontrada' });
+    const body = req.body || {};
+    const models = await updateAiModels(id, body);
+    return res.status(200).json({ ok: true, models: models || {} });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
+module.exports = { listarEmpresasAdmin, metricasAdmin, actualizarEstadoEmpresaAdmin, actualizarPlanEmpresaAdmin, getAiModelsEmpresaAdmin, updateAiModelsEmpresaAdmin };

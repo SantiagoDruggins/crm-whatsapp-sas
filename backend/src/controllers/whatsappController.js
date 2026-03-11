@@ -13,7 +13,7 @@ const productoModel = require('../models/productoModel');
 const planModel = require('../models/planModel');
 const flowModel = require('../models/flowModel');
 const { generarRespuestaBot } = require('./iaController');
-const { getAiConfig, transcribeAudioGemini, textoAVozGemini } = require('../services/aiProviderService');
+const { getAiConfig, generateContent, transcribeAudioGemini, textoAVozGemini } = require('../services/aiProviderService');
 
 const CLOUD_API_BASE = (config.whatsapp && config.whatsapp.cloudApiBaseUrl) ? config.whatsapp.cloudApiBaseUrl.replace(/\/$/, '') : 'https://graph.facebook.com/v19.0';
 
@@ -597,6 +597,34 @@ async function cloudWebhookPost(req, res) {
               continue;
             }
 
+            // Router IA: clasifica el mensaje para usar modo/modelo (support/pedidos/agenda/humano)
+            let mode = 'support';
+            try {
+              const empresaFull = await obtenerEmpresaPorId(empresa.id);
+              const aiCfg = getAiConfig(empresaFull, config);
+              if (aiCfg?.provider === 'gemini' && aiCfg.apiKey) {
+                const routerModel = (empresaFull?.ai_model_router || 'gemini-2.5-flash').toString().trim() || 'gemini-2.5-flash';
+                const routerPrompt =
+                  'Eres un clasificador. Devuelve SOLO una palabra en mayúsculas: PEDIDOS, AGENDA, SOPORTE o HUMANO.\n' +
+                  'Reglas:\n' +
+                  '- PEDIDOS: intención de comprar, confirmar compra, precio + cierre, envío, dirección.\n' +
+                  '- AGENDA: agendar cita, instalar, reservar fecha/hora.\n' +
+                  '- HUMANO: pide agente, hablar con persona, queja fuerte.\n' +
+                  '- SOPORTE: resto.\n';
+                const r = await generateContent(
+                  { provider: aiCfg.provider, apiKey: aiCfg.apiKey, systemPrompt: routerPrompt, userMessage: contenidoEntrada },
+                  { ...config, gemini: { ...(config.gemini || {}), model: routerModel, maxOutputTokens: 32, temperature: 0 } }
+                );
+                const out = (r.text || '').trim().toUpperCase();
+                if (out.includes('PEDIDOS')) mode = 'pedidos';
+                else if (out.includes('AGENDA')) mode = 'agenda';
+                else if (out.includes('HUMANO')) mode = 'support'; // se atiende con bot pero ya marcamos pide agente por reglas previas
+                else mode = 'support';
+              }
+            } catch (eRoute) {
+              // si falla, seguir con soporte
+            }
+
             // Auto-crear pedido si el cliente confirma compra de un producto del catálogo
             try {
               const rPedido = await tryCrearPedidoDesdeWhatsapp({
@@ -627,7 +655,7 @@ async function cloudWebhookPost(req, res) {
             if (text && text.trim()) {
               let respuestaEnviada = null;
               try {
-                const { respuesta, error } = await generarRespuestaBot(empresa.id, text.trim(), { contactId: contacto.id, conversacionId: conversacion.id });
+                const { respuesta, error } = await generarRespuestaBot(empresa.id, text.trim(), { contactId: contacto.id, conversacionId: conversacion.id, mode });
                 if (respuesta && respuesta.trim()) {
                   const respuestaLimpia = await extraerYCrearCitaSiHay(empresa.id, contacto.id, respuesta.trim());
                   let textoEnviar = respuestaLimpia || respuesta.trim();

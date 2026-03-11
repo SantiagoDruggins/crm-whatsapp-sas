@@ -201,6 +201,33 @@ async function actualizarBranding(empresaId, { logoUrl }) {
   return result.rows[0] || null;
 }
 
+async function getAiModels(empresaId) {
+  const result = await query(
+    `SELECT ai_model_router, ai_model_support, ai_model_pedidos, ai_model_agenda, ai_model_transcribe, ai_model_tts
+     FROM empresas WHERE id = $1`,
+    [empresaId]
+  );
+  return result.rows[0] || null;
+}
+
+async function updateAiModels(empresaId, models = {}) {
+  const allowed = ['ai_model_router', 'ai_model_support', 'ai_model_pedidos', 'ai_model_agenda', 'ai_model_transcribe', 'ai_model_tts'];
+  const updates = [];
+  const values = [empresaId];
+  let i = 2;
+  for (const k of allowed) {
+    if (models[k] !== undefined) {
+      const v = (models[k] == null) ? null : String(models[k]).trim();
+      updates.push(`${k} = $${i}`);
+      values.push(v === '' ? null : v);
+      i++;
+    }
+  }
+  if (!updates.length) return await getAiModels(empresaId);
+  await query(`UPDATE empresas SET ${updates.join(', ')}, updated_at = now() WHERE id = $1`, values);
+  return await getAiModels(empresaId);
+}
+
 module.exports = {
   crearEmpresaConDemo,
   obtenerEmpresaPorEmail,
@@ -214,4 +241,6 @@ module.exports = {
   updateIntegracionesConfig,
   getEmpresaByShopifyShopDomain,
   actualizarBranding,
+  getAiModels,
+  updateAiModels,
 };
