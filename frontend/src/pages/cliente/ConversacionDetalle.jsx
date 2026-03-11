@@ -40,6 +40,14 @@ export default function ConversacionDetalle() {
     load();
   }, [id]);
 
+  const nombreContacto = useMemo(
+    () =>
+      conversacion
+        ? ([conversacion.contacto_nombre, conversacion.contacto_apellidos].filter(Boolean).join(' ').trim() || 'Contacto')
+        : 'Contacto',
+    [conversacion?.contacto_nombre, conversacion?.contacto_apellidos]
+  );
+
   const enviar = (e) => {
     e.preventDefault();
     if (!texto.trim()) return;
@@ -94,12 +102,6 @@ export default function ConversacionDetalle() {
     return u.startsWith('/') ? base + u : base + '/' + u;
   };
 
-  const nombreContacto = useMemo(
-    () =>
-      [conversacion.contacto_nombre, conversacion.contacto_apellidos].filter(Boolean).join(' ').trim() ||
-      'Contacto',
-    [conversacion.contacto_nombre, conversacion.contacto_apellidos]
-  );
   const telefono = conversacion.contacto_telefono;
 
   return (
