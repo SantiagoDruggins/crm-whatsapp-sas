@@ -11,8 +11,11 @@ function getImageSrc(imagenUrl) {
   if (!imagenUrl || !String(imagenUrl).trim()) return null;
   const u = String(imagenUrl).trim();
   if (u.startsWith('http://') || u.startsWith('https://')) return u;
+  // En producción, normalmente Nginx proxya /api al backend; por eso usamos /api/uploads
   const base = import.meta.env.VITE_UPLOADS_BASE || window.location.origin;
-  return u.startsWith('/') ? base + u : base + '/' + u;
+  const path = u.startsWith('/') ? u : '/' + u;
+  if (path.startsWith('/uploads/')) return `${base}/api${path}`;
+  return base + path;
 }
 
 export default function Catalogo() {
@@ -27,7 +30,10 @@ export default function Catalogo() {
   const load = () => {
     api
       .get('/crm/productos')
-      .then((r) => setItems(r.productos || []))
+      .then((r) => {
+        setError('');
+        setItems(r.productos || []);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   };

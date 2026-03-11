@@ -27,6 +27,16 @@ function haceCuanto(dateStr) {
   return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
 }
 
+function publicAssetUrl(url) {
+  if (!url || !String(url).trim()) return '';
+  const u = String(url).trim();
+  if (u.startsWith('http://') || u.startsWith('https://')) return u;
+  const base = import.meta.env.VITE_UPLOADS_BASE || window.location.origin;
+  const path = u.startsWith('/') ? u : '/' + u;
+  if (path.startsWith('/uploads/')) return `${base}/api${path}`;
+  return base + path;
+}
+
 const nav = [
   { path: '/dashboard', label: 'Panel' },
   { section: 'CRM' },
@@ -225,7 +235,7 @@ export default function LayoutCliente() {
           <Link to="/dashboard" className="flex items-center gap-2">
             {empresa.logo_url ? (
               <img
-                src={empresa.logo_url}
+                src={publicAssetUrl(empresa.logo_url)}
                 alt={empresa.nombre || 'Logo'}
                 className="h-9 w-9 rounded-lg bg-[#020617] object-contain border border-[#2d3a47]"
               />

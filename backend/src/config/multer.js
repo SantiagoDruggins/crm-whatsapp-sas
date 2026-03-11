@@ -71,7 +71,8 @@ const uploadBotConocimiento = multer({
 
 const uploadProductoImagen = multer({
   storage: storageProductos,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  // 15MB para evitar 413 en fotos grandes (servicios suelen tener banners pesados)
+  limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter(req, file, cb) {
     const ok = /\.(jpe?g|png|gif|webp)$/i.test(file.originalname) || (file.mimetype && file.mimetype.startsWith('image/'));
     if (ok) cb(null, true);

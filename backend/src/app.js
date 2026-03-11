@@ -30,6 +30,8 @@ app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+// Para despliegues donde Nginx solo proxya /api, también servimos uploads bajo /api/uploads
+app.use('/api/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -45,6 +47,14 @@ app.use('/api/integraciones-webhook', integracionesWebhookRoutes);
 app.get('/health', (req, res) => res.json({ status: 'ok', env: config.env }));
 
 app.use((err, req, res, next) => {
+  // Body demasiado grande (JSON)
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ message: 'Request Entity Too Large: el contenido excede el límite permitido.' });
+  }
+  // Multer: archivo demasiado grande
+  if (err && (err.code === 'LIMIT_FILE_SIZE' || err.message === 'File too large')) {
+    return res.status(413).json({ message: 'La imagen es demasiado pesada. Prueba con una más liviana (o comprímela).' });
+  }
   console.error('Error no capturado:', err);
   res.status(500).json({
     message: 'Error interno del servidor',
