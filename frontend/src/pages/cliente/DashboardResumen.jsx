@@ -20,13 +20,16 @@ function StepCard({ to, labelText, valueText, ctaText }) {
 
 export default function DashboardResumen() {
   const [data, setData] = useState(null);
+  const [activity, setActivity] = useState({ conversaciones: [], citas_proximas: [], pedidos_recientes: [], pide_agente_count: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api
-      .get('/dashboard')
-      .then(setData)
+    Promise.all([api.get('/dashboard'), api.get('/crm/actividad-reciente')])
+      .then(([dash, act]) => {
+        setData(dash);
+        setActivity(act || {});
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -36,6 +39,13 @@ export default function DashboardResumen() {
 
   const integraciones = data?.integraciones || {};
   const hasIntegraciones = integraciones.shopify_activo || integraciones.dropi_activo || integraciones.mastershop_activo;
+  const whatsappOk = data?.estadoWhatsapp === 'conectado';
+  const botOk = data?.estadoBot === 'activo';
+  const catalogOk = (data?.catalogoItemsActivos ?? 0) > 0;
+  const firstValueOk = whatsappOk && botOk && catalogOk;
+  const pideAgente = Number(activity?.pide_agente_count || 0);
+  const pedidosRecientes = Array.isArray(activity?.pedidos_recientes) ? activity.pedidos_recientes : [];
+  const citasProximas = Array.isArray(activity?.citas_proximas) ? activity.citas_proximas : [];
 
   return (
     <div>
@@ -43,6 +53,71 @@ export default function DashboardResumen() {
       <p className="text-[#8b9cad] text-sm mb-6">
         Resumen de tu cuenta y acceso rápido a todo el sistema: canal, IA, conversaciones, CRM, pedidos e integraciones.
       </p>
+
+      {/* Activación rápida */}
+      <div className="grid lg:grid-cols-3 gap-4 mb-8">
+        <div className={cardBase + ' lg:col-span-2'}>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-white font-semibold">Empieza aquí (10 minutos)</h2>
+              <p className="text-[#8b9cad] text-sm mt-1">Completa esto y ya puedes atender y vender por WhatsApp con IA.</p>
+            </div>
+            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${firstValueOk ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}`}>
+              {firstValueOk ? 'Listo para vender' : 'Pendiente'}
+            </span>
+          </div>
+          <div className="mt-4 grid sm:grid-cols-3 gap-3">
+            <Link to="/dashboard/whatsapp" className="rounded-xl border border-[#2d3a47] p-4 hover:border-[#00c896]/50">
+              <p className="text-sm text-white font-medium">1) WhatsApp</p>
+              <p className="text-xs text-[#8b9cad] mt-1">{whatsappOk ? 'Conectado' : 'Configura Cloud API y webhook'}</p>
+              <p className={cta}>{whatsappOk ? 'Ver estado →' : 'Configurar →'}</p>
+            </Link>
+            <Link to="/dashboard/ia" className="rounded-xl border border-[#2d3a47] p-4 hover:border-[#00c896]/50">
+              <p className="text-sm text-white font-medium">2) Bot IA</p>
+              <p className="text-xs text-[#8b9cad] mt-1">{botOk ? 'Activo' : 'Crea/activa tu bot'}</p>
+              <p className={cta}>{botOk ? 'Ajustar →' : 'Configurar →'}</p>
+            </Link>
+            <Link to="/dashboard/catalogo" className="rounded-xl border border-[#2d3a47] p-4 hover:border-[#00c896]/50">
+              <p className="text-sm text-white font-medium">3) Catálogo</p>
+              <p className="text-xs text-[#8b9cad] mt-1">{catalogOk ? `${data?.catalogoItemsActivos || 0} ítems activos` : 'Crea 2–3 productos/servicios'}</p>
+              <p className={cta}>Abrir →</p>
+            </Link>
+          </div>
+        </div>
+        <div className={cardBase}>
+          <h2 className="text-white font-semibold">Resultados (últimos 7 días)</h2>
+          <div className="mt-3 space-y-2 text-sm">
+            <div className="flex items-center justify-between"><span className="text-[#8b9cad]">Leads</span><span className="text-white font-medium">{data?.leadsNuevos7Dias ?? 0}</span></div>
+            <div className="flex items-center justify-between"><span className="text-[#8b9cad]">Pedidos</span><span className="text-white font-medium">{data?.pedidos7Dias ?? 0}</span></div>
+            <div className="flex items-center justify-between"><span className="text-[#8b9cad]">Citas</span><span className="text-white font-medium">{data?.citas7Dias ?? 0}</span></div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link to="/dashboard/conversaciones" className="text-xs text-[#00c896] hover:text-[#00e0a8]">Ver chats →</Link>
+            <Link to="/dashboard/pedidos" className="text-xs text-[#00c896] hover:text-[#00e0a8]">Ver pedidos →</Link>
+            <Link to="/dashboard/agenda" className="text-xs text-[#00c896] hover:text-[#00e0a8]">Ver agenda →</Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Prioridades */}
+      <h2 className="text-lg font-semibold text-white mb-3">Qué hacer hoy</h2>
+      <div className="grid md:grid-cols-3 gap-4 mb-8">
+        <Link to="/dashboard/pide-agente" className={cardLink}>
+          <p className={label}>Piden humano</p>
+          <p className={value}>{pideAgente > 0 ? `${pideAgente} sin atender` : '0'}</p>
+          <p className={cta}>Abrir bandeja →</p>
+        </Link>
+        <Link to="/dashboard/pedidos" className={cardLink}>
+          <p className={label}>Pedidos recientes</p>
+          <p className={value}>{pedidosRecientes.length ? `${pedidosRecientes.length} recientes` : 'Sin pedidos'}</p>
+          <p className={cta}>Revisar →</p>
+        </Link>
+        <Link to="/dashboard/agenda" className={cardLink}>
+          <p className={label}>Citas próximas</p>
+          <p className={value}>{citasProximas.length ? `${citasProximas.length} próximas` : 'Sin citas'}</p>
+          <p className={cta}>Ver agenda →</p>
+        </Link>
+      </div>
 
       {/* Métricas */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

@@ -17,6 +17,9 @@ async function getDashboardEmpresa(req, res) {
     if (!empresa) return res.status(404).json({ message: 'Empresa no encontrada' });
     let conversacionesStats = { abiertas: 0, pendientes: 0, cerradas: 0 };
     let leadsNuevos = 0;
+    let pedidos7Dias = 0;
+    let citas7Dias = 0;
+    let catalogoItems = 0;
     const { getWhatsappConfig } = require('../models/empresaModel');
     const { isCloudConfigurado } = require('./whatsappController');
     const waConfig = await getWhatsappConfig(empresaId);
@@ -31,6 +34,18 @@ async function getDashboardEmpresa(req, res) {
       leadsNuevos = Number(r.rows[0]?.leads_nuevos || 0);
     } catch (e) {}
     try {
+      const r = await query(`SELECT COUNT(*) AS total FROM pedidos WHERE empresa_id = $1 AND created_at >= now() - interval '7 days'`, [empresaId]);
+      pedidos7Dias = Number(r.rows[0]?.total || 0);
+    } catch (e) {}
+    try {
+      const r = await query(`SELECT COUNT(*) AS total FROM appointments WHERE empresa_id = $1 AND created_at >= now() - interval '7 days'`, [empresaId]);
+      citas7Dias = Number(r.rows[0]?.total || 0);
+    } catch (e) {}
+    try {
+      const r = await query(`SELECT COUNT(*) AS total FROM productos WHERE empresa_id = $1 AND activo = true`, [empresaId]);
+      catalogoItems = Number(r.rows[0]?.total || 0);
+    } catch (e) {}
+    try {
       const r = await query(`SELECT estado FROM bots WHERE empresa_id = $1 ORDER BY updated_at DESC LIMIT 1`, [empresaId]);
       botEstado = r.rows[0]?.estado || 'deshabilitado';
     } catch (e) {}
@@ -41,7 +56,26 @@ async function getDashboardEmpresa(req, res) {
       dropi_activo: !!empresa.dropi_activo,
       mastershop_activo: !!empresa.mastershop_activo,
     };
-    return res.json({ ok: true, empresa, estadoCuenta: empresa.estado, diasRestantes, diasDemoRestantes, conversaciones: { abiertas: Number(conversacionesStats.abiertas || 0), pendientes: Number(conversacionesStats.pendientes || 0), cerradas: Number(conversacionesStats.cerradas || 0) }, leadsNuevos7Dias: leadsNuevos, estadoWhatsapp: whatsappEstado, estadoBot: botEstado, planActual: empresa.plan, integraciones });
+    return res.json({
+      ok: true,
+      empresa,
+      estadoCuenta: empresa.estado,
+      diasRestantes,
+      diasDemoRestantes,
+      conversaciones: {
+        abiertas: Number(conversacionesStats.abiertas || 0),
+        pendientes: Number(conversacionesStats.pendientes || 0),
+        cerradas: Number(conversacionesStats.cerradas || 0)
+      },
+      leadsNuevos7Dias: leadsNuevos,
+      pedidos7Dias,
+      citas7Dias,
+      catalogoItemsActivos: catalogoItems,
+      estadoWhatsapp: whatsappEstado,
+      estadoBot: botEstado,
+      planActual: empresa.plan,
+      integraciones
+    });
   } catch (err) {
     console.error('getDashboardEmpresa', err);
     return res.status(500).json({ message: err.message || 'Error al obtener dashboard' });
