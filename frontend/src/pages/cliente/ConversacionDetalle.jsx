@@ -105,7 +105,7 @@ export default function ConversacionDetalle() {
   const telefono = conversacion.contacto_telefono;
 
   return (
-    <div className="flex flex-col min-h-[500px] bg-[#0b141a] rounded-xl border border-[#2d3a47] overflow-hidden shadow-lg">
+    <div className="flex flex-col flex-1 min-h-0 bg-[#0b141a] rounded-xl border border-[#2d3a47] overflow-hidden shadow-lg">
       {/* Header tipo WhatsApp */}
       <div className="h-14 px-4 flex items-center justify-between bg-[#202c33] border-b border-[#202c33]">
         <div className="flex items-center gap-3 min-w-0">
@@ -161,8 +161,8 @@ export default function ConversacionDetalle() {
         </div>
       )}
 
-      {/* Área de mensajes con fondo tipo WhatsApp */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 bg-[radial-gradient(circle_at_top,_#202c33_0,_#0b141a_55%,_#0b141a_100%)]">
+      {/* Área de mensajes con fondo tipo WhatsApp (solo esta zona hace scroll) */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-3 bg-[radial-gradient(circle_at_top,_#202c33_0,_#0b141a_55%,_#0b141a_100%)]">
         {mensajes.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <p className="text-[#8696a0] text-sm text-center px-4">
