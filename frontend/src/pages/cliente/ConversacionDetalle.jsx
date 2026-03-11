@@ -33,7 +33,7 @@ export default function ConversacionDetalle() {
       } else {
         setCitas([]);
       }
-    }).catch((e) => setError(e.message)).finally(() => setLoading(false));
+    }).catch((e) => setError(e?.message || (e && String(e)) || 'Error al cargar la conversación')).finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -57,9 +57,33 @@ export default function ConversacionDetalle() {
       .finally(() => setEnviando(false));
   };
 
-  if (loading) return <p className="text-[#8b9cad]">Cargando...</p>;
-  if (error) return <p className="text-[#f87171]">{error}</p>;
-  if (!conversacion) return <p className="text-[#8b9cad]">Conversación no encontrada.</p>;
+  if (loading) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center rounded-xl border border-[#2d3a47] bg-[#1a2129]">
+        <p className="text-[#8b9cad]">Cargando conversación...</p>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 rounded-xl border border-[#2d3a47] bg-[#1a2129] p-6">
+        <p className="text-[#f87171] text-center">{error}</p>
+        <button type="button" onClick={() => { setError(''); setLoading(true); load(); }} className="text-sm text-[#00c896] hover:text-[#00e0a8]">
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+  if (!conversacion) {
+    return (
+      <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 rounded-xl border border-[#2d3a47] bg-[#1a2129] p-6">
+        <p className="text-[#8b9cad]">Conversación no encontrada.</p>
+        <button type="button" onClick={() => navigate('/dashboard/conversaciones')} className="text-sm text-[#00c896] hover:text-[#00e0a8]">
+          Volver a conversaciones
+        </button>
+      </div>
+    );
+  }
 
   /** URL absoluta para reproducir audio/imagen (rutas /uploads/...). */
   const mediaSrc = (url) => {
@@ -79,7 +103,7 @@ export default function ConversacionDetalle() {
   const telefono = conversacion.contacto_telefono;
 
   return (
-    <div className="flex flex-col h-full min-h-[500px] bg-[#0b141a] rounded-xl border border-[#202c33] overflow-hidden">
+    <div className="flex flex-col min-h-[500px] bg-[#0b141a] rounded-xl border border-[#2d3a47] overflow-hidden shadow-lg">
       {/* Header tipo WhatsApp */}
       <div className="h-14 px-4 flex items-center justify-between bg-[#202c33] border-b border-[#202c33]">
         <div className="flex items-center gap-3 min-w-0">

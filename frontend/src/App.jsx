@@ -43,7 +43,7 @@ function App() {
         <Route index element={<DashboardResumen />} />
         <Route path="contactos" element={<ErrorBoundary><Contactos /></ErrorBoundary>} />
         <Route path="conversaciones" element={<Conversaciones />} />
-        <Route path="conversaciones/:id" element={<ConversacionDetalle />} />
+        <Route path="conversaciones/:id" element={<ErrorBoundary><ConversacionDetalle /></ErrorBoundary>} />
         <Route path="pide-agente" element={<PideAgente />} />
         <Route path="whatsapp" element={<WhatsApp />} />
         <Route path="ia" element={<BotIA />} />
