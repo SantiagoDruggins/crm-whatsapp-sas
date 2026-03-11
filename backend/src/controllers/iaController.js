@@ -33,7 +33,7 @@ async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
       const botRes = await query(`SELECT prompt_base, conocimiento FROM bots WHERE empresa_id = $1 AND estado = 'activo' ORDER BY created_at DESC LIMIT 1`, [empresaId]);
       bot = botRes.rows[0] || null;
       const catRes = await query(
-        `SELECT nombre, descripcion, precio, moneda, tipo, imagen_url
+        `SELECT id, nombre, descripcion, precio, moneda, tipo, imagen_url
          FROM productos
          WHERE empresa_id = $1 AND activo = true
          ORDER BY nombre ASC
@@ -76,6 +76,9 @@ async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
         '2) Confirma precio y qué incluye.\n' +
         '3) Pide datos mínimos: nombre, ciudad, dirección, barrio/punto de referencia, forma de pago.\n' +
         '4) Resume el pedido y confirma.\n' +
+        '5) Si el cliente confirma que lo quiere o pide comprar, añade AL FINAL una sola línea con el formato:\n' +
+        'PEDIDO:{"producto_id":"<id>","cantidad":1,"direccion":{"ciudad":"","direccion":"","barrio":"","referencia":""}}\n' +
+        'Usa el producto_id real (si el catálogo tiene id) o, si no lo tienes, NO pongas PEDIDO.\n' +
         'Sé directo y orientado a cierre.\n' +
         '--- FIN MODO PEDIDOS ---';
     }
@@ -93,7 +96,7 @@ async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
       const resumen = catalogo
         .map(
           (p, idx) =>
-            `${idx + 1}. (${p.tipo || 'producto'}) ${p.nombre} – ${Number(p.precio || 0).toLocaleString('es-CO')} ${p.moneda || 'COP'}${
+            `${idx + 1}. ID:${p.id} (${p.tipo || 'producto'}) ${p.nombre} – ${Number(p.precio || 0).toLocaleString('es-CO')} ${p.moneda || 'COP'}${
               p.descripcion ? `\n   ${p.descripcion}` : ''
             }${p.imagen_url ? `\n   Imagen: ${p.imagen_url}` : ''}`
         )

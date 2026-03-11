@@ -200,6 +200,67 @@ async function extraerYCrearCitaSiHay(empresaId, contactId, respuesta) {
   return respuesta.replace(regex, '').replace(/\n{2,}/g, '\n').trim();
 }
 
+/**
+ * Parsea respuesta del bot en busca de PEDIDO:{json}; crea el pedido y devuelve el mensaje sin esa línea.
+ * JSON esperado (mínimo): { "producto_id": "...", "cantidad": 1 }
+ */
+async function extraerYCrearPedidoSiHay(empresaId, contactId, conversacionId, respuesta) {
+  if (!respuesta || typeof respuesta !== 'string') return respuesta;
+  const regex = /PEDIDO:\s*(\{[\s\S]*?\})\s*$/im;
+  const match = respuesta.match(regex);
+  if (!match) return respuesta;
+  let payload = null;
+  try {
+    payload = JSON.parse(match[1]);
+  } catch (e) {
+    return respuesta.replace(regex, '').replace(/\n{2,}/g, '\n').trim();
+  }
+  const productoId = payload?.producto_id ? String(payload.producto_id).trim() : '';
+  const cantidad = Math.max(1, Number(payload?.cantidad || 1));
+  if (!productoId) return respuesta.replace(regex, '').replace(/\n{2,}/g, '\n').trim();
+  try {
+    const producto = await productoModel.obtener(empresaId, productoId);
+    if (!producto) return respuesta.replace(regex, '').replace(/\n{2,}/g, '\n').trim();
+
+    // Evitar duplicados recientes
+    const reciente = await pedidoModel.getRecientePorConversacionProducto(empresaId, conversacionId, productoId, { minutos: 15 });
+    if (!reciente?.id) {
+      const precio = Number(producto.precio) || 0;
+      const moneda = producto.moneda || 'COP';
+      const total = precio * cantidad;
+      const datos = {
+        origen: 'whatsapp_ai_struct',
+        producto_id: String(producto.id),
+        producto_nombre: producto.nombre || '',
+        tipo: producto.tipo || 'producto',
+        cantidad,
+        precio_unitario: precio,
+        moneda,
+        items: [
+          {
+            producto_id: String(producto.id),
+            nombre: producto.nombre || '',
+            cantidad,
+            precio_unitario: precio,
+            moneda,
+          },
+        ],
+      };
+      await pedidoModel.crear(empresaId, {
+        contacto_id: contactId,
+        conversacion_id: conversacionId,
+        estado: 'pendiente',
+        total,
+        datos,
+        direccion: payload?.direccion && typeof payload.direccion === 'object' ? payload.direccion : {},
+      });
+    }
+  } catch (e) {
+    console.warn('[WhatsApp] No se pudo crear pedido desde IA:', e.message);
+  }
+  return respuesta.replace(regex, '').replace(/\n{2,}/g, '\n').trim();
+}
+
 /** Obtiene la URL del medio de WhatsApp y descarga el contenido (para audios). */
 async function descargarMediaWhatsApp(mediaId, accessToken) {
   const urlMeta = `${CLOUD_API_BASE}/${mediaId}`;
@@ -659,6 +720,9 @@ async function cloudWebhookPost(req, res) {
                 if (respuesta && respuesta.trim()) {
                   const respuestaLimpia = await extraerYCrearCitaSiHay(empresa.id, contacto.id, respuesta.trim());
                   let textoEnviar = respuestaLimpia || respuesta.trim();
+                  if (mode === 'pedidos') {
+                    textoEnviar = await extraerYCrearPedidoSiHay(empresa.id, contacto.id, conversacion.id, textoEnviar);
+                  }
                   const baseUrl = (config.publicBaseUrl || config.whatsapp?.publicWebhookBaseUrl || '').replace(/\/$/, '');
                   const { textoLimpio, urlsImagen, urlsAudio } = extraerImagenesYAudiosDeRespuesta(textoEnviar, baseUrl);
                   textoEnviar = textoLimpio || textoEnviar;
