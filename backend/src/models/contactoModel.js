@@ -89,6 +89,7 @@ async function actualizar(empresaId, id, data) {
   const setClause = [];
   const values = [id, empresaId];
   let idx = 3;
+  let tagsValueIndex = -1;
   for (const key of updates) {
     if (data[key] !== undefined) {
       const isJsonb = key === 'tags';
@@ -102,6 +103,7 @@ async function actualizar(empresaId, id, data) {
         }
       }
       values.push(val);
+      if (isJsonb) tagsValueIndex = values.length - 1;
       idx++;
     }
   }
@@ -110,15 +112,20 @@ async function actualizar(empresaId, id, data) {
     return r.rows[0] ? sanitizarTagsEnContacto(r.rows[0]) : null;
   }
   setClause.push('updated_at = now()');
+  const sql = `UPDATE contactos SET ${setClause.join(', ')} WHERE id = $1 AND empresa_id = $2 RETURNING *`;
   try {
-    const result = await query(`UPDATE contactos SET ${setClause.join(', ')} WHERE id = $1 AND empresa_id = $2 RETURNING *`, values);
+    const result = await query(sql, values);
     return result.rows[0] ? sanitizarTagsEnContacto(result.rows[0]) : null;
   } catch (e) {
-    if (e.message && /invalid input syntax for type json/i.test(e.message) && data.tags !== undefined) {
-      const sinTags = { ...data };
-      delete sinTags.tags;
-      const fallback = await actualizar(empresaId, id, { ...sinTags, tags: [] });
-      if (fallback) return sanitizarTagsEnContacto(fallback);
+    if (e.message && /invalid input syntax for type json/i.test(e.message) && tagsValueIndex >= 0) {
+      const valuesFallback = [...values];
+      valuesFallback[tagsValueIndex] = '[]';
+      try {
+        const result = await query(sql, valuesFallback);
+        return result.rows[0] ? sanitizarTagsEnContacto(result.rows[0]) : null;
+      } catch (_) {
+        /* si sigue fallando se lanza el error original */
+      }
     }
     throw e;
   }
