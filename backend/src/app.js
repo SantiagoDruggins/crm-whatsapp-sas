@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const config = require('./config/env');
 const { iniciarCronSuscripciones } = require('./jobs/subscriptionCron');
+const { iniciarCronReporteSemanal } = require('./jobs/weeklyReportCron');
 
 const authRoutes = require('./routes/authRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
@@ -63,4 +64,5 @@ app.use((err, req, res, next) => {
 });
 
 iniciarCronSuscripciones();
+iniciarCronReporteSemanal();
 module.exports = app;
