@@ -13,13 +13,24 @@ async function countByEmpresa(empresaId) {
   }
 }
 
+function sanitizarTagsEnContacto(c) {
+  if (!c || typeof c !== 'object') return c;
+  const out = { ...c };
+  if (out.tags !== undefined && !Array.isArray(out.tags)) {
+    out.tags = normalizarTags(out.tags);
+  } else if (out.tags !== undefined && Array.isArray(out.tags)) {
+    out.tags = out.tags.map((t) => (typeof t === 'string' ? t.trim() : String(t))).filter(Boolean);
+  }
+  return out;
+}
+
 async function listar(empresaId, { limit = 50, offset = 0 } = {}) {
   try {
     const result = await query(
       `SELECT * FROM contactos WHERE empresa_id = $1 ORDER BY updated_at DESC NULLS LAST LIMIT $2 OFFSET $3`,
       [empresaId, limit, offset]
     );
-    return result.rows || [];
+    return (result.rows || []).map(sanitizarTagsEnContacto);
   } catch (e) {
     console.error('contactoModel.listar:', e.message);
     return [];
@@ -28,7 +39,8 @@ async function listar(empresaId, { limit = 50, offset = 0 } = {}) {
 
 async function getById(empresaId, id) {
   const result = await query(`SELECT * FROM contactos WHERE id = $1 AND empresa_id = $2`, [id, empresaId]);
-  return result.rows[0] || null;
+  const row = result.rows[0] || null;
+  return row ? sanitizarTagsEnContacto(row) : null;
 }
 
 async function getByTelefono(empresaId, telefono) {
@@ -95,11 +107,21 @@ async function actualizar(empresaId, id, data) {
   }
   if (setClause.length === 0) {
     const r = await query(`SELECT * FROM contactos WHERE id = $1 AND empresa_id = $2`, [id, empresaId]);
-    return r.rows[0] || null;
+    return r.rows[0] ? sanitizarTagsEnContacto(r.rows[0]) : null;
   }
   setClause.push('updated_at = now()');
-  const result = await query(`UPDATE contactos SET ${setClause.join(', ')} WHERE id = $1 AND empresa_id = $2 RETURNING *`, values);
-  return result.rows[0] || null;
+  try {
+    const result = await query(`UPDATE contactos SET ${setClause.join(', ')} WHERE id = $1 AND empresa_id = $2 RETURNING *`, values);
+    return result.rows[0] ? sanitizarTagsEnContacto(result.rows[0]) : null;
+  } catch (e) {
+    if (e.message && /invalid input syntax for type json/i.test(e.message) && data.tags !== undefined) {
+      const sinTags = { ...data };
+      delete sinTags.tags;
+      const fallback = await actualizar(empresaId, id, { ...sinTags, tags: [] });
+      if (fallback) return sanitizarTagsEnContacto(fallback);
+    }
+    throw e;
+  }
 }
 
 /** Actualiza last_message_at, last_message y last_interaction_at del contacto (tras nuevo mensaje). */
