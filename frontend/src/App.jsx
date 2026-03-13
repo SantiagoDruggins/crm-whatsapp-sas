@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Landing from './pages/Landing';
 import PoliticaPrivacidad from './pages/PoliticaPrivacidad';
+import CondicionesServicio from './pages/CondicionesServicio';
 import Registro from './pages/Registro';
 import Login from './pages/Login';
 import OlvidePassword from './pages/OlvidePassword';
@@ -35,6 +36,7 @@ function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/politica-de-privacidad" element={<PoliticaPrivacidad />} />
+      <Route path="/terminos" element={<CondicionesServicio />} />
       <Route path="/registro" element={<Registro />} />
       <Route path="/login" element={<Login />} />
       <Route path="/olvide-password" element={<OlvidePassword />} />

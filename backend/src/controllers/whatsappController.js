@@ -845,8 +845,18 @@ async function cloudStatus(req, res) {
     const empresaId = req.user.empresaId;
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
     const row = await getWhatsappConfig(empresaId);
+    const token = row?.whatsapp_cloud_access_token;
+    const phoneId = row?.whatsapp_cloud_phone_number_id;
     const configurado = isCloudConfigurado(row || {});
-    return res.status(200).json({ ok: true, configurado });
+    const facebookConectado = !!(token && !esPlaceholderToken(token));
+    const numeroConectado = !!(phoneId && !esPlaceholderPhoneId(phoneId));
+    return res.status(200).json({
+      ok: true,
+      configurado,
+      facebookConectado,
+      whatsappDetectado: configurado,
+      numeroConectado,
+    });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
   }

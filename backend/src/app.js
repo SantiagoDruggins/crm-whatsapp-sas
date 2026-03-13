@@ -9,6 +9,7 @@ const { iniciarCronReporteSemanal } = require('./jobs/weeklyReportCron');
 
 const authRoutes = require('./routes/authRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const facebookRoutes = require('./routes/facebookRoutes');
 const whatsappRoutes = require('./routes/whatsappRoutes');
 const crmRoutes = require('./routes/crmRoutes');
 const iaRoutes = require('./routes/iaRoutes');
@@ -36,6 +37,7 @@ app.use('/api/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/facebook', facebookRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/crm', crmRoutes);
 app.use('/api/ia', iaRoutes);

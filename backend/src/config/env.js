@@ -38,6 +38,12 @@ const config = {
     apiKey: process.env.GROK_API_KEY || '',
     model: process.env.GROK_MODEL || 'grok-2-latest'
   },
+  facebook: {
+    appId: (process.env.FACEBOOK_APP_ID || process.env.META_APP_ID || '').trim(),
+    appSecret: (process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET || '').trim(),
+    /** URL base pública (ej. https://dsgchatbot.pro) para redirect_uri del OAuth */
+    redirectUri: (process.env.PUBLIC_APP_URL || process.env.PUBLIC_API_URL || '').replace(/\/$/, '') + '/api/facebook/callback',
+  },
   whatsapp: {
     cloudVerifyToken: process.env.WHATSAPP_CLOUD_VERIFY_TOKEN || '',
     publicWebhookBaseUrl: (process.env.PUBLIC_API_URL || process.env.PUBLIC_WEBHOOK_BASE_URL || '').replace(/\/$/, ''),
