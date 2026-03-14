@@ -46,11 +46,31 @@ export default function WhatsApp() {
       setError('');
       loadStatus();
       window.history.replaceState({}, '', window.location.pathname);
+      // Si estamos en un popup (volvimos de Facebook), cerramos y el padre actualizará
+      if (window.opener) {
+        window.close();
+      }
     }
     if (err) {
-      setError(decodeURIComponent(err));
+      const msg = decodeURIComponent(err);
+      setError(msg);
       window.history.replaceState({}, '', window.location.pathname);
+      if (window.opener) {
+        try {
+          window.opener.postMessage({ type: 'facebook_oauth_error', error: msg }, '*');
+        } catch (_) {}
+        window.close();
+      }
     }
+  }, []);
+
+  // Escuchar error enviado desde el popup
+  useEffect(() => {
+    const onMessage = (e) => {
+      if (e.data?.type === 'facebook_oauth_error' && e.data?.error) setError(e.data.error);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
   }, []);
 
   const conectarConFacebook = () => {
@@ -59,8 +79,25 @@ export default function WhatsApp() {
     api
       .get('/facebook/auth-url')
       .then((r) => {
-        if (r.url) window.location.href = r.url;
-        else setError('No se pudo obtener la URL de conexión.');
+        if (!r.url) {
+          setError('No se pudo obtener la URL de conexión.');
+          return;
+        }
+        const w = window.open(
+          r.url,
+          'facebook_oauth',
+          'width=560,height=700,scrollbars=yes,resizable=yes,left=100,top=100'
+        );
+        if (!w) {
+          setError('Permite ventanas emergentes para este sitio o intenta de nuevo.');
+          return;
+        }
+        const interval = setInterval(() => {
+          if (w.closed) {
+            clearInterval(interval);
+            loadStatus();
+          }
+        }, 400);
       })
       .catch((e) => setError(e.message || 'Error al iniciar conexión'))
       .finally(() => setConectando(false));
@@ -149,10 +186,10 @@ export default function WhatsApp() {
               disabled={conectando}
               className="rounded-xl bg-[#1877f2] text-white font-semibold px-6 py-3 hover:bg-[#166fe5] disabled:opacity-50 inline-flex items-center gap-2"
             >
-              {conectando ? 'Redirigiendo...' : 'Conectar con Facebook'}
+              {conectando ? 'Abriendo ventana...' : 'Conectar con Facebook'}
             </button>
             <p className="text-[#8b9cad] text-xs mt-3">
-              Serás redirigido a Facebook para autorizar el acceso a tu WhatsApp Business. No compartimos tu información con terceros.
+              Se abrirá una ventana de Facebook para autorizar el acceso a tu WhatsApp Business. No compartimos tu información con terceros.
             </p>
           </div>
         ) : (
