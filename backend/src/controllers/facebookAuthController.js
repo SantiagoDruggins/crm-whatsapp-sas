@@ -40,9 +40,9 @@ async function getAuthUrl(req, res) {
       { expiresIn: '5m' }
     );
 
-    // Para evitar errores de \"Invalid Scopes\" mientras se aprueban permisos extra,
-    // usamos solo los scopes de WhatsApp necesarios para conectar el número.
-    const scope = 'whatsapp_business_management,whatsapp_business_messaging';
+    // Scopes válidos para Facebook Login OAuth. Los permisos de WhatsApp se obtienen
+    // después usando el access_token del usuario y la Graph API (Business Manager).
+    const scope = 'public_profile,email,business_management';
     const dialogBase = 'https://www.facebook.com/v19.0/dialog/oauth';
     const url = `${dialogBase}?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&response_type=code&state=${encodeURIComponent(state)}`;
 
