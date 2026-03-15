@@ -174,8 +174,126 @@ async function disconnect(req, res) {
   }
 }
 
+/**
+ * GET /api/facebook/embedded-signup-config
+ * Devuelve appId y configId para que el frontend inicie el SDK y lance Embedded Signup.
+ */
+async function getEmbeddedSignupConfig(req, res) {
+  try {
+    const appId = (config.facebook && config.facebook.appId) ? config.facebook.appId.trim() : '';
+    const configId = (config.facebook && config.facebook.embeddedSignupConfigId) ? config.facebook.embeddedSignupConfigId.trim() : '';
+    if (!appId || !configId) {
+      return res.status(404).json({
+        message: 'Embedded Signup no configurado. Definir FACEBOOK_APP_ID y FACEBOOK_EMBEDDED_SIGNUP_CONFIG_ID.',
+        useClassicOAuth: true,
+      });
+    }
+    return res.status(200).json({ appId, configId });
+  } catch (err) {
+    console.error('getEmbeddedSignupConfig', err);
+    return res.status(500).json({ message: err.message || 'Error al obtener configuración' });
+  }
+}
+
+/**
+ * POST /api/facebook/embedded-signup-complete
+ * Body: { code, phone_number_id }
+ * Intercambia el code de Embedded Signup por access_token y guarda token + phone_number_id en la empresa.
+ * redirect_uri vacío según documentación cuando el flujo se lanza con FB.login (Embedded Signup).
+ */
+async function embeddedSignupComplete(req, res) {
+  try {
+    const empresaId = req.user?.empresaId;
+    if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
+
+    const { code, phone_number_id: phoneNumberId } = req.body || {};
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ message: 'Falta el código de autorización (code)' });
+    }
+
+    const { appId, appSecret } = getAppCredentials();
+    if (!appId || !appSecret) {
+      return res.status(503).json({
+        message: 'Conexión con Facebook no configurada. Definir FACEBOOK_APP_ID y FACEBOOK_APP_SECRET.',
+      });
+    }
+
+    // Embedded Signup con SDK: redirect_uri suele ser vacío o el origen de la página
+    const tokenRes = await axios.get(`${FB_GRAPH}/oauth/access_token`, {
+      params: {
+        client_id: appId,
+        client_secret: appSecret,
+        code: code.trim(),
+        redirect_uri: '',
+      },
+    });
+    let accessToken = tokenRes.data?.access_token;
+    if (!accessToken) {
+      return res.status(400).json({
+        message: tokenRes.data?.error_message || 'No se pudo canjear el código por token. El código puede haber expirado (30 s).',
+      });
+    }
+
+    const longLivedRes = await axios.get(`${FB_GRAPH}/oauth/access_token`, {
+      params: {
+        grant_type: 'fb_exchange_token',
+        client_id: appId,
+        client_secret: appSecret,
+        fb_exchange_token: accessToken,
+      },
+    });
+    accessToken = longLivedRes.data?.access_token || accessToken;
+
+    let finalPhoneNumberId = phoneNumberId && String(phoneNumberId).trim();
+    if (!finalPhoneNumberId) {
+      const meRes = await axios.get(`${FB_GRAPH}/me`, {
+        params: {
+          fields: 'businesses{owned_whatsapp_business_accounts{id,name,phone_numbers}}',
+          access_token: accessToken,
+        },
+      });
+      const businesses = meRes.data?.businesses?.data;
+      if (Array.isArray(businesses) && businesses.length > 0) {
+        for (const biz of businesses) {
+          const wabas = biz.owned_whatsapp_business_accounts?.data;
+          if (Array.isArray(wabas) && wabas.length > 0) {
+            const wabaId = wabas[0].id;
+            const phoneRes = await axios.get(`${FB_GRAPH}/${wabaId}/phone_numbers`, {
+              params: { access_token: accessToken },
+            });
+            const phones = phoneRes.data?.data;
+            if (Array.isArray(phones) && phones.length > 0) {
+              finalPhoneNumberId = String(phones[0].id);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (!finalPhoneNumberId) {
+      return res.status(400).json({
+        message: 'No se encontró ningún número de WhatsApp Business. Completa el flujo de registro insertado con un número.',
+      });
+    }
+
+    await updateWhatsappConfig(empresaId, {
+      accessToken,
+      phoneNumberId: finalPhoneNumberId,
+    });
+
+    return res.status(200).json({ ok: true, configurado: true, message: 'WhatsApp conectado correctamente' });
+  } catch (err) {
+    console.error('embeddedSignupComplete', err);
+    const msg = err.response?.data?.error?.message || err.message || 'Error al completar la conexión';
+    return res.status(500).json({ message: String(msg) });
+  }
+}
+
 module.exports = {
   getAuthUrl,
   callback,
   disconnect,
+  getEmbeddedSignupConfig,
+  embeddedSignupComplete,
 };

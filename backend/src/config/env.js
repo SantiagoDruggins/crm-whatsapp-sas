@@ -43,6 +43,8 @@ const config = {
     appSecret: (process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET || '').trim(),
     /** URL base pública (ej. https://dsgchatbot.pro) para redirect_uri del OAuth */
     redirectUri: (process.env.PUBLIC_APP_URL || process.env.PUBLIC_API_URL || '').replace(/\/$/, '') + '/api/facebook/callback',
+    /** ID de configuración "Registro insertado" / Embedded Signup (ej. 9744). Si está definido, el front usará Embedded Signup en lugar del OAuth clásico. */
+    embeddedSignupConfigId: (process.env.FACEBOOK_EMBEDDED_SIGNUP_CONFIG_ID || '').trim(),
   },
   whatsapp: {
     cloudVerifyToken: process.env.WHATSAPP_CLOUD_VERIFY_TOKEN || '',

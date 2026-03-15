@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../../lib/api';
+
+const FB_SDK_URL = 'https://connect.facebook.net/en_US/sdk.js';
+const GRAPH_API_VERSION = 'v19.0';
 
 export default function WhatsApp() {
   const [loading, setLoading] = useState(true);
@@ -16,6 +19,9 @@ export default function WhatsApp() {
   const [conectando, setConectando] = useState(false);
   const [desconectando, setDesconectando] = useState(false);
   const [webhookConfig, setWebhookConfig] = useState({ webhookUrl: '', verifyToken: '' });
+  const [embeddedSignupConfig, setEmbeddedSignupConfig] = useState(null);
+  const embeddedSignupPending = useRef({ code: null, phoneNumberId: null });
+  const embeddedSignupCleanup = useRef(null);
 
   const loadStatus = () => {
     return api
@@ -35,6 +41,7 @@ export default function WhatsApp() {
     Promise.all([
       loadStatus(),
       api.get('/whatsapp/webhook-config').then((r) => setWebhookConfig({ webhookUrl: r.webhookUrl || '', verifyToken: r.verifyToken || '' })).catch(() => {}),
+      api.get('/facebook/embedded-signup-config').then((r) => setEmbeddedSignupConfig(r.appId && r.configId ? { appId: r.appId, configId: r.configId } : null)).catch(() => setEmbeddedSignupConfig(null)),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -73,9 +80,132 @@ export default function WhatsApp() {
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
+  const tryCompleteEmbeddedSignup = () => {
+    const { code, phoneNumberId } = embeddedSignupPending.current;
+    if (!code) return;
+    embeddedSignupPending.current = { code: null, phoneNumberId: null };
+    if (embeddedSignupCleanup.current) {
+      embeddedSignupCleanup.current();
+      embeddedSignupCleanup.current = null;
+    }
+    api
+      .post('/facebook/embedded-signup-complete', { code, phone_number_id: phoneNumberId })
+      .then(() => {
+        setError('');
+        loadStatus();
+      })
+      .catch((e) => setError(e.message || 'Error al completar la conexión'))
+      .finally(() => setConectando(false));
+  };
+
   const conectarConFacebook = () => {
     setConectando(true);
     setError('');
+    embeddedSignupPending.current = { code: null, phoneNumberId: null };
+
+    if (embeddedSignupConfig?.appId && embeddedSignupConfig?.configId) {
+      const runEmbeddedSignup = () => {
+        const onMessage = (event) => {
+          if (!event.origin || (!event.origin.endsWith('facebook.com') && !event.origin.endsWith('web.facebook.com'))) return;
+          try {
+            const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            if (data?.type !== 'WA_EMBEDDED_SIGNUP') return;
+            if (data.event === 'FINISH' || data.event === 'FINISH_ONLY_WABA' || data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
+              const phoneNumberId = data.data?.phone_number_id;
+              if (phoneNumberId) {
+                embeddedSignupPending.current.phoneNumberId = phoneNumberId;
+                tryCompleteEmbeddedSignup();
+              }
+            }
+          } catch (_) {}
+        };
+        window.addEventListener('message', onMessage);
+        embeddedSignupCleanup.current = () => window.removeEventListener('message', onMessage);
+
+        const fbLoginCallback = (response) => {
+          if (response.authResponse?.code) {
+            embeddedSignupPending.current.code = response.authResponse.code;
+            tryCompleteEmbeddedSignup();
+          } else if (response.status && response.status !== 'unknown') {
+            setError(response.error_message || 'No se pudo completar el inicio de sesión.');
+            setConectando(false);
+            if (embeddedSignupCleanup.current) {
+              embeddedSignupCleanup.current();
+              embeddedSignupCleanup.current = null;
+            }
+          }
+        };
+
+        if (typeof window.FB === 'undefined') {
+          setError('SDK de Facebook no cargado. Recarga la página e inténtalo de nuevo.');
+          setConectando(false);
+          if (embeddedSignupCleanup.current) {
+            embeddedSignupCleanup.current();
+            embeddedSignupCleanup.current = null;
+          }
+          return;
+        }
+        window.FB.init({
+          appId: embeddedSignupConfig.appId,
+          autoLogAppEvents: true,
+          xfbml: true,
+          version: GRAPH_API_VERSION,
+        });
+        window.FB.login(fbLoginCallback, {
+          config_id: embeddedSignupConfig.configId,
+          response_type: 'code',
+          override_default_response_type: true,
+          extras: { setup: {} },
+        });
+      };
+
+      if (typeof window.FB !== 'undefined') {
+        runEmbeddedSignup();
+        return;
+      }
+      window.fbAsyncInit = function () {
+        window.FB.init({
+          appId: embeddedSignupConfig.appId,
+          autoLogAppEvents: true,
+          xfbml: true,
+          version: GRAPH_API_VERSION,
+        });
+        runEmbeddedSignup();
+      };
+      const existing = document.querySelector('script[src="' + FB_SDK_URL + '"]');
+      if (existing) {
+        const check = setInterval(() => {
+          if (window.FB) {
+            clearInterval(check);
+            runEmbeddedSignup();
+          }
+        }, 100);
+        setTimeout(() => {
+          clearInterval(check);
+          if (!window.FB) {
+            setError('SDK de Facebook no cargó a tiempo. Recarga la página.');
+            setConectando(false);
+          }
+        }, 5000);
+        return;
+      }
+      const script = document.createElement('script');
+      script.async = true;
+      script.defer = true;
+      script.crossOrigin = 'anonymous';
+      script.src = FB_SDK_URL;
+      script.onload = () => {
+        if (window.FB) runEmbeddedSignup();
+        else setConectando(false);
+      };
+      script.onerror = () => {
+        setError('No se pudo cargar el SDK de Facebook.');
+        setConectando(false);
+      };
+      document.head.appendChild(script);
+      return;
+    }
+
     api
       .get('/facebook/auth-url')
       .then((r) => {
