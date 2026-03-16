@@ -309,17 +309,39 @@ export default function WhatsApp() {
         </ul>
 
         {!status.configurado ? (
-          <div>
-            <button
-              type="button"
-              onClick={conectarConFacebook}
-              disabled={conectando}
-              className="rounded-xl bg-[#1877f2] text-white font-semibold px-6 py-3 hover:bg-[#166fe5] disabled:opacity-50 inline-flex items-center gap-2"
-            >
-              {conectando ? 'Abriendo ventana...' : 'Conectar con Facebook'}
-            </button>
-            <p className="text-[#8b9cad] text-xs mt-3">
-              Se abrirá una ventana de Facebook para autorizar el acceso a tu WhatsApp Business. No compartimos tu información con terceros.
+          <div className="space-y-4">
+            <p className="text-[#8b9cad] text-sm mb-4">
+              Elige según tu caso: si ya tienes un número con la API de WhatsApp o si vas a registrar uno nuevo.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={conectarConFacebook}
+                disabled={conectando}
+                className="rounded-xl border-2 border-[#2d3a47] bg-[#1a2129] p-4 text-left hover:border-[#1877f2] hover:bg-[#1e2936] disabled:opacity-50 transition-colors"
+              >
+                <span className="text-lg font-semibold text-white block mb-1">Migrar número existente</span>
+                <span className="text-[#8b9cad] text-sm">
+                  Ya tengo un número de WhatsApp Business (API o proveedor). Conecto mi cuenta para usarlo en este CRM.
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={conectarConFacebook}
+                disabled={conectando}
+                className="rounded-xl border-2 border-[#2d3a47] bg-[#1a2129] p-4 text-left hover:border-[#1877f2] hover:bg-[#1e2936] disabled:opacity-50 transition-colors"
+              >
+                <span className="text-lg font-semibold text-white block mb-1">Registrar número nuevo</span>
+                <span className="text-[#8b9cad] text-sm">
+                  No tengo número en la API. Quiero registrar uno nuevo (virgen) desde cero con Meta.
+                </span>
+              </button>
+            </div>
+            {conectando && (
+              <p className="text-[#8b9cad] text-sm">Abriendo ventana de Facebook…</p>
+            )}
+            <p className="text-[#8b9cad] text-xs mt-2">
+              En ambos casos se abre la ventana de Meta. Allí podrás vincular tu número existente o crear uno nuevo. No compartimos tu información con terceros.
             </p>
           </div>
         ) : (
