@@ -295,9 +295,20 @@ async function embeddedSignupComplete(req, res) {
     }
 
     if (!finalPhoneNumberId) {
-      return res.status(400).json({
+      // En Embedded Signup es posible que el flujo finalice, pero Meta todavía no haya
+      // habilitado/propagado el phone_number_id (por ejemplo, si está en revisión).
+      // En vez de fallar duro, guardamos el token para reflejar avance en el panel
+      // y permitir reintentos más adelante.
+      await updateWhatsappConfig(empresaId, {
+        accessToken,
+        phoneNumberId: '',
+      });
+
+      return res.status(200).json({
+        ok: true,
+        configurado: false,
         message:
-          'No se encontró ningún número de WhatsApp Business. Completa el registro insertado añadiendo/verificando un número (o espera la revisión de Meta si está pendiente) y vuelve a intentar.',
+          'No se encontró todavía ningún phone_number_id. Guardé el acceso (Facebook conectado) y la revisión/propagación puede tardar. Reintenta en unos minutos u horas.',
       });
     }
 
