@@ -20,7 +20,7 @@ export default function WhatsApp() {
   const [desconectando, setDesconectando] = useState(false);
   const [webhookConfig, setWebhookConfig] = useState({ webhookUrl: '', verifyToken: '' });
   const [embeddedSignupConfig, setEmbeddedSignupConfig] = useState(null);
-  const embeddedSignupPending = useRef({ code: null, phoneNumberId: null });
+  const embeddedSignupPending = useRef({ code: null, phoneNumberId: null, wabaId: null });
   const embeddedSignupCleanup = useRef(null);
 
   const loadStatus = () => {
@@ -81,15 +81,15 @@ export default function WhatsApp() {
   }, []);
 
   const tryCompleteEmbeddedSignup = () => {
-    const { code, phoneNumberId } = embeddedSignupPending.current;
+    const { code, phoneNumberId, wabaId } = embeddedSignupPending.current;
     if (!code) return;
-    embeddedSignupPending.current = { code: null, phoneNumberId: null };
+    embeddedSignupPending.current = { code: null, phoneNumberId: null, wabaId: null };
     if (embeddedSignupCleanup.current) {
       embeddedSignupCleanup.current();
       embeddedSignupCleanup.current = null;
     }
     api
-      .post('/facebook/embedded-signup-complete', { code, phone_number_id: phoneNumberId })
+      .post('/facebook/embedded-signup-complete', { code, phone_number_id: phoneNumberId, waba_id: wabaId })
       .then(() => {
         setError('');
         loadStatus();
@@ -101,7 +101,7 @@ export default function WhatsApp() {
   const conectarConFacebook = () => {
     setConectando(true);
     setError('');
-    embeddedSignupPending.current = { code: null, phoneNumberId: null };
+    embeddedSignupPending.current = { code: null, phoneNumberId: null, wabaId: null };
 
     if (embeddedSignupConfig?.appId && embeddedSignupConfig?.configId) {
       const runEmbeddedSignup = () => {
@@ -112,10 +112,13 @@ export default function WhatsApp() {
             if (data?.type !== 'WA_EMBEDDED_SIGNUP') return;
             if (data.event === 'FINISH' || data.event === 'FINISH_ONLY_WABA' || data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
               const phoneNumberId = data.data?.phone_number_id;
+              const wabaId = data.data?.waba_id;
+              if (wabaId) embeddedSignupPending.current.wabaId = wabaId;
               if (phoneNumberId) {
                 embeddedSignupPending.current.phoneNumberId = phoneNumberId;
-                tryCompleteEmbeddedSignup();
               }
+              // En FINISH_ONLY_WABA puede no venir phone_number_id; el backend intentará resolverlo con waba_id.
+              tryCompleteEmbeddedSignup();
             }
           } catch (_) {}
         };

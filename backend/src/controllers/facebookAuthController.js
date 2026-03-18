@@ -197,7 +197,7 @@ async function getEmbeddedSignupConfig(req, res) {
 
 /**
  * POST /api/facebook/embedded-signup-complete
- * Body: { code, phone_number_id }
+ * Body: { code, phone_number_id?, waba_id? }
  * Intercambia el code de Embedded Signup por access_token y guarda token + phone_number_id en la empresa.
  * redirect_uri vacío según documentación cuando el flujo se lanza con FB.login (Embedded Signup).
  */
@@ -206,7 +206,7 @@ async function embeddedSignupComplete(req, res) {
     const empresaId = req.user?.empresaId;
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
 
-    const { code, phone_number_id: phoneNumberId } = req.body || {};
+    const { code, phone_number_id: phoneNumberId, waba_id: wabaId } = req.body || {};
     if (!code || typeof code !== 'string') {
       return res.status(400).json({ message: 'Falta el código de autorización (code)' });
     }
@@ -245,6 +245,19 @@ async function embeddedSignupComplete(req, res) {
     accessToken = longLivedRes.data?.access_token || accessToken;
 
     let finalPhoneNumberId = phoneNumberId && String(phoneNumberId).trim();
+    const providedWabaId = wabaId && String(wabaId).trim();
+
+    // Si tenemos waba_id pero no phone_number_id, intentamos resolverlo directamente.
+    if (!finalPhoneNumberId && providedWabaId) {
+      const phoneRes = await axios.get(`${FB_GRAPH}/${providedWabaId}/phone_numbers`, {
+        params: { access_token: accessToken },
+      });
+      const phones = phoneRes.data?.data;
+      if (Array.isArray(phones) && phones.length > 0) {
+        finalPhoneNumberId = String(phones[0].id);
+      }
+    }
+
     if (!finalPhoneNumberId) {
       const meRes = await axios.get(`${FB_GRAPH}/me`, {
         params: {
@@ -273,7 +286,8 @@ async function embeddedSignupComplete(req, res) {
 
     if (!finalPhoneNumberId) {
       return res.status(400).json({
-        message: 'No se encontró ningún número de WhatsApp Business. Completa el flujo de registro insertado con un número.',
+        message:
+          'No se encontró ningún número de WhatsApp Business. Completa el registro insertado añadiendo/verificando un número (o espera la revisión de Meta si está pendiente) y vuelve a intentar.',
       });
     }
 
