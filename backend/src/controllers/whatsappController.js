@@ -16,6 +16,10 @@ const { generarRespuestaBot } = require('./iaController');
 const { getAiConfig, generateContent, transcribeAudioGemini, textoAVozGemini } = require('../services/aiProviderService');
 
 const CLOUD_API_BASE = (config.whatsapp && config.whatsapp.cloudApiBaseUrl) ? config.whatsapp.cloudApiBaseUrl.replace(/\/$/, '') : 'https://graph.facebook.com/v19.0';
+const FB_GRAPH = 'https://graph.facebook.com/v19.0';
+
+// Evita spam de Graph API si el usuario refresca la pantalla repetidamente.
+const phoneResolveAttemptAt = new Map(); // empresaId -> timestamp(ms)
 
 /** IDs de mensajes ya procesados (evita doble respuesta por reintentos del webhook o ecos). */
 const processedMessageIds = new Set();
@@ -840,6 +844,39 @@ function isCloudConfigurado(wa) {
   return !!(token && !esPlaceholderToken(token) && phoneId && !esPlaceholderPhoneId(phoneId));
 }
 
+async function resolverPhoneNumberIdPorAccessToken(accessToken) {
+  // Intenta encontrar phone_number_id a partir de la WABA del usuario.
+  const meRes = await axios.get(`${FB_GRAPH}/me`, {
+    params: {
+      fields: 'businesses{owned_whatsapp_business_accounts{id,name,phone_numbers}}',
+      access_token: accessToken,
+    },
+  });
+
+  const businesses = meRes.data?.businesses?.data;
+  if (!Array.isArray(businesses) || businesses.length === 0) return null;
+
+  for (const biz of businesses) {
+    const wabas = biz.owned_whatsapp_business_accounts?.data;
+    if (!Array.isArray(wabas) || wabas.length === 0) continue;
+
+    for (const waba of wabas) {
+      const wabaId = waba?.id;
+      if (!wabaId) continue;
+
+      const phoneRes = await axios.get(`${FB_GRAPH}/${wabaId}/phone_numbers`, {
+        params: { access_token: accessToken },
+      });
+      const phones = phoneRes.data?.data;
+      if (Array.isArray(phones) && phones.length > 0) {
+        return String(phones[0].id);
+      }
+    }
+  }
+
+  return null;
+}
+
 async function cloudStatus(req, res) {
   try {
     const empresaId = req.user.empresaId;
@@ -847,9 +884,36 @@ async function cloudStatus(req, res) {
     const row = await getWhatsappConfig(empresaId);
     const token = row?.whatsapp_cloud_access_token;
     const phoneId = row?.whatsapp_cloud_phone_number_id;
-    const configurado = isCloudConfigurado(row || {});
+
+    // Si ya tenemos token pero todavía no tenemos phone_number_id, intentamos resolverlo
+    // automáticamente para que el panel se actualice sin que el usuario “reconecte”.
+    const needsResolvePhone = !!(
+      token &&
+      !esPlaceholderToken(token) &&
+      (!phoneId || esPlaceholderPhoneId(phoneId))
+    );
+
+    if (needsResolvePhone) {
+      const now = Date.now();
+      const lastAttempt = phoneResolveAttemptAt.get(empresaId) || 0;
+      // throttle: 2 minutos
+      if (now - lastAttempt > 2 * 60 * 1000) {
+        phoneResolveAttemptAt.set(empresaId, now);
+        try {
+          const resolvedPhoneId = await resolverPhoneNumberIdPorAccessToken(token);
+          if (resolvedPhoneId) {
+            await updateWhatsappConfig(empresaId, { phoneNumberId: resolvedPhoneId });
+          }
+        } catch (e) {
+          console.warn('[cloudStatus] resolverPhoneNumberIdPorAccessToken falló:', e.message || e);
+        }
+      }
+    }
+
+    const row2 = needsResolvePhone ? await getWhatsappConfig(empresaId) : row;
+    const configurado = isCloudConfigurado(row2 || {});
     const facebookConectado = !!(token && !esPlaceholderToken(token));
-    const numeroConectado = !!(phoneId && !esPlaceholderPhoneId(phoneId));
+    const numeroConectado = !!(row2?.whatsapp_cloud_phone_number_id && !esPlaceholderPhoneId(row2.whatsapp_cloud_phone_number_id));
     return res.status(200).json({
       ok: true,
       configurado,
