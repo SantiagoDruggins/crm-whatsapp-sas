@@ -218,6 +218,12 @@ async function embeddedSignupComplete(req, res) {
       });
     }
 
+    console.log('embeddedSignupComplete', {
+      empresaId,
+      hasPhoneNumberId: !!phoneNumberId,
+      hasWabaId: !!wabaId,
+    });
+
     // Embedded Signup con SDK: redirect_uri suele ser vacío o el origen de la página
     const tokenRes = await axios.get(`${FB_GRAPH}/oauth/access_token`, {
       params: {
@@ -253,6 +259,10 @@ async function embeddedSignupComplete(req, res) {
         params: { access_token: accessToken },
       });
       const phones = phoneRes.data?.data;
+      console.log('embeddedSignupComplete.waba.phone_numbers', {
+        wabaId: providedWabaId,
+        phonesCount: Array.isArray(phones) ? phones.length : 0,
+      });
       if (Array.isArray(phones) && phones.length > 0) {
         finalPhoneNumberId = String(phones[0].id);
       }

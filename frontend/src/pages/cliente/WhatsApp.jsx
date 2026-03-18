@@ -22,6 +22,7 @@ export default function WhatsApp() {
   const [embeddedSignupConfig, setEmbeddedSignupConfig] = useState(null);
   const embeddedSignupPending = useRef({ code: null, phoneNumberId: null, wabaId: null });
   const embeddedSignupCleanup = useRef(null);
+  const embeddedSignupInFlight = useRef(false);
 
   const loadStatus = () => {
     return api
@@ -83,7 +84,11 @@ export default function WhatsApp() {
   const tryCompleteEmbeddedSignup = () => {
     const { code, phoneNumberId, wabaId } = embeddedSignupPending.current;
     if (!code) return;
-    embeddedSignupPending.current = { code: null, phoneNumberId: null, wabaId: null };
+    // A veces el `code` llega antes que los IDs del número (o al revés). Esperamos
+    // hasta tener al menos `phone_number_id` o `waba_id` para poder resolver el número.
+    if (!phoneNumberId && !wabaId) return;
+    if (embeddedSignupInFlight.current) return;
+    embeddedSignupInFlight.current = true;
     if (embeddedSignupCleanup.current) {
       embeddedSignupCleanup.current();
       embeddedSignupCleanup.current = null;
@@ -93,15 +98,20 @@ export default function WhatsApp() {
       .then(() => {
         setError('');
         loadStatus();
+        embeddedSignupPending.current = { code: null, phoneNumberId: null, wabaId: null };
       })
       .catch((e) => setError(e.message || 'Error al completar la conexión'))
-      .finally(() => setConectando(false));
+      .finally(() => {
+        embeddedSignupInFlight.current = false;
+        setConectando(false);
+      });
   };
 
   const conectarConFacebook = () => {
     setConectando(true);
     setError('');
     embeddedSignupPending.current = { code: null, phoneNumberId: null, wabaId: null };
+    embeddedSignupInFlight.current = false;
 
     if (embeddedSignupConfig?.appId && embeddedSignupConfig?.configId) {
       const runEmbeddedSignup = () => {
