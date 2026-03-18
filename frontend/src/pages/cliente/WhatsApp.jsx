@@ -84,9 +84,6 @@ export default function WhatsApp() {
   const tryCompleteEmbeddedSignup = () => {
     const { code, phoneNumberId, wabaId } = embeddedSignupPending.current;
     if (!code) return;
-    // A veces el `code` llega antes que los IDs del número (o al revés). Esperamos
-    // hasta tener al menos `phone_number_id` o `waba_id` para poder resolver el número.
-    if (!phoneNumberId && !wabaId) return;
     if (embeddedSignupInFlight.current) return;
     embeddedSignupInFlight.current = true;
     if (embeddedSignupCleanup.current) {
