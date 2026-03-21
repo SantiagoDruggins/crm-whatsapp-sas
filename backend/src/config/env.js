@@ -52,11 +52,12 @@ const config = {
     /** ID de configuración "Registro insertado" en Meta (solo si useEmbeddedSignup=true). */
     embeddedSignupConfigId: (process.env.FACEBOOK_EMBEDDED_SIGNUP_CONFIG_ID || '').trim(),
     /**
-     * Permisos OAuth para leer negocios y WABA (callback intercambia code y busca phone_number_id).
-     * Ajusta en la app Meta (Permisos) y revisión de app si hace falta.
+     * Permisos OAuth. Si pides permisos que la app no tiene en Meta → "necesita al menos un supported permission".
+     * Por defecto: public_profile + business_management (para leer negocios/WABA en el callback).
+     * Opcional: añade whatsapp_business_management,whatsapp_business_messaging en .env cuando estén en la app.
      */
     oauthScopes: (process.env.FACEBOOK_OAUTH_SCOPES || '').trim() ||
-      'public_profile,business_management,whatsapp_business_management,whatsapp_business_messaging',
+      'public_profile,business_management',
   },
   whatsapp: {
     cloudVerifyToken: process.env.WHATSAPP_CLOUD_VERIFY_TOKEN || '',

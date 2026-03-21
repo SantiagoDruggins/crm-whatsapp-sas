@@ -42,7 +42,7 @@ async function getAuthUrl(req, res) {
 
     const scope =
       (config.facebook && config.facebook.oauthScopes) ||
-      'public_profile,business_management,whatsapp_business_management,whatsapp_business_messaging';
+      'public_profile,business_management';
     const dialogBase = 'https://www.facebook.com/v19.0/dialog/oauth';
     const url = `${dialogBase}?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&response_type=code&state=${encodeURIComponent(state)}`;
 
@@ -112,12 +112,27 @@ async function callback(req, res) {
     });
     accessToken = longLivedRes.data?.access_token || accessToken;
 
-    const meRes = await axios.get(`${FB_GRAPH}/me`, {
-      params: {
-        fields: 'businesses{owned_whatsapp_business_accounts{id,name,phone_numbers}}',
-        access_token: accessToken,
-      },
-    });
+    let meRes;
+    try {
+      meRes = await axios.get(`${FB_GRAPH}/me`, {
+        params: {
+          fields: 'businesses{owned_whatsapp_business_accounts{id,name,phone_numbers}}',
+          access_token: accessToken,
+        },
+      });
+    } catch (e) {
+      const graphMsg = e.response?.data?.error?.message || '';
+      const code = e.response?.data?.error?.code;
+      if (code === 100 || /permission|OAuth/i.test(String(graphMsg))) {
+        return res.redirect(
+          errorRedirect +
+            encodeURIComponent(
+              'Falta permiso en Meta para leer tu negocio. En developers.facebook.com activa "Gestión del negocio (business_management)" para esta app y en el servidor usa FACEBOOK_OAUTH_SCOPES=public_profile,business_management (o solo public_profile y vuelve a conectar tras activar el permiso).'
+            )
+        );
+      }
+      throw e;
+    }
     const businesses = meRes.data?.businesses?.data;
     let phoneNumberId = null;
     if (Array.isArray(businesses) && businesses.length > 0) {
