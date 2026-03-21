@@ -896,8 +896,8 @@ async function cloudStatus(req, res) {
     if (needsResolvePhone) {
       const now = Date.now();
       const lastAttempt = phoneResolveAttemptAt.get(empresaId) || 0;
-      // throttle: 2 minutos
-      if (now - lastAttempt > 2 * 60 * 1000) {
+      // throttle: ~45s (alineado con reintentos del panel)
+      if (now - lastAttempt > 45 * 1000) {
         phoneResolveAttemptAt.set(empresaId, now);
         try {
           const resolvedPhoneId = await resolverPhoneNumberIdPorAccessToken(token);
