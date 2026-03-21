@@ -43,8 +43,20 @@ const config = {
     appSecret: (process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET || '').trim(),
     /** URL base pública (ej. https://dsgchatbot.pro) para redirect_uri del OAuth */
     redirectUri: (process.env.PUBLIC_APP_URL || process.env.PUBLIC_API_URL || '').replace(/\/$/, '') + '/api/facebook/callback',
-    /** ID de configuración "Registro insertado" / Embedded Signup (ej. 9744). Si está definido, el front usará Embedded Signup en lugar del OAuth clásico. */
+    /**
+     * Embedded Signup (FB.login + config_id) solo está permitido por Meta para BSP / Tech Provider.
+     * Apps normales deben usar OAuth redirect (GET /auth-url). Por defecto: false.
+     * Pon true solo si tu app está aprobada como partner BSP/TP.
+     */
+    useEmbeddedSignup: process.env.FACEBOOK_USE_EMBEDDED_SIGNUP === 'true',
+    /** ID de configuración "Registro insertado" en Meta (solo si useEmbeddedSignup=true). */
     embeddedSignupConfigId: (process.env.FACEBOOK_EMBEDDED_SIGNUP_CONFIG_ID || '').trim(),
+    /**
+     * Permisos OAuth para leer negocios y WABA (callback intercambia code y busca phone_number_id).
+     * Ajusta en la app Meta (Permisos) y revisión de app si hace falta.
+     */
+    oauthScopes: (process.env.FACEBOOK_OAUTH_SCOPES || '').trim() ||
+      'public_profile,business_management,whatsapp_business_management,whatsapp_business_messaging',
   },
   whatsapp: {
     cloudVerifyToken: process.env.WHATSAPP_CLOUD_VERIFY_TOKEN || '',

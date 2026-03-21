@@ -40,9 +40,9 @@ async function getAuthUrl(req, res) {
       { expiresIn: '5m' }
     );
 
-    // Solo public_profile evita "Invalid Scopes"; con el token luego consultamos
-    // Graph API (businesses -> WABA -> phone_numbers). Si falla, valorar Embedded Signup.
-    const scope = 'public_profile';
+    const scope =
+      (config.facebook && config.facebook.oauthScopes) ||
+      'public_profile,business_management,whatsapp_business_management,whatsapp_business_messaging';
     const dialogBase = 'https://www.facebook.com/v19.0/dialog/oauth';
     const url = `${dialogBase}?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&response_type=code&state=${encodeURIComponent(state)}`;
 
@@ -181,14 +181,31 @@ async function disconnect(req, res) {
 async function getEmbeddedSignupConfig(req, res) {
   try {
     const appId = (config.facebook && config.facebook.appId) ? config.facebook.appId.trim() : '';
-    const configId = (config.facebook && config.facebook.embeddedSignupConfigId) ? config.facebook.embeddedSignupConfigId.trim() : '';
-    if (!appId || !configId) {
-      return res.status(404).json({
-        message: 'Embedded Signup no configurado. Definir FACEBOOK_APP_ID y FACEBOOK_EMBEDDED_SIGNUP_CONFIG_ID.',
+    const configId = (config.facebook && config.facebook.embeddedSignupConfigId)
+      ? config.facebook.embeddedSignupConfigId.trim()
+      : '';
+    const useEmbedded =
+      !!(config.facebook && config.facebook.useEmbeddedSignup && configId);
+
+    if (!appId) {
+      return res.status(503).json({
+        message: 'Facebook no configurado (FACEBOOK_APP_ID).',
         useClassicOAuth: true,
       });
     }
-    return res.status(200).json({ appId, configId });
+
+    // Meta: Embedded Signup solo para BSP / Tech Provider. Apps cliente usan OAuth redirect.
+    if (useEmbedded && configId) {
+      return res.status(200).json({ appId, configId, embedded: true });
+    }
+
+    return res.status(200).json({
+      appId,
+      configId: null,
+      embedded: false,
+      hint:
+        'OAuth estándar: Embedded Signup solo para partners BSP/TP en Meta. Activa FACEBOOK_USE_EMBEDDED_SIGNUP=true solo si tu app lo es.',
+    });
   } catch (err) {
     console.error('getEmbeddedSignupConfig', err);
     return res.status(500).json({ message: err.message || 'Error al obtener configuración' });

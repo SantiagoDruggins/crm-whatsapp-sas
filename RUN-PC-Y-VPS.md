@@ -167,6 +167,13 @@ En el VPS crea `backend/.env` a partir de `.env.example` y ajusta:
 - `PUBLIC_APP_URL=https://tudominio.com`
 - JWT, Gemini, WhatsApp, etc. con valores reales
 
+**Facebook / WhatsApp Cloud (conectar desde el CRM):**
+
+- En Meta for Developers, **Facebook Login** → URL de redirección OAuth válida: `https://tu-dominio/api/facebook/callback`.
+- **Embedded Signup** (Registro insertado con `FB.login` + `config_id`) en la práctica **solo Meta lo permite a apps BSP / Tech Provider**. Si ves *"Embedded signup is only available for BSPs or TPs"*, es **normal** para una app estándar: el CRM usa **OAuth en ventana** (redirect).
+- **No** hace falta `FACEBOOK_USE_EMBEDDED_SIGNUP` salvo que seas partner; por defecto va en **false** (OAuth clásico).
+- En `backend/.env` (VPS): `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `PUBLIC_APP_URL`. Opcional: `FACEBOOK_OAUTH_SCOPES` si Meta devuelve *Invalid Scopes* (añade los permisos en la app y revisión si aplica).
+
 ### 2.2 Backend en el VPS
 
 ```bash

@@ -20,6 +20,8 @@ export default function WhatsApp() {
   const [desconectando, setDesconectando] = useState(false);
   const [webhookConfig, setWebhookConfig] = useState({ webhookUrl: '', verifyToken: '' });
   const [embeddedSignupConfig, setEmbeddedSignupConfig] = useState(null);
+  /** Texto opcional del backend (ej. OAuth clásico vs Embedded solo BSP) */
+  const [facebookConnectHint, setFacebookConnectHint] = useState('');
   const embeddedSignupPending = useRef({ code: null, phoneNumberId: null, wabaId: null });
   const embeddedSignupCleanup = useRef(null);
   const embeddedSignupInFlight = useRef(false);
@@ -44,7 +46,16 @@ export default function WhatsApp() {
     Promise.all([
       loadStatus(),
       api.get('/whatsapp/webhook-config').then((r) => setWebhookConfig({ webhookUrl: r.webhookUrl || '', verifyToken: r.verifyToken || '' })).catch(() => {}),
-      api.get('/facebook/embedded-signup-config').then((r) => setEmbeddedSignupConfig(r.appId && r.configId ? { appId: r.appId, configId: r.configId } : null)).catch(() => setEmbeddedSignupConfig(null)),
+      api
+        .get('/facebook/embedded-signup-config')
+        .then((r) => {
+          setFacebookConnectHint(typeof r.hint === 'string' ? r.hint : '');
+          setEmbeddedSignupConfig(r.appId && r.configId ? { appId: r.appId, configId: r.configId } : null);
+        })
+        .catch(() => {
+          setEmbeddedSignupConfig(null);
+          setFacebookConnectHint('');
+        }),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -305,6 +316,11 @@ export default function WhatsApp() {
         <p className="text-[#8b9cad] text-sm">
           Conecta tu cuenta de Facebook para administrar tu WhatsApp Business directamente desde el CRM. Solo toma unos segundos.
         </p>
+        {facebookConnectHint && (
+          <p className="text-[#8b9cad] text-xs mt-2 max-w-2xl border border-[#2d3a47] rounded-lg p-3 bg-[#151a20]">
+            {facebookConnectHint}
+          </p>
+        )}
       </div>
 
       {error && (
