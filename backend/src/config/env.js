@@ -52,6 +52,13 @@ const config = {
     /** ID de configuración "Registro insertado" en Meta (solo si useEmbeddedSignup=true). */
     embeddedSignupConfigId: (process.env.FACEBOOK_EMBEDDED_SIGNUP_CONFIG_ID || '').trim(),
     /**
+     * Facebook Login for Business (app tipo Negocios): config_id de la configuración creada en
+     * Meta → Facebook Login for Business → Configuraciones. Sin esto Meta suele mostrar
+     * "necesita al menos un supported permission" al usar solo ?scope=...
+     * NO es el mismo ID que Embedded Signup de WhatsApp (BSP).
+     */
+    businessLoginConfigId: (process.env.FACEBOOK_BUSINESS_LOGIN_CONFIG_ID || '').trim(),
+    /**
      * Permisos OAuth. Si pides permisos que la app no tiene en Meta → "necesita al menos un supported permission".
      * Por defecto: public_profile + business_management (para leer negocios/WABA en el callback).
      * Opcional: añade whatsapp_business_management,whatsapp_business_messaging en .env cuando estén en la app.

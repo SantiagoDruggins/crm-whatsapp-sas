@@ -40,13 +40,28 @@ async function getAuthUrl(req, res) {
       { expiresIn: '5m' }
     );
 
+    const dialogBase = 'https://www.facebook.com/v19.0/dialog/oauth';
+    const businessCfg =
+      config.facebook && config.facebook.businessLoginConfigId
+        ? String(config.facebook.businessLoginConfigId).trim()
+        : '';
+
+    // Apps "Negocios": Meta pide Facebook Login for Business con config_id (permisos definidos en esa configuración).
+    // Sin config_id, el diálogo a veces falla con "necesita al menos un supported permission".
+    if (businessCfg) {
+      const url = `${dialogBase}?client_id=${encodeURIComponent(appId)}&config_id=${encodeURIComponent(businessCfg)}&response_type=code&override_default_response_type=true&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
+      return res.status(200).json({
+        url,
+        mode: 'facebook_login_for_business',
+      });
+    }
+
     const scope =
       (config.facebook && config.facebook.oauthScopes) ||
       'public_profile,business_management';
-    const dialogBase = 'https://www.facebook.com/v19.0/dialog/oauth';
     const url = `${dialogBase}?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&response_type=code&state=${encodeURIComponent(state)}`;
 
-    return res.status(200).json({ url });
+    return res.status(200).json({ url, mode: 'scope' });
   } catch (err) {
     console.error('getAuthUrl', err);
     return res.status(500).json({ message: err.message || 'Error al generar URL' });
@@ -219,7 +234,7 @@ async function getEmbeddedSignupConfig(req, res) {
       configId: null,
       embedded: false,
       hint:
-        'OAuth estándar: Embedded Signup solo para partners BSP/TP en Meta. Activa FACEBOOK_USE_EMBEDDED_SIGNUP=true solo si tu app lo es.',
+        'OAuth estándar: Embedded Signup solo para partners BSP/TP en Meta. Si el popup dice "supported permission", crea en Meta una configuración de Facebook Login for Business y define FACEBOOK_BUSINESS_LOGIN_CONFIG_ID en el servidor (no es el Registro insertado de WhatsApp).',
     });
   } catch (err) {
     console.error('getEmbeddedSignupConfig', err);
