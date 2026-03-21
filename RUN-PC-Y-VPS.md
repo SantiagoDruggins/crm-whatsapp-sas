@@ -173,6 +173,7 @@ En el VPS crea `backend/.env` a partir de `.env.example` y ajusta:
 - **Embedded Signup** (Registro insertado con `FB.login` + `config_id`) en la práctica **solo Meta lo permite a apps BSP / Tech Provider**. Si ves *"Embedded signup is only available for BSPs or TPs"*, es **normal** para una app estándar: el CRM usa **OAuth en ventana** (redirect).
 - **No** hace falta `FACEBOOK_USE_EMBEDDED_SIGNUP` salvo que seas partner; por defecto va en **false** (OAuth clásico).
 - En `backend/.env` (VPS): `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `PUBLIC_APP_URL`. Opcional: `FACEBOOK_OAUTH_SCOPES` si Meta devuelve *Invalid Scopes* (añade los permisos en la app y revisión si aplica).
+- El **frontend** ya no usa Embedded Signup salvo que en el build exista `VITE_USE_EMBEDDED_SIGNUP=true` (solo BSP/TP). Tras `git pull`, ejecuta siempre `npm run build` en `frontend` para que deje de salir el error *BSPs or TPs*.
 
 ### 2.2 Backend en el VPS
 

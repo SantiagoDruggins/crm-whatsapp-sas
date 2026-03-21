@@ -4,6 +4,14 @@ import { api } from '../../lib/api';
 const FB_SDK_URL = 'https://connect.facebook.net/en_US/sdk.js';
 const GRAPH_API_VERSION = 'v19.0';
 
+/**
+ * Meta solo permite Embedded Signup (FB.login + config_id) a apps BSP/TP.
+ * Por defecto false: siempre OAuth en ventana (redirect). Solo pon
+ * VITE_USE_EMBEDDED_SIGNUP=true en build si eres partner y lo necesitas.
+ */
+const USE_EMBEDDED_SIGNUP_UI =
+  typeof import.meta !== 'undefined' && import.meta.env?.VITE_USE_EMBEDDED_SIGNUP === 'true';
+
 export default function WhatsApp() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -50,7 +58,9 @@ export default function WhatsApp() {
         .get('/facebook/embedded-signup-config')
         .then((r) => {
           setFacebookConnectHint(typeof r.hint === 'string' ? r.hint : '');
-          setEmbeddedSignupConfig(r.appId && r.configId ? { appId: r.appId, configId: r.configId } : null);
+          setEmbeddedSignupConfig(
+            USE_EMBEDDED_SIGNUP_UI && r.appId && r.configId ? { appId: r.appId, configId: r.configId } : null
+          );
         })
         .catch(() => {
           setEmbeddedSignupConfig(null);
@@ -145,7 +155,7 @@ export default function WhatsApp() {
     embeddedSignupPending.current = { code: null, phoneNumberId: null, wabaId: null };
     embeddedSignupInFlight.current = false;
 
-    if (embeddedSignupConfig?.appId && embeddedSignupConfig?.configId) {
+    if (USE_EMBEDDED_SIGNUP_UI && embeddedSignupConfig?.appId && embeddedSignupConfig?.configId) {
       const runEmbeddedSignup = () => {
         const onMessage = (event) => {
           if (!event.origin || (!event.origin.endsWith('facebook.com') && !event.origin.endsWith('web.facebook.com'))) return;
