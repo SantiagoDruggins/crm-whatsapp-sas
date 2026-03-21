@@ -926,6 +926,25 @@ async function cloudStatus(req, res) {
   }
 }
 
+/**
+ * GET /whatsapp/config — datos para el formulario manual (nunca devuelve el token completo).
+ */
+async function cloudConfigGet(req, res) {
+  try {
+    const empresaId = req.user.empresaId;
+    if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
+    const row = await getWhatsappConfig(empresaId);
+    const token = row?.whatsapp_cloud_access_token;
+    const phoneId = row?.whatsapp_cloud_phone_number_id;
+    return res.status(200).json({
+      phoneNumberId: phoneId && !esPlaceholderPhoneId(phoneId) ? String(phoneId) : '',
+      hasAccessToken: !!(token && !esPlaceholderToken(token)),
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
 async function cloudConfigUpdate(req, res) {
   try {
     const empresaId = req.user.empresaId;
@@ -995,6 +1014,7 @@ module.exports = {
   cloudWebhookPost,
   cloudWebhookConfig,
   cloudStatus,
+  cloudConfigGet,
   cloudConfigUpdate,
   cloudSend,
   isCloudConfigurado,

@@ -35,6 +35,11 @@ export default function WhatsApp() {
   const embeddedSignupInFlight = useRef(false);
   /** Mientras Meta propague el número, reintentamos estado sin otro clic */
   const [syncingMeta, setSyncingMeta] = useState(false);
+  /** Configuración manual Cloud API (token + Phone Number ID desde Meta) */
+  const [manualPhoneId, setManualPhoneId] = useState('');
+  const [manualToken, setManualToken] = useState('');
+  const [manualHasToken, setManualHasToken] = useState(false);
+  const [manualSaving, setManualSaving] = useState(false);
 
   const loadStatus = () => {
     return api
@@ -50,9 +55,19 @@ export default function WhatsApp() {
       .catch(() => setStatus({ configurado: false, facebookConectado: false, whatsappDetectado: false, numeroConectado: false }));
   };
 
+  const loadManualConfig = () =>
+    api
+      .get('/whatsapp/config')
+      .then((r) => {
+        setManualPhoneId(r.phoneNumberId || '');
+        setManualHasToken(!!r.hasAccessToken);
+      })
+      .catch(() => {});
+
   useEffect(() => {
     Promise.all([
       loadStatus(),
+      loadManualConfig(),
       api.get('/whatsapp/webhook-config').then((r) => setWebhookConfig({ webhookUrl: r.webhookUrl || '', verifyToken: r.verifyToken || '' })).catch(() => {}),
       api
         .get('/facebook/embedded-signup-config')
@@ -292,13 +307,42 @@ export default function WhatsApp() {
       .finally(() => setConectando(false));
   };
 
+  const guardarConfigManual = (e) => {
+    e.preventDefault();
+    setError('');
+    const phone = manualPhoneId.trim();
+    if (!phone) {
+      setError('Indica el Phone Number ID de Meta.');
+      return;
+    }
+    const tok = manualToken.trim();
+    if (!manualHasToken && !tok) {
+      setError('Pega el Access Token permanente (desde Meta → WhatsApp → API).');
+      return;
+    }
+    setManualSaving(true);
+    const body = { phoneNumberId: phone };
+    if (tok) body.accessToken = tok;
+    api
+      .patch('/whatsapp/config', body)
+      .then(() => {
+        setError('');
+        setManualToken('');
+        setManualHasToken(true);
+        loadStatus();
+        loadManualConfig();
+      })
+      .catch((err) => setError(err.message || 'No se pudo guardar'))
+      .finally(() => setManualSaving(false));
+  };
+
   const desconectar = () => {
     if (!window.confirm('¿Desconectar la cuenta de Facebook/WhatsApp? Dejarás de recibir y enviar mensajes hasta que vuelvas a conectar.')) return;
     setDesconectando(true);
     setError('');
     api
       .delete('/facebook/disconnect')
-      .then(() => loadStatus())
+      .then(() => loadStatus().then(() => loadManualConfig()))
       .catch((e) => setError(e.message || 'Error al desconectar'))
       .finally(() => setDesconectando(false));
   };
@@ -425,6 +469,51 @@ export default function WhatsApp() {
             </button>
           </div>
         )}
+
+        <details className="mt-6 rounded-xl border border-[#2d3a47] bg-[#151a20] p-4 open:border-[#3d4f63]">
+          <summary className="text-white font-medium cursor-pointer select-none">
+            Configurar API manualmente (sin conectar Facebook aquí)
+          </summary>
+          <p className="text-[#8b9cad] text-sm mt-3 mb-4">
+            Cada cliente puede usar <strong className="text-[#cbd5e0]">su propia</strong> app de Meta o un token del Administrador comercial. En Meta:{' '}
+            <strong className="text-[#cbd5e0]">WhatsApp → API de la nube</strong> copia el{' '}
+            <strong className="text-[#cbd5e0]">Phone number ID</strong> y un <strong className="text-[#cbd5e0]">Access token</strong> permanente (o de sistema) con permisos de WhatsApp.
+            Pon el mismo <strong className="text-[#cbd5e0]">webhook</strong> que indica la sección técnica de abajo.
+          </p>
+          <form onSubmit={guardarConfigManual} className="space-y-3 max-w-lg">
+            <div>
+              <label className="block text-[#8b9cad] text-xs mb-1">Phone Number ID</label>
+              <input
+                type="text"
+                value={manualPhoneId}
+                onChange={(e) => setManualPhoneId(e.target.value)}
+                placeholder="Ej: 123456789012345"
+                className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a] font-mono text-sm"
+                autoComplete="off"
+              />
+            </div>
+            <div>
+              <label className="block text-[#8b9cad] text-xs mb-1">
+                Access Token {manualHasToken && <span className="text-emerald-500/90">(ya guardado — pega solo si quieres cambiarlo)</span>}
+              </label>
+              <input
+                type="password"
+                value={manualToken}
+                onChange={(e) => setManualToken(e.target.value)}
+                placeholder={manualHasToken ? 'Dejar vacío para mantener el actual' : 'Token largo permanente de Meta'}
+                className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a] font-mono text-sm"
+                autoComplete="new-password"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={manualSaving}
+              className="rounded-xl bg-[#2d3a47] text-white font-medium px-4 py-2 hover:bg-[#3d4f63] disabled:opacity-50"
+            >
+              {manualSaving ? 'Guardando...' : 'Guardar credenciales Cloud API'}
+            </button>
+          </form>
+        </details>
       </div>
 
       {status.configurado && (
