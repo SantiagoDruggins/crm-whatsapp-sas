@@ -23,6 +23,10 @@ export default function WhatsApp() {
   const embeddedSignupPending = useRef({ code: null, phoneNumberId: null, wabaId: null });
   const embeddedSignupCleanup = useRef(null);
   const embeddedSignupInFlight = useRef(false);
+  const [manualPhoneId, setManualPhoneId] = useState('');
+  const [manualAccessToken, setManualAccessToken] = useState('');
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualMsg, setManualMsg] = useState('');
 
   const loadStatus = () => {
     return api
@@ -243,6 +247,31 @@ export default function WhatsApp() {
       .finally(() => setConectando(false));
   };
 
+  const guardarManual = (e) => {
+    e.preventDefault();
+    const pid = manualPhoneId.trim();
+    const tok = manualAccessToken.trim();
+    if (!pid) {
+      setManualMsg('Pega el Phone Number ID (número largo que sale en Meta).');
+      return;
+    }
+    setManualSaving(true);
+    setManualMsg('');
+    setError('');
+    const body = { phoneNumberId: pid };
+    if (tok) body.accessToken = tok;
+    api
+      .patch('/whatsapp/config', body)
+      .then((r) => {
+        setManualMsg(r.message || 'Guardado. Actualizando estado…');
+        setManualPhoneId('');
+        setManualAccessToken('');
+        loadStatus();
+      })
+      .catch((err) => setManualMsg(err.message || 'Error al guardar'))
+      .finally(() => setManualSaving(false));
+  };
+
   const desconectar = () => {
     if (!window.confirm('¿Desconectar la cuenta de Facebook/WhatsApp? Dejarás de recibir y enviar mensajes hasta que vuelvas a conectar.')) return;
     setDesconectando(true);
@@ -353,6 +382,49 @@ export default function WhatsApp() {
             <p className="text-[#8b9cad] text-xs mt-2">
               En ambos casos se abre la ventana de Meta. Allí podrás vincular tu número existente o crear uno nuevo. No compartimos tu información con terceros.
             </p>
+
+            <details className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+              <summary className="text-amber-200/90 text-sm font-medium cursor-pointer select-none">
+                Meta dice “conectado” pero aquí sigue en gris → conexión manual
+              </summary>
+              <p className="text-[#8b9cad] text-xs mt-3 mb-3">
+                En{' '}
+                <a
+                  href="https://developers.facebook.com/apps"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#00c896] hover:underline"
+                >
+                  Meta for Developers
+                </a>
+                : tu app → producto <strong className="text-white">WhatsApp</strong> → <strong className="text-white">API Setup</strong>. Copia el{' '}
+                <strong className="text-white">Phone number ID</strong> y, si hace falta, un <strong className="text-white">Access token</strong> de larga duración (o el temporal para probar). Si el panel ya muestra “Facebook conectado”, puedes pegar <strong className="text-white">solo el Phone number ID</strong>.
+              </p>
+              <form onSubmit={guardarManual} className="flex flex-col gap-3 max-w-xl">
+                <input
+                  type="text"
+                  value={manualPhoneId}
+                  onChange={(e) => setManualPhoneId(e.target.value)}
+                  placeholder="Phone number ID (solo números, ej. 10xxxxxxxxxxxxx)"
+                  className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a] font-mono text-sm"
+                />
+                <textarea
+                  value={manualAccessToken}
+                  onChange={(e) => setManualAccessToken(e.target.value)}
+                  placeholder="Access token (opcional si ya quedó guardado al conectar Facebook)"
+                  rows={3}
+                  className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a] font-mono text-xs"
+                />
+                <button
+                  type="submit"
+                  disabled={manualSaving}
+                  className="rounded-xl bg-amber-600/80 text-white font-semibold px-4 py-2 hover:bg-amber-600 disabled:opacity-50 w-fit text-sm"
+                >
+                  {manualSaving ? 'Guardando…' : 'Guardar Phone number ID'}
+                </button>
+                {manualMsg && <p className="text-sm text-amber-200/90">{manualMsg}</p>}
+              </form>
+            </details>
           </div>
         ) : (
           <div className="flex flex-wrap gap-3">
