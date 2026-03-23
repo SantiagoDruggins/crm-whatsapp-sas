@@ -28,6 +28,8 @@ export default function WhatsApp() {
   const [desconectando, setDesconectando] = useState(false);
   const [webhookConfig, setWebhookConfig] = useState({ webhookUrl: '', verifyToken: '' });
   const [embeddedSignupConfig, setEmbeddedSignupConfig] = useState(null);
+  /** Login for Business (FACEBOOK_BUSINESS_LOGIN_CONFIG_ID): un clic con FB.login + config_id */
+  const [fbBusinessConfig, setFbBusinessConfig] = useState(null);
   /** Texto opcional del backend (ej. OAuth clásico vs Embedded solo BSP) */
   const [facebookConnectHint, setFacebookConnectHint] = useState('');
   const embeddedSignupPending = useRef({ code: null, phoneNumberId: null, wabaId: null });
@@ -79,9 +81,13 @@ export default function WhatsApp() {
           setEmbeddedSignupConfig(
             USE_EMBEDDED_SIGNUP_UI && r.appId && r.configId ? { appId: r.appId, configId: r.configId } : null
           );
+          setFbBusinessConfig(
+            r.appId && r.businessLoginConfigId ? { appId: r.appId, businessLoginConfigId: r.businessLoginConfigId } : null
+          );
         })
         .catch(() => {
           setEmbeddedSignupConfig(null);
+          setFbBusinessConfig(null);
           setFacebookConnectHint('');
         }),
     ]).finally(() => setLoading(false));
@@ -283,6 +289,109 @@ export default function WhatsApp() {
       return;
     }
 
+    // Facebook Login for Business (un clic): FB.login + FACEBOOK_BUSINESS_LOGIN_CONFIG_ID — mismo flujo Meta migrar/crear sin BSP
+    if (fbBusinessConfig?.appId && fbBusinessConfig?.businessLoginConfigId) {
+      const runLoginForBusiness = () => {
+        const onMessage = (event) => {
+          if (!event.origin || (!event.origin.endsWith('facebook.com') && !event.origin.endsWith('web.facebook.com'))) return;
+          try {
+            const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            if (data?.type !== 'WA_EMBEDDED_SIGNUP') return;
+            if (data.event === 'FINISH' || data.event === 'FINISH_ONLY_WABA' || data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
+              const phoneNumberId = data.data?.phone_number_id;
+              const wabaId = data.data?.waba_id;
+              if (wabaId) embeddedSignupPending.current.wabaId = wabaId;
+              if (phoneNumberId) embeddedSignupPending.current.phoneNumberId = phoneNumberId;
+              tryCompleteEmbeddedSignup();
+            }
+          } catch (_) {}
+        };
+        window.addEventListener('message', onMessage);
+        embeddedSignupCleanup.current = () => window.removeEventListener('message', onMessage);
+
+        const fbLoginCallback = (response) => {
+          if (response.authResponse?.code) {
+            embeddedSignupPending.current.code = response.authResponse.code;
+            tryCompleteEmbeddedSignup();
+          } else if (response.status && response.status !== 'unknown') {
+            setError(response.error_message || 'No se pudo completar el inicio de sesión.');
+            setConectando(false);
+            if (embeddedSignupCleanup.current) {
+              embeddedSignupCleanup.current();
+              embeddedSignupCleanup.current = null;
+            }
+          }
+        };
+
+        if (typeof window.FB === 'undefined') {
+          setError('SDK de Facebook no cargado. Recarga la página e inténtalo de nuevo.');
+          setConectando(false);
+          if (embeddedSignupCleanup.current) {
+            embeddedSignupCleanup.current();
+            embeddedSignupCleanup.current = null;
+          }
+          return;
+        }
+        window.FB.init({
+          appId: fbBusinessConfig.appId,
+          autoLogAppEvents: true,
+          xfbml: true,
+          version: GRAPH_API_VERSION,
+        });
+        window.FB.login(fbLoginCallback, {
+          config_id: fbBusinessConfig.businessLoginConfigId,
+          response_type: 'code',
+          override_default_response_type: true,
+        });
+      };
+
+      if (typeof window.FB !== 'undefined') {
+        runLoginForBusiness();
+        return;
+      }
+      window.fbAsyncInit = function () {
+        window.FB.init({
+          appId: fbBusinessConfig.appId,
+          autoLogAppEvents: true,
+          xfbml: true,
+          version: GRAPH_API_VERSION,
+        });
+        runLoginForBusiness();
+      };
+      const existingLfb = document.querySelector('script[src="' + FB_SDK_URL + '"]');
+      if (existingLfb) {
+        const checkLfb = setInterval(() => {
+          if (window.FB) {
+            clearInterval(checkLfb);
+            runLoginForBusiness();
+          }
+        }, 100);
+        setTimeout(() => {
+          clearInterval(checkLfb);
+          if (!window.FB) {
+            setError('SDK de Facebook no cargó a tiempo. Recarga la página.');
+            setConectando(false);
+          }
+        }, 5000);
+        return;
+      }
+      const scriptLfb = document.createElement('script');
+      scriptLfb.async = true;
+      scriptLfb.defer = true;
+      scriptLfb.crossOrigin = 'anonymous';
+      scriptLfb.src = FB_SDK_URL;
+      scriptLfb.onload = () => {
+        if (window.FB) runLoginForBusiness();
+        else setConectando(false);
+      };
+      scriptLfb.onerror = () => {
+        setError('No se pudo cargar el SDK de Facebook.');
+        setConectando(false);
+      };
+      document.head.appendChild(scriptLfb);
+      return;
+    }
+
     api
       .get('/facebook/auth-url')
       .then((r) => {
@@ -371,9 +480,9 @@ export default function WhatsApp() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white mb-2">Conecta tu cuenta de WhatsApp Business</h1>
         <p className="text-[#8b9cad] text-sm">
-          La forma más estable es pegar <strong className="text-[#cbd5e0]">Phone Number ID</strong> y{' '}
-          <strong className="text-[#cbd5e0]">Access token</strong> desde Meta (sección abajo). Si Meta muestra{' '}
-          <em>supported permission</em>, el login de Facebook no se arregla esperando: hay que configurar Login for Business en Meta o usar solo API manual.
+          <strong className="text-white">Un clic:</strong> elige <em>Migrar</em> o <em>Registrar nuevo</em> y completa el asistente de Meta. Si el servidor tiene{' '}
+          <code className="text-[#8b9cad]">FACEBOOK_BUSINESS_LOGIN_CONFIG_ID</code>, se abre con el SDK (mejor que ventana emergente). Si algo falla, usa la API manual
+          al final de la página.
         </p>
         {facebookConnectHint && (
           <p className="text-[#8b9cad] text-xs mt-2 max-w-2xl border border-[#2d3a47] rounded-lg p-3 bg-[#151a20]">
@@ -421,15 +530,77 @@ export default function WhatsApp() {
           </li>
         </ul>
 
-        <details open className="mb-6 rounded-xl border border-emerald-500/25 bg-[#0f1419] p-4">
-          <summary className="text-emerald-300 font-medium cursor-pointer select-none">
-            Recomendado: API manual (Phone Number ID + token de Meta)
+        {status.configurado ? (
+          <div className="flex flex-wrap gap-3 mb-6">
+            <button
+              type="button"
+              onClick={desconectar}
+              disabled={desconectando}
+              className="rounded-xl border border-[#2d3a47] text-[#8b9cad] px-4 py-2 text-sm hover:text-white hover:border-[#4a5568] disabled:opacity-50"
+            >
+              {desconectando ? 'Desconectando...' : 'Desconectar cuenta'}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4 mb-6">
+            {showFacebookOAuth ? (
+              <>
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <h3 className="text-lg font-semibold text-white">Un clic con Meta</h3>
+                  {fbBusinessConfig?.businessLoginConfigId && (
+                    <span className="text-xs rounded-full bg-emerald-500/20 text-emerald-300 px-2 py-0.5">SDK + Login for Business</span>
+                  )}
+                </div>
+                <p className="text-[#8b9cad] text-sm">
+                  Los dos botones abren el mismo flujo de Meta: en el asistente eliges <strong className="text-[#cbd5e0]">migrar</strong> un número o{' '}
+                  <strong className="text-[#cbd5e0]">crear uno nuevo</strong>. Sin <code className="text-[#8b9cad]">FACEBOOK_BUSINESS_LOGIN_CONFIG_ID</code> en el
+                  servidor puede abrirse ventana emergente en lugar del SDK.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={conectarConFacebook}
+                    disabled={conectando}
+                    className="rounded-xl border-2 border-[#1877f2]/50 bg-[#1877f2]/10 p-5 text-left hover:border-[#1877f2] hover:bg-[#1877f2]/15 disabled:opacity-50 transition-colors"
+                  >
+                    <span className="text-lg font-semibold text-white block mb-1">Migrar número existente</span>
+                    <span className="text-[#8b9cad] text-sm">Ya tengo WhatsApp Business / API. Un clic → Meta te guía.</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={conectarConFacebook}
+                    disabled={conectando}
+                    className="rounded-xl border-2 border-[#1877f2]/50 bg-[#1877f2]/10 p-5 text-left hover:border-[#1877f2] hover:bg-[#1877f2]/15 disabled:opacity-50 transition-colors"
+                  >
+                    <span className="text-lg font-semibold text-white block mb-1">Registrar número nuevo</span>
+                    <span className="text-[#8b9cad] text-sm">Número nuevo con Meta. Un clic → mismo asistente.</span>
+                  </button>
+                </div>
+                {conectando && (
+                  <p className="text-[#8b9cad] text-sm">
+                    {fbBusinessConfig?.businessLoginConfigId ? 'Abriendo Meta (SDK)…' : 'Abriendo ventana de Meta…'}
+                  </p>
+                )}
+                {syncingMeta && status.facebookConectado && (
+                  <p className="text-[#8b9cad] text-sm border-t border-[#2d3a47] pt-3">
+                    Sincronizando con Meta… Si tarda, revisa la sección manual abajo.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-amber-200/90 text-sm">
+                OAuth desactivado en el servidor (<code>FACEBOOK_SHOW_OAUTH_UI=false</code>). Usa la API manual abajo.
+              </p>
+            )}
+          </div>
+        )}
+
+        <details className="rounded-xl border border-[#2d3a47] bg-[#151a20] p-4">
+          <summary className="text-[#8b9cad] font-medium cursor-pointer select-none">
+            Otras opciones: pegar Phone Number ID y token a mano
           </summary>
           <p className="text-[#8b9cad] text-sm mt-3 mb-4">
-            Cada cliente puede usar <strong className="text-[#cbd5e0]">su propia</strong> app de Meta o un token del Administrador comercial. En Meta:{' '}
-            <strong className="text-[#cbd5e0]">WhatsApp → API de la nube</strong> copia el{' '}
-            <strong className="text-[#cbd5e0]">Phone number ID</strong> y un <strong className="text-[#cbd5e0]">Access token</strong> permanente (o de sistema) con permisos de WhatsApp.
-            Pon el mismo <strong className="text-[#cbd5e0]">webhook</strong> que indica la sección técnica de abajo.
+            Meta → <strong className="text-[#cbd5e0]">WhatsApp → API de la nube</strong>: copia ID y token. Webhook en la sección técnica de abajo.
           </p>
           <form onSubmit={guardarConfigManual} className="space-y-3 max-w-lg">
             <div>
@@ -459,70 +630,12 @@ export default function WhatsApp() {
             <button
               type="submit"
               disabled={manualSaving}
-              className="rounded-xl bg-[#00c896] text-[#0f1419] font-semibold px-4 py-2 hover:bg-[#00e0a8] disabled:opacity-50"
+              className="rounded-xl bg-[#2d3a47] text-white font-medium px-4 py-2 hover:bg-[#3d4f63] disabled:opacity-50"
             >
               {manualSaving ? 'Guardando...' : 'Guardar credenciales Cloud API'}
             </button>
           </form>
         </details>
-
-        {status.configurado ? (
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={desconectar}
-              disabled={desconectando}
-              className="rounded-xl border border-[#2d3a47] text-[#8b9cad] px-4 py-2 text-sm hover:text-white hover:border-[#4a5568] disabled:opacity-50"
-            >
-              {desconectando ? 'Desconectando...' : 'Desconectar cuenta'}
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4 border-t border-[#2d3a47] pt-6">
-            {showFacebookOAuth ? (
-              <>
-                <p className="text-[#8b9cad] text-sm">
-                  <span className="text-amber-200/90">Opcional:</span> ventana de Meta. Si te sale{' '}
-                  <em>supported permission</em>, no sigas intentando: usa el formulario de arriba o pide en el servidor{' '}
-                  <code className="text-[#8b9cad]">FACEBOOK_BUSINESS_LOGIN_CONFIG_ID</code>.
-                </p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={conectarConFacebook}
-                    disabled={conectando}
-                    className="rounded-xl border-2 border-[#2d3a47] bg-[#1a2129] p-4 text-left hover:border-[#1877f2] hover:bg-[#1e2936] disabled:opacity-50 transition-colors"
-                  >
-                    <span className="text-lg font-semibold text-white block mb-1">Migrar número existente</span>
-                    <span className="text-[#8b9cad] text-sm">
-                      Conectar con Facebook (OAuth). Puede fallar según la app en Meta.
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={conectarConFacebook}
-                    disabled={conectando}
-                    className="rounded-xl border-2 border-[#2d3a47] bg-[#1a2129] p-4 text-left hover:border-[#1877f2] hover:bg-[#1e2936] disabled:opacity-50 transition-colors"
-                  >
-                    <span className="text-lg font-semibold text-white block mb-1">Registrar número nuevo</span>
-                    <span className="text-[#8b9cad] text-sm">Abre el asistente de Meta (mismo OAuth).</span>
-                  </button>
-                </div>
-                {conectando && <p className="text-[#8b9cad] text-sm">Abriendo ventana de Facebook…</p>}
-                {syncingMeta && status.facebookConectado && (
-                  <p className="text-[#8b9cad] text-sm">
-                    Sincronizando con Meta en segundo plano… Si no termina, usa el formulario manual de arriba.
-                  </p>
-                )}
-              </>
-            ) : (
-              <p className="text-amber-200/90 text-sm">
-                El login con ventana de Meta está <strong>desactivado</strong> en el servidor (<code>FACEBOOK_SHOW_OAUTH_UI=false</code>). Usa solo el
-                formulario verde de arriba.
-              </p>
-            )}
-          </div>
-        )}
       </div>
 
       {status.configurado && (

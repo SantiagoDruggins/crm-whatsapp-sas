@@ -231,18 +231,30 @@ async function getEmbeddedSignupConfig(req, res) {
       });
     }
 
+    const businessLoginConfigId =
+      (config.facebook && config.facebook.businessLoginConfigId)
+        ? String(config.facebook.businessLoginConfigId).trim()
+        : '';
+
     // Meta: Embedded Signup solo para BSP / Tech Provider. Apps cliente usan OAuth redirect.
     if (useEmbedded && configId) {
-      return res.status(200).json({ appId, configId, embedded: true, showFacebookOAuth: showOAuth });
+      return res.status(200).json({
+        appId,
+        configId,
+        embedded: true,
+        showFacebookOAuth: showOAuth,
+        businessLoginConfigId: businessLoginConfigId || null,
+      });
     }
 
     return res.status(200).json({
       appId,
       configId: null,
       embedded: false,
+      businessLoginConfigId: businessLoginConfigId || null,
       showFacebookOAuth: !!(config.facebook && config.facebook.showFacebookOAuthUi),
       hint:
-        'Si Meta muestra "supported permission", el OAuth no sirve hasta configurar FACEBOOK_BUSINESS_LOGIN_CONFIG_ID o usar la API manual en el panel. Embedded Signup WhatsApp solo para BSP/TP.',
+        'Un clic con el SDK: define FACEBOOK_BUSINESS_LOGIN_CONFIG_ID (Facebook Login for Business en Meta). Sin eso, el popup OAuth a veces falla; usa API manual o ventana redirect.',
     });
   } catch (err) {
     console.error('getEmbeddedSignupConfig', err);
