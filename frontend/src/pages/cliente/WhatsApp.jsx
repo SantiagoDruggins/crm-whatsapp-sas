@@ -40,6 +40,8 @@ export default function WhatsApp() {
   const [manualToken, setManualToken] = useState('');
   const [manualHasToken, setManualHasToken] = useState(false);
   const [manualSaving, setManualSaving] = useState(false);
+  /** Si false, el admin ocultó los botones de ventana Meta (FACEBOOK_SHOW_OAUTH_UI=false) */
+  const [showFacebookOAuth, setShowFacebookOAuth] = useState(true);
 
   const loadStatus = () => {
     return api
@@ -73,6 +75,7 @@ export default function WhatsApp() {
         .get('/facebook/embedded-signup-config')
         .then((r) => {
           setFacebookConnectHint(typeof r.hint === 'string' ? r.hint : '');
+          setShowFacebookOAuth(r.showFacebookOAuth !== false);
           setEmbeddedSignupConfig(
             USE_EMBEDDED_SIGNUP_UI && r.appId && r.configId ? { appId: r.appId, configId: r.configId } : null
           );
@@ -368,7 +371,9 @@ export default function WhatsApp() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white mb-2">Conecta tu cuenta de WhatsApp Business</h1>
         <p className="text-[#8b9cad] text-sm">
-          Conecta tu cuenta de Facebook para administrar tu WhatsApp Business directamente desde el CRM. Solo toma unos segundos.
+          La forma más estable es pegar <strong className="text-[#cbd5e0]">Phone Number ID</strong> y{' '}
+          <strong className="text-[#cbd5e0]">Access token</strong> desde Meta (sección abajo). Si Meta muestra{' '}
+          <em>supported permission</em>, el login de Facebook no se arregla esperando: hay que configurar Login for Business en Meta o usar solo API manual.
         </p>
         {facebookConnectHint && (
           <p className="text-[#8b9cad] text-xs mt-2 max-w-2xl border border-[#2d3a47] rounded-lg p-3 bg-[#151a20]">
@@ -416,63 +421,9 @@ export default function WhatsApp() {
           </li>
         </ul>
 
-        {!status.configurado ? (
-          <div className="space-y-4">
-            <p className="text-[#8b9cad] text-sm mb-4">
-              Elige según tu caso: si ya tienes un número con la API de WhatsApp o si vas a registrar uno nuevo.
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={conectarConFacebook}
-                disabled={conectando}
-                className="rounded-xl border-2 border-[#2d3a47] bg-[#1a2129] p-4 text-left hover:border-[#1877f2] hover:bg-[#1e2936] disabled:opacity-50 transition-colors"
-              >
-                <span className="text-lg font-semibold text-white block mb-1">Migrar número existente</span>
-                <span className="text-[#8b9cad] text-sm">
-                  Ya tengo un número de WhatsApp Business (API o proveedor). Conecto mi cuenta para usarlo en este CRM.
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={conectarConFacebook}
-                disabled={conectando}
-                className="rounded-xl border-2 border-[#2d3a47] bg-[#1a2129] p-4 text-left hover:border-[#1877f2] hover:bg-[#1e2936] disabled:opacity-50 transition-colors"
-              >
-                <span className="text-lg font-semibold text-white block mb-1">Registrar número nuevo</span>
-                <span className="text-[#8b9cad] text-sm">
-                  No tengo número en la API. Quiero registrar uno nuevo (virgen) desde cero con Meta.
-                </span>
-              </button>
-            </div>
-            {conectando && (
-              <p className="text-[#8b9cad] text-sm">Abriendo ventana de Facebook…</p>
-            )}
-            <p className="text-[#8b9cad] text-xs mt-2">
-              En ambos casos se abre la ventana de Meta. Allí podrás vincular tu número existente o crear uno nuevo. No compartimos tu información con terceros.
-            </p>
-            {syncingMeta && !status.configurado && status.facebookConectado && (
-              <p className="text-[#8b9cad] text-sm mt-3 border-t border-[#2d3a47] pt-3">
-                Sincronizando con Meta en segundo plano (puede tardar si la cuenta está en revisión). No necesitas hacer nada más en esta pantalla.
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={desconectar}
-              disabled={desconectando}
-              className="rounded-xl border border-[#2d3a47] text-[#8b9cad] px-4 py-2 text-sm hover:text-white hover:border-[#4a5568] disabled:opacity-50"
-            >
-              {desconectando ? 'Desconectando...' : 'Desconectar cuenta'}
-            </button>
-          </div>
-        )}
-
-        <details className="mt-6 rounded-xl border border-[#2d3a47] bg-[#151a20] p-4 open:border-[#3d4f63]">
-          <summary className="text-white font-medium cursor-pointer select-none">
-            Configurar API manualmente (sin conectar Facebook aquí)
+        <details open className="mb-6 rounded-xl border border-emerald-500/25 bg-[#0f1419] p-4">
+          <summary className="text-emerald-300 font-medium cursor-pointer select-none">
+            Recomendado: API manual (Phone Number ID + token de Meta)
           </summary>
           <p className="text-[#8b9cad] text-sm mt-3 mb-4">
             Cada cliente puede usar <strong className="text-[#cbd5e0]">su propia</strong> app de Meta o un token del Administrador comercial. En Meta:{' '}
@@ -508,12 +459,70 @@ export default function WhatsApp() {
             <button
               type="submit"
               disabled={manualSaving}
-              className="rounded-xl bg-[#2d3a47] text-white font-medium px-4 py-2 hover:bg-[#3d4f63] disabled:opacity-50"
+              className="rounded-xl bg-[#00c896] text-[#0f1419] font-semibold px-4 py-2 hover:bg-[#00e0a8] disabled:opacity-50"
             >
               {manualSaving ? 'Guardando...' : 'Guardar credenciales Cloud API'}
             </button>
           </form>
         </details>
+
+        {status.configurado ? (
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={desconectar}
+              disabled={desconectando}
+              className="rounded-xl border border-[#2d3a47] text-[#8b9cad] px-4 py-2 text-sm hover:text-white hover:border-[#4a5568] disabled:opacity-50"
+            >
+              {desconectando ? 'Desconectando...' : 'Desconectar cuenta'}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4 border-t border-[#2d3a47] pt-6">
+            {showFacebookOAuth ? (
+              <>
+                <p className="text-[#8b9cad] text-sm">
+                  <span className="text-amber-200/90">Opcional:</span> ventana de Meta. Si te sale{' '}
+                  <em>supported permission</em>, no sigas intentando: usa el formulario de arriba o pide en el servidor{' '}
+                  <code className="text-[#8b9cad]">FACEBOOK_BUSINESS_LOGIN_CONFIG_ID</code>.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={conectarConFacebook}
+                    disabled={conectando}
+                    className="rounded-xl border-2 border-[#2d3a47] bg-[#1a2129] p-4 text-left hover:border-[#1877f2] hover:bg-[#1e2936] disabled:opacity-50 transition-colors"
+                  >
+                    <span className="text-lg font-semibold text-white block mb-1">Migrar número existente</span>
+                    <span className="text-[#8b9cad] text-sm">
+                      Conectar con Facebook (OAuth). Puede fallar según la app en Meta.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={conectarConFacebook}
+                    disabled={conectando}
+                    className="rounded-xl border-2 border-[#2d3a47] bg-[#1a2129] p-4 text-left hover:border-[#1877f2] hover:bg-[#1e2936] disabled:opacity-50 transition-colors"
+                  >
+                    <span className="text-lg font-semibold text-white block mb-1">Registrar número nuevo</span>
+                    <span className="text-[#8b9cad] text-sm">Abre el asistente de Meta (mismo OAuth).</span>
+                  </button>
+                </div>
+                {conectando && <p className="text-[#8b9cad] text-sm">Abriendo ventana de Facebook…</p>}
+                {syncingMeta && status.facebookConectado && (
+                  <p className="text-[#8b9cad] text-sm">
+                    Sincronizando con Meta en segundo plano… Si no termina, usa el formulario manual de arriba.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-amber-200/90 text-sm">
+                El login con ventana de Meta está <strong>desactivado</strong> en el servidor (<code>FACEBOOK_SHOW_OAUTH_UI=false</code>). Usa solo el
+                formulario verde de arriba.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {status.configurado && (

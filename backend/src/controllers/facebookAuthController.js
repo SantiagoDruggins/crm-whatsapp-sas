@@ -57,8 +57,7 @@ async function getAuthUrl(req, res) {
     }
 
     const scope =
-      (config.facebook && config.facebook.oauthScopes) ||
-      'public_profile,business_management';
+      (config.facebook && config.facebook.oauthScopes) || 'public_profile';
     const url = `${dialogBase}?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&response_type=code&state=${encodeURIComponent(state)}`;
 
     return res.status(200).json({ url, mode: 'scope' });
@@ -168,7 +167,12 @@ async function callback(req, res) {
     }
 
     if (!phoneNumberId) {
-      return res.redirect(errorRedirect + encodeURIComponent('No se encontró ningún número de WhatsApp Business. Vincula un número en Meta Business Suite.'));
+      return res.redirect(
+        errorRedirect +
+          encodeURIComponent(
+            'No se encontró número con este login. Prueba FACEBOOK_OAUTH_SCOPES=public_profile,business_management y permisos en Meta, o usa en el CRM "Configurar API manualmente" con Phone Number ID + token desde WhatsApp → API de la nube.'
+          )
+      );
     }
 
     await updateWhatsappConfig(payload.empresaId, {
@@ -217,24 +221,28 @@ async function getEmbeddedSignupConfig(req, res) {
     const useEmbedded =
       !!(config.facebook && config.facebook.useEmbeddedSignup && configId);
 
+    const showOAuth = !!(config.facebook && config.facebook.showFacebookOAuthUi);
+
     if (!appId) {
       return res.status(503).json({
         message: 'Facebook no configurado (FACEBOOK_APP_ID).',
         useClassicOAuth: true,
+        showFacebookOAuth: showOAuth,
       });
     }
 
     // Meta: Embedded Signup solo para BSP / Tech Provider. Apps cliente usan OAuth redirect.
     if (useEmbedded && configId) {
-      return res.status(200).json({ appId, configId, embedded: true });
+      return res.status(200).json({ appId, configId, embedded: true, showFacebookOAuth: showOAuth });
     }
 
     return res.status(200).json({
       appId,
       configId: null,
       embedded: false,
+      showFacebookOAuth: !!(config.facebook && config.facebook.showFacebookOAuthUi),
       hint:
-        'OAuth estándar: Embedded Signup solo para partners BSP/TP en Meta. Si el popup dice "supported permission", crea en Meta una configuración de Facebook Login for Business y define FACEBOOK_BUSINESS_LOGIN_CONFIG_ID en el servidor (no es el Registro insertado de WhatsApp).',
+        'Si Meta muestra "supported permission", el OAuth no sirve hasta configurar FACEBOOK_BUSINESS_LOGIN_CONFIG_ID o usar la API manual en el panel. Embedded Signup WhatsApp solo para BSP/TP.',
     });
   } catch (err) {
     console.error('getEmbeddedSignupConfig', err);

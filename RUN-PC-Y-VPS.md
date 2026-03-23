@@ -176,7 +176,8 @@ En el VPS crea `backend/.env` a partir de `.env.example` y ajusta:
 - Si el popup dice **"necesita al menos un supported permission"** y tu app es tipo **Negocios**: suele faltar el **`config_id` de Facebook Login for Business** (no es el “Registro insertado” de WhatsApp ni Embedded BSP). En Meta: **Facebook Login for Business** → **Configuraciones** → crea una, añade permisos (p. ej. `business_management`) y copia el ID en `FACEBOOK_BUSINESS_LOGIN_CONFIG_ID` en `backend/.env`. Reinicia el API.
 - También revisa en **Permisos y funciones** que existan **`public_profile`** y **`business_management`**. Si el `.env` pide permisos que no están en la app, Meta bloquea el diálogo. Prueba `FACEBOOK_OAUTH_SCOPES=public_profile` solo si sigue fallando el modo `scope`.
 - El **frontend** ya no usa Embedded Signup salvo que en el build exista `VITE_USE_EMBEDDED_SIGNUP=true` (solo BSP/TP). Tras `git pull`, ejecuta siempre `npm run build` en `frontend` para que deje de salir el error *BSPs or TPs*.
-- **API manual por cliente:** en el panel **WhatsApp Cloud** hay un bloque *Configurar API manualmente*: cada empresa puede pegar **Phone Number ID** + **Access token** de su Meta (sin OAuth). El backend ya expone `GET/PATCH /api/whatsapp/config` (autenticado).
+- **API manual por cliente:** en **WhatsApp Cloud** el bloque recomendado es **token manual**; cada empresa pega **Phone Number ID** + **Access token**. `GET/PATCH /api/whatsapp/config`.
+- Si Meta muestra **supported permission** sin solución: usa **solo API manual** o `FACEBOOK_BUSINESS_LOGIN_CONFIG_ID` en el servidor. Opcional: `FACEBOOK_SHOW_OAUTH_UI=false` para ocultar los botones de Facebook.
 
 ### 2.2 Backend en el VPS
 

@@ -59,12 +59,16 @@ const config = {
      */
     businessLoginConfigId: (process.env.FACEBOOK_BUSINESS_LOGIN_CONFIG_ID || '').trim(),
     /**
-     * Permisos OAuth. Si pides permisos que la app no tiene en Meta → "necesita al menos un supported permission".
-     * Por defecto: public_profile + business_management (para leer negocios/WABA en el callback).
-     * Opcional: añade whatsapp_business_management,whatsapp_business_messaging en .env cuando estén en la app.
+     * Mostrar botones "Migrar/Registrar con Facebook" en el panel. Si Meta bloquea OAuth (supported permission),
+     * pon false y usa solo API manual + FACEBOOK_BUSINESS_LOGIN_CONFIG_ID si algún día arreglas Meta.
+     */
+    showFacebookOAuthUi: process.env.FACEBOOK_SHOW_OAUTH_UI !== 'false',
+    /**
+     * Permisos OAuth (modo scope). Si falta FACEBOOK_BUSINESS_LOGIN_CONFIG_ID, default mínimo public_profile
+     * para que el diálogo no falle; el callback puede pedir business_management o usar configuración manual.
      */
     oauthScopes: (process.env.FACEBOOK_OAUTH_SCOPES || '').trim() ||
-      'public_profile,business_management',
+      'public_profile',
   },
   whatsapp: {
     cloudVerifyToken: process.env.WHATSAPP_CLOUD_VERIFY_TOKEN || '',
