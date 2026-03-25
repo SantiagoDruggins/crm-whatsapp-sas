@@ -962,6 +962,61 @@ async function cloudConfigUpdate(req, res) {
   }
 }
 
+/**
+ * POST /whatsapp/register-phone — registra el número en Cloud API (evita error #133010 Account not registered).
+ * Body: { pin: "123456" } — 6 dígitos; será el PIN de verificación en dos pasos del número (o el que ya uses en WhatsApp Business).
+ */
+async function cloudRegisterPhone(req, res) {
+  try {
+    const empresaId = req.user.empresaId;
+    if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
+
+    const row = await getWhatsappConfig(empresaId);
+    if (!isCloudConfigurado(row || {})) {
+      return res.status(400).json({
+        message: 'Configura antes el Access Token y Phone Number ID (conexión con Meta).',
+      });
+    }
+
+    let pin = req.body?.pin;
+    if (pin === undefined || pin === null || String(pin).trim() === '') {
+      pin = process.env.WHATSAPP_REGISTER_DEFAULT_PIN || '';
+    }
+    pin = String(pin).replace(/\D/g, '');
+    if (pin.length !== 6) {
+      return res.status(400).json({
+        message:
+          'Indica un PIN de 6 dígitos (código de verificación en dos pasos del número en WhatsApp Business).',
+      });
+    }
+
+    const token = row.whatsapp_cloud_access_token;
+    const phoneNumberId = row.whatsapp_cloud_phone_number_id;
+    const url = `${CLOUD_API_BASE}/${phoneNumberId}/register`;
+    const payload = {
+      messaging_product: 'whatsapp',
+      pin,
+    };
+
+    const { data } = await axios.post(url, payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: 'Número registrado en Cloud API. Ya puedes enviar mensajes de prueba.',
+      data: data || {},
+    });
+  } catch (err) {
+    const msg = err.response?.data?.error?.message || err.message;
+    console.error('cloudRegisterPhone:', err.response?.data || err);
+    return res.status(err.response?.status || 500).json({ message: msg || 'Error al registrar el número en Cloud API' });
+  }
+}
+
 async function cloudSend(req, res) {
   try {
     const empresaId = req.user.empresaId;
@@ -1016,6 +1071,7 @@ module.exports = {
   cloudStatus,
   cloudConfigGet,
   cloudConfigUpdate,
+  cloudRegisterPhone,
   cloudSend,
   isCloudConfigurado,
   enviarMensajeEmpresa,

@@ -24,6 +24,10 @@ export default function WhatsApp() {
   const [sendTo, setSendTo] = useState('');
   const [sendText, setSendText] = useState('');
   const [enviando, setEnviando] = useState(false);
+  /** Registro Cloud API (#133010): PIN 6 dígitos */
+  const [registerPin, setRegisterPin] = useState('');
+  const [registrando, setRegistrando] = useState(false);
+  const [registerOkMsg, setRegisterOkMsg] = useState('');
   const [conectando, setConectando] = useState(false);
   const [desconectando, setDesconectando] = useState(false);
   const [webhookConfig, setWebhookConfig] = useState({ webhookUrl: '', verifyToken: '' });
@@ -473,11 +477,34 @@ export default function WhatsApp() {
     if (!sendTo.trim() || !sendText.trim()) return;
     setEnviando(true);
     setError('');
+    setRegisterOkMsg('');
     api
       .post('/whatsapp/send', { to: sendTo.trim(), text: sendText.trim() })
       .then(() => setSendText(''))
       .catch((e) => setError(e.message))
       .finally(() => setEnviando(false));
+  };
+
+  const registrarNumeroCloud = (e) => {
+    e.preventDefault();
+    setError('');
+    setRegisterOkMsg('');
+    const digits = String(registerPin).replace(/\D/g, '');
+    if (digits.length !== 6) {
+      setError(
+        'Indica un PIN de 6 dígitos (verificación en dos pasos del número en WhatsApp Business, o uno nuevo que quieras usar).'
+      );
+      return;
+    }
+    setRegistrando(true);
+    api
+      .post('/whatsapp/register-phone', { pin: digits })
+      .then((r) => {
+        setRegisterOkMsg(r.message || 'Número registrado en Cloud API.');
+        setRegisterPin('');
+      })
+      .catch((err) => setError(err.message || 'No se pudo registrar el número'))
+      .finally(() => setRegistrando(false));
   };
 
   if (loading) return <p className="text-[#8b9cad]">Cargando...</p>;
@@ -646,6 +673,38 @@ export default function WhatsApp() {
         </details>
         )}
       </div>
+
+      {status.configurado && (
+        <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-6 max-w-lg mb-6">
+          <h2 className="text-lg font-semibold text-white mb-2">Registrar número en Cloud API</h2>
+          <p className="text-[#8b9cad] text-sm mb-4">
+            Si al enviar ves <span className="text-[#cbd5e0] font-mono text-xs">(#133010) Account not registered</span>, completa este paso: mismo PIN de 6 dígitos que en WhatsApp Business (dos pasos) o uno nuevo que fijarás para ese número.
+          </p>
+          {registerOkMsg && <p className="text-emerald-400 text-sm mb-3">{registerOkMsg}</p>}
+          <form onSubmit={registrarNumeroCloud} className="flex flex-col gap-3 mb-2">
+            <div>
+              <label className="block text-[#8b9cad] text-xs mb-1">PIN (6 dígitos)</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={6}
+                value={registerPin}
+                onChange={(e) => setRegisterPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="••••••"
+                className="w-full max-w-xs rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a] font-mono tracking-widest"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={registrando}
+              className="rounded-xl border border-[#1877f2]/50 bg-[#1877f2]/15 text-white font-medium px-4 py-2 hover:bg-[#1877f2]/25 disabled:opacity-50 w-fit"
+            >
+              {registrando ? 'Registrando…' : 'Registrar en Cloud API'}
+            </button>
+          </form>
+        </div>
+      )}
 
       {status.configurado && (
         <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-6 max-w-lg mb-6">
