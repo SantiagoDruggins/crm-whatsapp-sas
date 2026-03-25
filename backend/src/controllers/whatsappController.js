@@ -24,8 +24,8 @@ const { getAiConfig, generateContent, transcribeAudioGemini, textoAVozGemini } =
 const CLOUD_API_BASE = (config.whatsapp && config.whatsapp.cloudApiBaseUrl) ? config.whatsapp.cloudApiBaseUrl.replace(/\/$/, '') : 'https://graph.facebook.com/v19.0';
 const FB_GRAPH = 'https://graph.facebook.com/v19.0';
 
-// Evita spam de Graph API si el usuario refresca la pantalla repetidamente.
-const phoneResolveAttemptAt = new Map(); // empresaId -> timestamp(ms)
+// Evita spam de Graph API al sincronizar phone_number_id desde Meta (GET /whatsapp/status).
+const phoneIdSyncFromMetaAt = new Map(); // empresaId -> timestamp(ms)
 
 /** IDs de mensajes ya procesados (evita doble respuesta por reintentos del webhook o ecos). */
 const processedMessageIds = new Set();
@@ -942,36 +942,40 @@ async function cloudStatus(req, res) {
   try {
     const empresaId = req.user.empresaId;
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
-    const row = await getWhatsappConfig(empresaId);
+    let row = await getWhatsappConfig(empresaId);
     const token = row?.whatsapp_cloud_access_token;
     const phoneId = row?.whatsapp_cloud_phone_number_id;
 
-    // Si ya tenemos token pero todavía no tenemos phone_number_id, intentamos resolverlo
-    // automáticamente para que el panel se actualice sin que el usuario “reconecte”.
-    const needsResolvePhone = !!(
-      token &&
-      !esPlaceholderToken(token) &&
-      (!phoneId || esPlaceholderPhoneId(phoneId))
-    );
-
-    if (needsResolvePhone) {
+    /**
+     * Sincronizar whatsapp_cloud_phone_number_id con la API de Meta (mismo ID que envía el webhook).
+     * Sin esto, el usuario puede tener token válido pero un ID desfasado → "Sin empresa" en webhooks.
+     * Throttle: más frecuente si falta ID; cada ~90s si ya hay ID (corrige desfaces sin copiar nada a mano).
+     */
+    const tokenOk = token && !esPlaceholderToken(token);
+    if (tokenOk) {
       const now = Date.now();
-      const lastAttempt = phoneResolveAttemptAt.get(empresaId) || 0;
-      // throttle: ~45s (alineado con reintentos del panel)
-      if (now - lastAttempt > 45 * 1000) {
-        phoneResolveAttemptAt.set(empresaId, now);
+      const missing = !phoneId || esPlaceholderPhoneId(phoneId);
+      const intervalMs = missing ? 45 * 1000 : 90 * 1000;
+      const last = phoneIdSyncFromMetaAt.get(empresaId) || 0;
+      if (now - last >= intervalMs) {
+        phoneIdSyncFromMetaAt.set(empresaId, now);
         try {
           const resolvedPhoneId = await resolverPhoneNumberIdPorAccessToken(token);
           if (resolvedPhoneId) {
-            await updateWhatsappConfig(empresaId, { phoneNumberId: resolvedPhoneId });
+            const cur = String(row?.whatsapp_cloud_phone_number_id || '').replace(/\s+/g, '').trim();
+            if (resolvedPhoneId !== cur) {
+              await updateWhatsappConfig(empresaId, { phoneNumberId: resolvedPhoneId });
+              row = await getWhatsappConfig(empresaId);
+              console.warn('[cloudStatus] phone_number_id sincronizado con Meta (webhooks):', resolvedPhoneId);
+            }
           }
         } catch (e) {
-          console.warn('[cloudStatus] resolverPhoneNumberIdPorAccessToken falló:', e.message || e);
+          console.warn('[cloudStatus] sync phone_number_id Meta:', e.message || e);
         }
       }
     }
 
-    const row2 = needsResolvePhone ? await getWhatsappConfig(empresaId) : row;
+    const row2 = row;
     const configurado = isCloudConfigurado(row2 || {});
     const facebookConectado = !!(token && !esPlaceholderToken(token));
     const numeroConectado = !!(row2?.whatsapp_cloud_phone_number_id && !esPlaceholderPhoneId(row2.whatsapp_cloud_phone_number_id));

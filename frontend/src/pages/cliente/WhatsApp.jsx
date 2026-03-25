@@ -518,6 +518,9 @@ export default function WhatsApp() {
         <p className="text-[#8b9cad] text-sm max-w-2xl">
           Elige <strong className="text-white">Migrar número existente</strong> o <strong className="text-white">Registrar número nuevo</strong>. Meta abre el asistente en un solo paso; no hace falta pegar IDs ni tokens.
         </p>
+        <p className="text-[#8b9cad] text-xs max-w-2xl mt-2">
+          Para recibir mensajes en el CRM, el servidor alinea solo el número con Meta al cargar esta página (no tienes que copiar el Phone number ID a mano).
+        </p>
         {showFacebookOAuth && !oneClickSdkConfigured && facebookConnectHint && (
           <p className="text-amber-200/90 text-xs mt-3 border border-amber-500/30 rounded-lg p-3 bg-amber-500/5 max-w-2xl">
             {facebookConnectHint}
