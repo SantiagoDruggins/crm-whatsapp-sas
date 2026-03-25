@@ -611,6 +611,7 @@ async function cloudWebhookPost(req, res) {
         }
 
         if (value?.messages) {
+          console.log('[WhatsApp webhook] Procesando mensaje(s) empresa', empresa.id, 'n=', value.messages.length);
           for (const msg of value.messages) {
             const msgId = msg.id;
             if (!msgId) continue;
@@ -906,33 +907,65 @@ function isCloudConfigurado(wa) {
 }
 
 async function resolverPhoneNumberIdPorAccessToken(accessToken) {
-  // Intenta encontrar phone_number_id a partir de la WABA del usuario.
-  const meRes = await axios.get(`${FB_GRAPH}/me`, {
-    params: {
-      fields: 'businesses{owned_whatsapp_business_accounts{id,name,phone_numbers}}',
-      access_token: accessToken,
-    },
-  });
-
-  const businesses = meRes.data?.businesses?.data;
-  if (!Array.isArray(businesses) || businesses.length === 0) return null;
-
-  for (const biz of businesses) {
-    const wabas = biz.owned_whatsapp_business_accounts?.data;
-    if (!Array.isArray(wabas) || wabas.length === 0) continue;
-
-    for (const waba of wabas) {
-      const wabaId = waba?.id;
-      if (!wabaId) continue;
-
+  const fetchFirstPhoneId = async (wabaId) => {
+    if (!wabaId) return null;
+    try {
       const phoneRes = await axios.get(`${FB_GRAPH}/${wabaId}/phone_numbers`, {
-        params: { access_token: accessToken },
+        params: { access_token: accessToken, limit: 25 },
       });
       const phones = phoneRes.data?.data;
       if (Array.isArray(phones) && phones.length > 0) {
         return String(phones[0].id);
       }
+    } catch (e) {
+      console.warn('[resolverPhoneNumberId] phone_numbers WABA', wabaId, e.response?.data?.error?.message || e.message);
     }
+    return null;
+  };
+
+  const wabaLists = ['owned_whatsapp_business_accounts', 'client_whatsapp_business_accounts'];
+
+  const tryMeBusinesses = async (fields) => {
+    const meRes = await axios.get(`${FB_GRAPH}/me`, {
+      params: { fields, access_token: accessToken },
+    });
+    const businesses = meRes.data?.businesses?.data;
+    if (!Array.isArray(businesses) || businesses.length === 0) return null;
+
+    for (const biz of businesses) {
+      for (const listKey of wabaLists) {
+        const wabas = biz[listKey]?.data;
+        if (!Array.isArray(wabas) || wabas.length === 0) continue;
+        for (const waba of wabas) {
+          const pid = await fetchFirstPhoneId(waba?.id);
+          if (pid) return pid;
+        }
+      }
+    }
+    return null;
+  };
+
+  try {
+    const pid = await tryMeBusinesses(
+      'businesses{owned_whatsapp_business_accounts{id,name,phone_numbers},client_whatsapp_business_accounts{id,name,phone_numbers}}'
+    );
+    if (pid) return pid;
+  } catch (e) {
+    console.warn('[resolverPhoneNumberId] try1:', e.response?.data?.error?.message || e.message);
+  }
+
+  try {
+    const pid = await tryMeBusinesses('businesses{owned_whatsapp_business_accounts{id},client_whatsapp_business_accounts{id}}');
+    if (pid) return pid;
+  } catch (e) {
+    console.warn('[resolverPhoneNumberId] try2:', e.response?.data?.error?.message || e.message);
+  }
+
+  try {
+    const pid = await tryMeBusinesses('businesses{owned_whatsapp_business_accounts{id}}');
+    if (pid) return pid;
+  } catch (e) {
+    console.warn('[resolverPhoneNumberId] try3:', e.response?.data?.error?.message || e.message);
   }
 
   return null;
@@ -968,6 +1001,10 @@ async function cloudStatus(req, res) {
               row = await getWhatsappConfig(empresaId);
               console.warn('[cloudStatus] phone_number_id sincronizado con Meta (webhooks):', resolvedPhoneId);
             }
+          } else if (missing) {
+            console.warn(
+              '[cloudStatus] No se pudo obtener phone_number_id desde Graph (/me businesses). Permisos del token o vuelve a conectar WhatsApp.'
+            );
           }
         } catch (e) {
           console.warn('[cloudStatus] sync phone_number_id Meta:', e.message || e);
