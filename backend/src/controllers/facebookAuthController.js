@@ -222,12 +222,14 @@ async function getEmbeddedSignupConfig(req, res) {
       !!(config.facebook && config.facebook.useEmbeddedSignup && configId);
 
     const showOAuth = !!(config.facebook && config.facebook.showFacebookOAuthUi);
+    const showManual = !!(config.facebook && config.facebook.showManualWhatsappApi);
 
     if (!appId) {
       return res.status(503).json({
         message: 'Facebook no configurado (FACEBOOK_APP_ID).',
         useClassicOAuth: true,
         showFacebookOAuth: showOAuth,
+        showManualWhatsappApi: showManual,
         oneClickSdkConfigured: false,
       });
     }
@@ -246,6 +248,7 @@ async function getEmbeddedSignupConfig(req, res) {
         configId,
         embedded: true,
         showFacebookOAuth: showOAuth,
+        showManualWhatsappApi: showManual,
         businessLoginConfigId: businessLoginConfigId || null,
         oneClickSdkConfigured,
       });
@@ -258,8 +261,10 @@ async function getEmbeddedSignupConfig(req, res) {
       businessLoginConfigId: businessLoginConfigId || null,
       oneClickSdkConfigured,
       showFacebookOAuth: !!(config.facebook && config.facebook.showFacebookOAuthUi),
-      hint:
-        'Un clic con SDK: FACEBOOK_BUSINESS_LOGIN_CONFIG_ID (Meta → Facebook Login for Business → Configuraciones). Activa botones con FACEBOOK_SHOW_OAUTH_UI=true.',
+      showManualWhatsappApi: showManual,
+      hint: oneClickSdkConfigured
+        ? ''
+        : 'Si el diálogo de Meta muestra error de permisos, el administrador debe completar Login for Business en Meta for Developers.',
     });
   } catch (err) {
     console.error('getEmbeddedSignupConfig', err);

@@ -59,10 +59,14 @@ const config = {
      */
     businessLoginConfigId: (process.env.FACEBOOK_BUSINESS_LOGIN_CONFIG_ID || '').trim(),
     /**
-     * Mostrar botones "Migrar/Registrar con Facebook". Por defecto false: Meta suele fallar (supported permission).
-     * Pon FACEBOOK_SHOW_OAUTH_UI=true solo si tienes Login for Business bien configurado.
+     * Botones "Migrar / Registrar" (un clic). Por defecto activo; pon FACEBOOK_SHOW_OAUTH_UI=false para ocultarlos.
      */
-    showFacebookOAuthUi: process.env.FACEBOOK_SHOW_OAUTH_UI === 'true',
+    showFacebookOAuthUi: process.env.FACEBOOK_SHOW_OAUTH_UI !== 'false',
+    /**
+     * Formulario pegar Phone Number ID + token. Por defecto oculto (solo conexión automática).
+     * FACEBOOK_SHOW_MANUAL_WHATSAPP_API=true para soporte o entornos de prueba.
+     */
+    showManualWhatsappApi: process.env.FACEBOOK_SHOW_MANUAL_WHATSAPP_API === 'true',
     /**
      * Permisos OAuth (modo scope). Si falta FACEBOOK_BUSINESS_LOGIN_CONFIG_ID, default mínimo public_profile
      * para que el diálogo no falle; el callback puede pedir business_management o usar configuración manual.
