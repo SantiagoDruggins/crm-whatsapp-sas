@@ -59,10 +59,10 @@ const config = {
      */
     businessLoginConfigId: (process.env.FACEBOOK_BUSINESS_LOGIN_CONFIG_ID || '').trim(),
     /**
-     * Mostrar botones "Migrar/Registrar con Facebook" en el panel. Si Meta bloquea OAuth (supported permission),
-     * pon false y usa solo API manual + FACEBOOK_BUSINESS_LOGIN_CONFIG_ID si algún día arreglas Meta.
+     * Mostrar botones "Migrar/Registrar con Facebook". Por defecto false: Meta suele fallar (supported permission).
+     * Pon FACEBOOK_SHOW_OAUTH_UI=true solo si tienes Login for Business bien configurado.
      */
-    showFacebookOAuthUi: process.env.FACEBOOK_SHOW_OAUTH_UI !== 'false',
+    showFacebookOAuthUi: process.env.FACEBOOK_SHOW_OAUTH_UI === 'true',
     /**
      * Permisos OAuth (modo scope). Si falta FACEBOOK_BUSINESS_LOGIN_CONFIG_ID, default mínimo public_profile
      * para que el diálogo no falle; el callback puede pedir business_management o usar configuración manual.

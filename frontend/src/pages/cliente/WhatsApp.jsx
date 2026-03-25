@@ -42,8 +42,8 @@ export default function WhatsApp() {
   const [manualToken, setManualToken] = useState('');
   const [manualHasToken, setManualHasToken] = useState(false);
   const [manualSaving, setManualSaving] = useState(false);
-  /** Si false, el admin ocultó los botones de ventana Meta (FACEBOOK_SHOW_OAUTH_UI=false) */
-  const [showFacebookOAuth, setShowFacebookOAuth] = useState(true);
+  /** true solo si el backend envía showFacebookOAuth (FACEBOOK_SHOW_OAUTH_UI=true en el servidor) */
+  const [showFacebookOAuth, setShowFacebookOAuth] = useState(false);
 
   const loadStatus = () => {
     return api
@@ -589,7 +589,7 @@ export default function WhatsApp() {
               </>
             ) : (
               <p className="text-amber-200/90 text-sm">
-                OAuth desactivado en el servidor (<code>FACEBOOK_SHOW_OAUTH_UI=false</code>). Usa la API manual abajo.
+                Ventana Meta desactivada (por defecto). Solo API manual abajo. Para activar OAuth: <code>FACEBOOK_SHOW_OAUTH_UI=true</code> en el servidor.
               </p>
             )}
           </div>
