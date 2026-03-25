@@ -79,6 +79,36 @@ async function getEmpresaByWhatsappPhoneNumberId(phoneNumberId) {
   return result.rows[0] || null;
 }
 
+/**
+ * Resuelve empresa por el número de teléfono de negocio (empresas.telefono_whatsapp) cuando
+ * el phone_number_id de Meta no coincide con la BD. Solo si hay exactamente un match (multitenant).
+ */
+async function getEmpresaByWhatsappDisplayDigits(displayPhone) {
+  const d = String(displayPhone || '').replace(/\D/g, '');
+  if (d.length < 8) return null;
+  const result = await query(
+    `SELECT id, nombre FROM empresas
+     WHERE whatsapp_cloud_access_token IS NOT NULL
+       AND regexp_replace(COALESCE(telefono_whatsapp, ''), '[^0-9]', '', 'g') = $1
+     LIMIT 2`,
+    [d]
+  );
+  if (result.rows.length === 1) return result.rows[0];
+  if (result.rows.length === 0 && d.length >= 10) {
+    const last10 = d.slice(-10);
+    const r2 = await query(
+      `SELECT id, nombre FROM empresas
+       WHERE whatsapp_cloud_access_token IS NOT NULL
+         AND LENGTH(regexp_replace(COALESCE(telefono_whatsapp, ''), '[^0-9]', '', 'g')) >= 10
+         AND RIGHT(regexp_replace(COALESCE(telefono_whatsapp, ''), '[^0-9]', '', 'g'), 10) = $1
+       LIMIT 2`,
+      [last10]
+    );
+    if (r2.rows.length === 1) return r2.rows[0];
+  }
+  return null;
+}
+
 async function getIntegracionesConfig(empresaId) {
   const result = await query(
     `SELECT dropi_token, dropi_activo, dropi_api_base_url, mastershop_token, mastershop_activo, gemini_api_key, ai_provider, ai_api_key, shopify_store_url, shopify_access_token, shopify_activo, shopify_webhook_secret FROM empresas WHERE id = $1`,
@@ -245,6 +275,7 @@ module.exports = {
   getWhatsappConfig,
   updateWhatsappConfig,
   getEmpresaByWhatsappPhoneNumberId,
+  getEmpresaByWhatsappDisplayDigits,
   getIntegracionesConfig,
   updateIntegracionesConfig,
   getEmpresaByShopifyShopDomain,

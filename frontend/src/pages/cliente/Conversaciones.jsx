@@ -6,12 +6,19 @@ export default function Conversaciones() {
   const [conversaciones, setConversaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [waStatus, setWaStatus] = useState(null);
 
   useEffect(() => {
-    api.get('/crm/conversaciones').then((r) => {
-      const list = r.conversaciones || [];
-      setConversaciones(list);
-    }).catch((e) => setError(e.message)).finally(() => setLoading(false));
+    Promise.all([
+      api.get('/crm/conversaciones'),
+      api.get('/whatsapp/status').catch(() => ({})),
+    ])
+      .then(([r, s]) => {
+        setConversaciones(r.conversaciones || []);
+        setWaStatus(s && typeof s === 'object' ? s : null);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <p className="text-[#8b9cad]">Cargando conversaciones...</p>;
@@ -34,7 +41,42 @@ export default function Conversaciones() {
           </thead>
           <tbody>
             {conversaciones.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-[#8b9cad] text-center">No hay conversaciones. Conecta WhatsApp para recibir mensajes.</td></tr>
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-[#8b9cad] text-center">
+                  <p className="mb-3">No hay conversaciones aún.</p>
+                  {!waStatus?.configurado ? (
+                    <p>
+                      Conecta WhatsApp en{' '}
+                      <Link to="/dashboard/whatsapp" className="text-[#00c896] hover:underline">
+                        WhatsApp Cloud API
+                      </Link>{' '}
+                      para recibir mensajes.
+                    </p>
+                  ) : (
+                    <div className="max-w-xl mx-auto text-left text-sm space-y-2">
+                      <p>
+                        El envío de prueba puede funcionar aunque <strong className="text-[#cbd5e0]">no entren</strong> los mensajes: hace falta que Meta llame al{' '}
+                        <strong className="text-[#cbd5e0]">webhook</strong> y que el <strong className="text-[#cbd5e0]">Phone number ID</strong> guardado sea el mismo que Meta envía.
+                      </p>
+                      {waStatus.whatsappPhoneNumberId ? (
+                        <p className="font-mono text-xs text-[#cbd5e0] break-all">
+                          ID en el CRM: {waStatus.whatsappPhoneNumberId}
+                        </p>
+                      ) : null}
+                      <p>
+                        Comprueba en Meta (WhatsApp → Configuración → webhook) que <code className="text-[#8b9cad]">messages</code> esté suscrito. En el número de WhatsApp, el ID debe coincidir con el de arriba. Si no, vuelve a conectar o pide en{' '}
+                        <Link to="/dashboard/whatsapp" className="text-[#00c896] hover:underline">
+                          WhatsApp Cloud API
+                        </Link>
+                        .
+                      </p>
+                      <p className="text-xs text-[#6b7a8a]">
+                        Si el número de la línea está en datos de la empresa (<code className="text-[#8b9cad]">telefono_whatsapp</code>), el servidor puede enlazar el webhook aunque el ID estuviera desfasado (última versión del backend).
+                      </p>
+                    </div>
+                  )}
+                </td>
+              </tr>
             ) : (
               conversaciones.map((c) => (
                 <tr key={c.id} className={`border-b border-[#2d3a47] hover:bg-[#232d38]/50 ${c.pide_agente_humano ? 'bg-amber-500/10' : ''}`}>
