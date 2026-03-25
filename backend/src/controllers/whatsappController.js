@@ -565,9 +565,20 @@ async function cloudWebhookPost(req, res) {
       const changes = entry.changes || [];
       for (const change of changes) {
         const value = change.value;
-        const phoneNumberId = value?.metadata?.phone_number_id;
+        const rawPid = value?.metadata?.phone_number_id;
+        const phoneNumberId =
+          rawPid === undefined || rawPid === null ? null : String(rawPid).replace(/\s+/g, '').trim();
         const empresa = phoneNumberId ? await getEmpresaByWhatsappPhoneNumberId(phoneNumberId) : null;
-        if (!empresa?.id) continue;
+        if (!empresa?.id) {
+          if (phoneNumberId && value?.messages?.length) {
+            console.warn(
+              '[WhatsApp webhook] Ninguna empresa coincide con phone_number_id de Meta:',
+              phoneNumberId,
+              '(revisa que en la BD whatsapp_cloud_phone_number_id sea exactamente ese ID de Meta → WhatsApp → Número)'
+            );
+          }
+          continue;
+        }
 
         if (value?.messages) {
           for (const msg of value.messages) {
@@ -579,7 +590,16 @@ async function cloudWebhookPost(req, res) {
 
             const from = msg.from;
             const type = msg.type;
-            let text = type === 'text' ? (msg.text?.body || '') : type === 'button' ? (msg.button?.text || '') : '';
+            let text = '';
+            if (type === 'text') text = msg.text?.body || '';
+            else if (type === 'button') text = msg.button?.text || '';
+            else if (type === 'interactive') {
+              text =
+                msg.interactive?.button_reply?.title ||
+                msg.interactive?.list_reply?.title ||
+                msg.interactive?.button_reply?.id ||
+                '';
+            }
 
             // Mensajes de audio: descargar, guardar archivo para el CRM, transcribir con IA
             let audioMediaUrl = null;
@@ -717,10 +737,18 @@ async function cloudWebhookPost(req, res) {
               console.warn('[WhatsApp] Error creando pedido automático:', ePedido.message);
             }
 
-            if (text && text.trim()) {
+            const textoParaBot =
+              (text && String(text).trim()) ||
+              (contenidoEntrada &&
+              contenidoEntrada !== '[mensaje no texto]' &&
+              contenidoEntrada !== '[audio no transcrito]'
+                ? contenidoEntrada
+                : '');
+
+            if (textoParaBot) {
               let respuestaEnviada = null;
               try {
-                const { respuesta, error } = await generarRespuestaBot(empresa.id, text.trim(), { contactId: contacto.id, conversacionId: conversacion.id, mode });
+                const { respuesta, error } = await generarRespuestaBot(empresa.id, textoParaBot, { contactId: contacto.id, conversacionId: conversacion.id, mode });
                 if (respuesta && respuesta.trim()) {
                   const respuestaLimpia = await extraerYCrearCitaSiHay(empresa.id, contacto.id, respuesta.trim());
                   let textoEnviar = respuestaLimpia || respuesta.trim();
@@ -731,6 +759,9 @@ async function cloudWebhookPost(req, res) {
                   const { textoLimpio, urlsImagen, urlsAudio } = extraerImagenesYAudiosDeRespuesta(textoEnviar, baseUrl);
                   textoEnviar = textoLimpio || textoEnviar;
                   const sent = await enviarMensajeEmpresa(empresa.id, from, textoEnviar);
+                  if (!sent.ok) {
+                    console.warn('[WhatsApp] No se pudo enviar respuesta del bot:', sent.error, { empresaId: empresa.id, from });
+                  }
                   if (sent.ok) {
                     for (const imgUrl of urlsImagen.slice(0, 5)) {
                       try {
@@ -752,7 +783,7 @@ async function cloudWebhookPost(req, res) {
                     await conversacionModel.actualizarUltimoMensaje(conversacion.id);
                     await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: textoEnviar, lastMessageAt: new Date() });
                     respuestaEnviada = true;
-                    if (esConsultaProductos(text.trim()) && baseUrl) {
+                    if (esConsultaProductos(textoParaBot) && baseUrl) {
                       try {
                         const productos = await productoModel.listarActivos(empresa.id, { limit: 20 });
                         const conImagen = (productos || []).filter((p) => p.imagen_url && String(p.imagen_url).trim());

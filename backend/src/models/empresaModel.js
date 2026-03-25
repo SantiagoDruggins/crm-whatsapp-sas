@@ -64,9 +64,17 @@ async function updateWhatsappConfig(empresaId, { accessToken, phoneNumberId }) {
 }
 
 async function getEmpresaByWhatsappPhoneNumberId(phoneNumberId) {
+  const id =
+    phoneNumberId === undefined || phoneNumberId === null
+      ? ''
+      : String(phoneNumberId).replace(/\s+/g, '').trim();
+  if (!id) return null;
   const result = await query(
-    `SELECT id, nombre FROM empresas WHERE whatsapp_cloud_phone_number_id = $1 AND whatsapp_cloud_access_token IS NOT NULL LIMIT 1`,
-    [phoneNumberId]
+    `SELECT id, nombre FROM empresas
+     WHERE TRIM(COALESCE(whatsapp_cloud_phone_number_id::text, '')) = $1
+       AND whatsapp_cloud_access_token IS NOT NULL
+     LIMIT 1`,
+    [id]
   );
   return result.rows[0] || null;
 }
