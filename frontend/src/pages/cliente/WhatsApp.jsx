@@ -42,8 +42,10 @@ export default function WhatsApp() {
   const [manualToken, setManualToken] = useState('');
   const [manualHasToken, setManualHasToken] = useState(false);
   const [manualSaving, setManualSaving] = useState(false);
-  /** true solo si el backend envía showFacebookOAuth (FACEBOOK_SHOW_OAUTH_UI=true en el servidor) */
+  /** true solo si FACEBOOK_SHOW_OAUTH_UI=true en el servidor */
   const [showFacebookOAuth, setShowFacebookOAuth] = useState(false);
+  /** true si existe FACEBOOK_BUSINESS_LOGIN_CONFIG_ID (SDK un clic sin popup roto) */
+  const [oneClickSdkConfigured, setOneClickSdkConfigured] = useState(false);
 
   const loadStatus = () => {
     return api
@@ -77,7 +79,8 @@ export default function WhatsApp() {
         .get('/facebook/embedded-signup-config')
         .then((r) => {
           setFacebookConnectHint(typeof r.hint === 'string' ? r.hint : '');
-          setShowFacebookOAuth(r.showFacebookOAuth !== false);
+          setShowFacebookOAuth(!!r.showFacebookOAuth);
+          setOneClickSdkConfigured(!!r.oneClickSdkConfigured);
           setEmbeddedSignupConfig(
             USE_EMBEDDED_SIGNUP_UI && r.appId && r.configId ? { appId: r.appId, configId: r.configId } : null
           );
@@ -89,6 +92,7 @@ export default function WhatsApp() {
           setEmbeddedSignupConfig(null);
           setFbBusinessConfig(null);
           setFacebookConnectHint('');
+          setOneClickSdkConfigured(false);
         }),
     ]).finally(() => setLoading(false));
   }, []);
@@ -480,10 +484,23 @@ export default function WhatsApp() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white mb-2">Conecta tu cuenta de WhatsApp Business</h1>
         <p className="text-[#8b9cad] text-sm">
-          <strong className="text-white">Un clic:</strong> elige <em>Migrar</em> o <em>Registrar nuevo</em> y completa el asistente de Meta. Si el servidor tiene{' '}
-          <code className="text-[#8b9cad]">FACEBOOK_BUSINESS_LOGIN_CONFIG_ID</code>, se abre con el SDK (mejor que ventana emergente). Si algo falla, usa la API manual
-          al final de la página.
+          <strong className="text-white">Un clic:</strong> con <code className="text-[#8b9cad]">FACEBOOK_SHOW_OAUTH_UI=true</code> y{' '}
+          <code className="text-[#8b9cad]">FACEBOOK_BUSINESS_LOGIN_CONFIG_ID</code> en el servidor, los botones usan el SDK de Meta. Si no, usa la API manual más abajo.
         </p>
+        {!showFacebookOAuth && (
+          <p className="text-amber-200/90 text-xs mt-2 border border-amber-500/30 rounded-lg p-3 bg-amber-500/5">
+            <strong className="text-amber-100">Migración en un clic (admin):</strong> en el VPS pon{' '}
+            <code className="text-[#cbd5e0]">FACEBOOK_SHOW_OAUTH_UI=true</code> y el ID de Meta{' '}
+            <code className="text-[#cbd5e0]">FACEBOOK_BUSINESS_LOGIN_CONFIG_ID=...</code>, luego <code className="text-[#cbd5e0]">pm2 restart</code> y{' '}
+            <code className="text-[#cbd5e0]">npm run build</code> en frontend. Ver checklist en RUN-PC-Y-VPS.md del repo.
+          </p>
+        )}
+        {showFacebookOAuth && !oneClickSdkConfigured && (
+          <p className="text-amber-200/90 text-xs mt-2 border border-amber-500/30 rounded-lg p-3 bg-amber-500/5">
+            <strong className="text-amber-100">Falta configuración:</strong> sin <code className="text-[#cbd5e0]">FACEBOOK_BUSINESS_LOGIN_CONFIG_ID</code> Meta suele mostrar
+            &quot;supported permission&quot;. Créala en Meta → Facebook Login for Business → Configuraciones, pégala en el <code className="text-[#cbd5e0]">.env</code> y reinicia el API.
+          </p>
+        )}
         {facebookConnectHint && (
           <p className="text-[#8b9cad] text-xs mt-2 max-w-2xl border border-[#2d3a47] rounded-lg p-3 bg-[#151a20]">
             {facebookConnectHint}

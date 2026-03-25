@@ -228,6 +228,7 @@ async function getEmbeddedSignupConfig(req, res) {
         message: 'Facebook no configurado (FACEBOOK_APP_ID).',
         useClassicOAuth: true,
         showFacebookOAuth: showOAuth,
+        oneClickSdkConfigured: false,
       });
     }
 
@@ -237,6 +238,8 @@ async function getEmbeddedSignupConfig(req, res) {
         : '';
 
     // Meta: Embedded Signup solo para BSP / Tech Provider. Apps cliente usan OAuth redirect.
+    const oneClickSdkConfigured = !!businessLoginConfigId;
+
     if (useEmbedded && configId) {
       return res.status(200).json({
         appId,
@@ -244,6 +247,7 @@ async function getEmbeddedSignupConfig(req, res) {
         embedded: true,
         showFacebookOAuth: showOAuth,
         businessLoginConfigId: businessLoginConfigId || null,
+        oneClickSdkConfigured,
       });
     }
 
@@ -252,9 +256,10 @@ async function getEmbeddedSignupConfig(req, res) {
       configId: null,
       embedded: false,
       businessLoginConfigId: businessLoginConfigId || null,
+      oneClickSdkConfigured,
       showFacebookOAuth: !!(config.facebook && config.facebook.showFacebookOAuthUi),
       hint:
-        'Un clic con el SDK: define FACEBOOK_BUSINESS_LOGIN_CONFIG_ID (Facebook Login for Business en Meta). Sin eso, el popup OAuth a veces falla; usa API manual o ventana redirect.',
+        'Un clic con SDK: FACEBOOK_BUSINESS_LOGIN_CONFIG_ID (Meta → Facebook Login for Business → Configuraciones). Activa botones con FACEBOOK_SHOW_OAUTH_UI=true.',
     });
   } catch (err) {
     console.error('getEmbeddedSignupConfig', err);

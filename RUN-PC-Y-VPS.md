@@ -179,6 +179,17 @@ En el VPS crea `backend/.env` a partir de `.env.example` y ajusta:
 - **API manual por cliente:** en **WhatsApp Cloud** el bloque recomendado es **token manual**; cada empresa pega **Phone Number ID** + **Access token**. `GET/PATCH /api/whatsapp/config`.
 - Los botones de Facebook en WhatsApp están **ocultos por defecto** (`FACEBOOK_SHOW_OAUTH_UI` no definido o distinto de `true`). Para mostrar OAuth: `FACEBOOK_SHOW_OAUTH_UI=true` + `FACEBOOK_BUSINESS_LOGIN_CONFIG_ID` si aplica. Si Meta muestra **supported permission**, usa solo API manual.
 
+**Checklist “un clic” para clientes (sin rehacer el CRM desde cero):**
+
+1. **Meta (developers.facebook.com)** → tu app → **Facebook Login for Business** → **Configuraciones** → *Crear* → añade permisos que Meta permita en esa config (p. ej. gestión del negocio / WhatsApp según tu caso) → copia el **ID de configuración**.
+2. **VPS `backend/.env`:** `FACEBOOK_BUSINESS_LOGIN_CONFIG_ID=` ese ID, `FACEBOOK_SHOW_OAUTH_UI=true`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `PUBLIC_APP_URL` o `PUBLIC_API_URL` = `https://tudominio` (sin barra final).
+3. **Meta** → **Facebook Login** → URL de redirección válida: `https://tudominio/api/facebook/callback`.
+4. **Regenerar App Secret** solo si lo filtraste; actualiza `FACEBOOK_APP_SECRET` en el `.env`.
+5. **VPS:** `git pull`, `npm run build` en `frontend`, `pm2 restart` del API.
+6. Los **clientes** entran al CRM → WhatsApp → **Migrar** o **Registrar** (un clic); si algo falla, API manual sigue disponible.
+
+**No hace falta “borrar sesión” del CRM:** el bloqueo es de Meta (permisos + `config_id`). Puedes crear una **configuración nueva** en Login for Business y usar su ID nuevo.
+
 ### 2.2 Backend en el VPS
 
 ```bash
