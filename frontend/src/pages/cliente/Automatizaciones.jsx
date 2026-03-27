@@ -9,6 +9,8 @@ const TRIGGERS = [
 
 const ACCIONES = [
   { value: 'mensaje', label: 'Enviar mensaje automático' },
+  { value: 'enviar_audio', label: 'Enviar audio automático' },
+  { value: 'enviar_archivo', label: 'Enviar archivo automático' },
   { value: 'tag', label: 'Añadir tag al contacto' },
   { value: 'cambiar_estado', label: 'Cambiar estado del lead' },
 ];
@@ -19,6 +21,7 @@ export default function Automatizaciones() {
   const [error, setError] = useState('');
   const [modal, setModal] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [mediaFile, setMediaFile] = useState(null);
 
   const emptyForm = {
     nombre: '',
@@ -50,6 +53,7 @@ export default function Automatizaciones() {
   const openNew = () => {
     setModal({});
     setForm(emptyForm);
+    setMediaFile(null);
     setError('');
   };
 
@@ -63,12 +67,14 @@ export default function Automatizaciones() {
       accion_valor: flow.accion_valor || '',
       activo: flow.activo !== false,
     });
+    setMediaFile(null);
     setError('');
   };
 
   const handleSave = (e) => {
     e.preventDefault();
-    if (!form.nombre.trim() || !form.trigger_value.trim() || !form.accion_valor.trim()) {
+    const needsTextValue = ['mensaje', 'tag', 'cambiar_estado'].includes(form.accion_tipo);
+    if (!form.nombre.trim() || !form.trigger_value.trim() || (needsTextValue && !form.accion_valor.trim())) {
       setError('Nombre, valor del disparador y acción son obligatorios.');
       return;
     }
@@ -79,16 +85,23 @@ export default function Automatizaciones() {
       trigger_type: form.trigger_type,
       trigger_value: form.trigger_value.trim(),
       accion_tipo: form.accion_tipo,
-      accion_valor: form.accion_valor,
+      accion_valor: form.accion_valor || '',
       activo: !!form.activo,
     };
     const req = modal?.id
       ? api.patch(`/crm/flows/${modal.id}`, payload)
       : api.post('/crm/flows', payload);
     req
-      .then(() => {
+      .then(async (resp) => {
+        const flowId = resp?.flow?.id || modal?.id;
+        if (mediaFile && flowId && (form.accion_tipo === 'enviar_audio' || form.accion_tipo === 'enviar_archivo')) {
+          const fd = new FormData();
+          fd.append('archivo', mediaFile);
+          await api.upload(`/crm/flows/${flowId}/media`, fd);
+        }
         setModal(null);
         setForm(emptyForm);
+        setMediaFile(null);
         load();
       })
       .catch((e) => setError(e?.message || 'Error al guardar automatización.'))
@@ -119,6 +132,8 @@ export default function Automatizaciones() {
   const describeAccion = (f) => {
     const base = ACCIONES.find((a) => a.value === f.accion_tipo)?.label || f.accion_tipo;
     if (f.accion_tipo === 'mensaje') return `${base}: "${(f.accion_valor || '').slice(0, 40)}${f.accion_valor?.length > 40 ? '…' : ''}"`;
+    if (f.accion_tipo === 'enviar_audio') return `${base}: ${f.accion_valor ? 'audio cargado' : 'sin audio'}`;
+    if (f.accion_tipo === 'enviar_archivo') return `${base}: ${f.accion_valor ? 'archivo cargado' : 'sin archivo'}`;
     return `${base}: ${f.accion_valor}`;
   };
 
@@ -279,6 +294,10 @@ export default function Automatizaciones() {
                 <label className="block text-[#8b9cad] mb-1">
                   {form.accion_tipo === 'mensaje'
                     ? 'Mensaje automático (texto fijo)'
+                    : form.accion_tipo === 'enviar_audio'
+                    ? 'Audio automático (sube archivo de audio o URL)'
+                    : form.accion_tipo === 'enviar_archivo'
+                    ? 'Archivo automático (PDF, DOC, etc.)'
                     : form.accion_tipo === 'tag'
                     ? 'Nombre del tag a añadir'
                     : 'Nuevo estado del lead'}
@@ -291,6 +310,25 @@ export default function Automatizaciones() {
                     className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
                     placeholder="Ej: Hola, gracias por escribir. En este momento nuestro equipo está atendiendo, en breve te respondemos."
                   />
+                ) : form.accion_tipo === 'enviar_audio' || form.accion_tipo === 'enviar_archivo' ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={form.accion_valor}
+                      onChange={(e) => setForm((f) => ({ ...f, accion_valor: e.target.value }))}
+                      className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
+                      placeholder="URL pública opcional del archivo"
+                    />
+                    <input
+                      type="file"
+                      accept={form.accion_tipo === 'enviar_audio' ? 'audio/*' : '.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.csv,application/*,text/*'}
+                      onChange={(e) => setMediaFile(e.target.files?.[0] || null)}
+                      className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-3 py-2 text-[#cbd5e0]"
+                    />
+                    <p className="text-xs text-[#6b7a8a]">
+                      Si subes archivo, al guardar se adjunta al flujo y se enviará automáticamente cuando dispare.
+                    </p>
+                  </div>
                 ) : (
                   <input
                     type="text"

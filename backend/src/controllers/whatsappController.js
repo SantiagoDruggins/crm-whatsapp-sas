@@ -329,6 +329,29 @@ async function enviarImagenEmpresa(empresaId, toPhone, imageUrl, caption) {
   }
 }
 
+/** Envía un documento/archivo por WhatsApp Cloud API (URL pública). */
+async function enviarDocumentoEmpresa(empresaId, toPhone, documentUrl, filename = 'archivo') {
+  const row = await getWhatsappConfig(empresaId);
+  if (!row?.whatsapp_cloud_access_token || !row?.whatsapp_cloud_phone_number_id) return { ok: false, error: 'WhatsApp no configurado' };
+  const url = `${CLOUD_API_BASE}/${row.whatsapp_cloud_phone_number_id}/messages`;
+  const toNumber = String(toPhone).replace(/\D/g, '');
+  try {
+    await axios.post(
+      url,
+      {
+        messaging_product: 'whatsapp',
+        to: toNumber,
+        type: 'document',
+        document: { link: documentUrl, filename: filename || 'archivo' },
+      },
+      { headers: { Authorization: `Bearer ${row.whatsapp_cloud_access_token}`, 'Content-Type': 'application/json' }, timeout: 20000 }
+    );
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.response?.data?.error?.message || err.message };
+  }
+}
+
 /** Envía un audio por WhatsApp Cloud API (URL pública o bien subir buffer y enviar por id). Formatos: AAC, AMR, MP4, MPEG, OGG. */
 async function enviarAudioEmpresa(empresaId, toPhone, audioUrl) {
   const row = await getWhatsappConfig(empresaId);
@@ -587,6 +610,13 @@ async function ejecutarFlujosAutomatizados(empresaId, contacto, mensajeTexto, co
 
       const accion = (flow.accion_tipo || '').toLowerCase();
       const valor = flow.accion_valor || '';
+      const baseUrl = (config.publicBaseUrl || config.whatsapp?.publicWebhookBaseUrl || '').replace(/\/$/, '');
+      const toAbsUrl = (u) => {
+        const raw = String(u || '').trim();
+        if (!raw) return '';
+        if (/^https?:\/\//i.test(raw)) return raw;
+        return `${baseUrl}${raw.startsWith('/') ? raw : '/' + raw}`;
+      };
 
       if (accion === 'mensaje') {
         const textoRespuesta = String(valor || '').trim();
@@ -625,6 +655,35 @@ async function ejecutarFlujosAutomatizados(empresaId, contacto, mensajeTexto, co
             await contactoModel.actualizar(empresaId, contacto.id, { lead_status: nuevoEstado });
           } catch (e) {
             console.warn('[Flows] Error cambiando lead_status', e.message);
+          }
+        }
+        return { handled: true };
+      }
+
+      if (accion === 'enviar_audio') {
+        const audioUrl = toAbsUrl(valor);
+        if (!audioUrl) return { handled: true };
+        const sent = await enviarAudioEmpresa(empresaId, fromPhone, audioUrl);
+        if (sent.ok) {
+          await mensajeModel.crear(empresaId, conversacion.id, { origen: 'bot', contenido: '[audio automático enviado]', esEntrada: false });
+          await conversacionModel.actualizarUltimoMensaje(conversacion.id);
+          if (contacto.id) {
+            await contactoModel.actualizarUltimoMensajeContacto(empresaId, contacto.id, { lastMessage: '[audio automático enviado]', lastMessageAt: new Date() });
+          }
+        }
+        return { handled: true };
+      }
+
+      if (accion === 'enviar_archivo') {
+        const docUrl = toAbsUrl(valor);
+        if (!docUrl) return { handled: true };
+        const nameGuess = docUrl.split('/').pop() || 'archivo';
+        const sent = await enviarDocumentoEmpresa(empresaId, fromPhone, docUrl, nameGuess);
+        if (sent.ok) {
+          await mensajeModel.crear(empresaId, conversacion.id, { origen: 'bot', contenido: '[archivo automático enviado]', esEntrada: false });
+          await conversacionModel.actualizarUltimoMensaje(conversacion.id);
+          if (contacto.id) {
+            await contactoModel.actualizarUltimoMensajeContacto(empresaId, contacto.id, { lastMessage: '[archivo automático enviado]', lastMessageAt: new Date() });
           }
         }
         return { handled: true };

@@ -16,11 +16,11 @@ const { listarProductos, obtenerProducto, crearProducto, actualizarProducto, eli
 const { listarTags, obtenerTag, crearTag, actualizarTag, eliminarTag, listarTagsContacto, actualizarTagsContacto } = require('../controllers/tagsController');
 const { listarAppointments, obtenerAppointment, crearAppointment, actualizarAppointment, eliminarAppointment, listarAppointmentsContacto } = require('../controllers/appointmentsController');
 const { actividadReciente } = require('../controllers/activityController');
-const { listarFlows, obtenerFlow, crearFlow, actualizarFlow, eliminarFlow } = require('../controllers/flowsController');
+const { listarFlows, obtenerFlow, crearFlow, actualizarFlow, eliminarFlow, subirMediaFlow } = require('../controllers/flowsController');
 const { listarWebhooks, crearWebhook, actualizarWebhook, eliminarWebhook } = require('../controllers/webhooksController');
 const { subirLogoEmpresa } = require('../controllers/empresaBrandingController');
 const { crearFeedback } = require('../controllers/feedbackController');
-const { uploadProductoImagen, uploadEmpresaLogo, uploadConversacionAudio } = require('../config/multer');
+const { uploadProductoImagen, uploadEmpresaLogo, uploadConversacionAudio, uploadFlowMedia } = require('../config/multer');
 const { query } = require('../config/db');
 
 const router = express.Router();
@@ -62,6 +62,7 @@ router.get('/flows/:id', asyncHandler(obtenerFlow));
 router.post('/flows', asyncHandler(crearFlow));
 router.patch('/flows/:id', asyncHandler(actualizarFlow));
 router.delete('/flows/:id', asyncHandler(eliminarFlow));
+router.post('/flows/:id/media', uploadFlowMedia.single('archivo'), asyncHandler(subirMediaFlow));
 
 // Webhooks salientes
 router.get('/webhooks', asyncHandler(listarWebhooks));

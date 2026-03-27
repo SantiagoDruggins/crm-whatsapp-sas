@@ -7,10 +7,12 @@ const dirComprobantes = path.join(process.cwd(), 'uploads', 'comprobantes');
 const dirBotConocimiento = path.join(process.cwd(), 'uploads', 'bot-conocimiento');
 const dirProductos = path.join(process.cwd(), 'uploads', 'productos');
 const dirEmpresas = path.join(process.cwd(), 'uploads', 'empresas');
+const dirFlowsMedia = path.join(process.cwd(), 'uploads', 'flows-media');
 try { fs.mkdirSync(dirComprobantes, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirBotConocimiento, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirProductos, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirEmpresas, { recursive: true }); } catch (e) {}
+try { fs.mkdirSync(dirFlowsMedia, { recursive: true }); } catch (e) {}
 
 const storageComprobantes = multer.diskStorage({
   destination(req, file, cb) { cb(null, dirComprobantes); },
@@ -103,15 +105,39 @@ const uploadConversacionAudio = multer({
   }
 });
 
+const storageFlowMedia = multer.diskStorage({
+  destination(req, file, cb) { cb(null, dirFlowsMedia); },
+  filename(req, file, cb) {
+    const ext = (path.extname(file.originalname) || '').toLowerCase().slice(0, 10);
+    cb(null, `${uuidv4()}${ext || '.bin'}`);
+  }
+});
+
+const uploadFlowMedia = multer({
+  storage: storageFlowMedia,
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    const mime = (file.mimetype || '').toLowerCase();
+    const name = (file.originalname || '').toLowerCase();
+    const isAudio = mime.startsWith('audio/') || /\.(ogg|oga|opus|mp3|mpeg|m4a|aac|amr|wav|webm)$/i.test(name);
+    const isDoc = /\.(pdf|doc|docx|txt|xls|xlsx|ppt|pptx|csv)$/i.test(name) ||
+      /(application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument|text\/plain|text\/csv|application\/vnd\.ms-excel|application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet|application\/vnd\.ms-powerpoint|application\/vnd\.openxmlformats-officedocument\.presentationml\.presentation)/i.test(mime);
+    if (isAudio || isDoc) cb(null, true);
+    else cb(new Error('Solo audio o documentos compatibles'));
+  }
+});
+
 module.exports = {
   uploadComprobante,
   uploadBotConocimiento,
   uploadProductoImagen,
   uploadEmpresaLogo,
   uploadConversacionAudio,
+  uploadFlowMedia,
   dirComprobantes,
   dirBotConocimiento,
   dirProductos,
   dirEmpresas,
+  dirFlowsMedia,
 };
 
