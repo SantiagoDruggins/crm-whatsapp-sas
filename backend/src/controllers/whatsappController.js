@@ -613,13 +613,24 @@ async function procesarCloudWebhookBody(body) {
         }
         if (!empresa?.id) {
           if (value?.messages?.length) {
-            console.warn('[WhatsApp webhook] Sin empresa para mensajes entrantes.', {
-              phone_number_id: phoneNumberId || '(vacío)',
-              display_phone_number: value?.metadata?.display_phone_number || '(vacío)',
-              waba_entry_id: wabaFromEntry || '(vacío)',
-              hint:
-                'Comprueba Phone number ID en Meta vs CRM, telefono_whatsapp en la empresa, o vuelve a conectar WhatsApp para guardar WABA (entry.id).',
-            });
+            /** Meta "Probar" webhook envía phone_number_id 123456123 y display 16505551111; no es un mensaje real. */
+            const esPruebaMetaUi =
+              String(phoneNumberId || '').trim() === '123456123' ||
+              String(value?.metadata?.display_phone_number || '')
+                .replace(/\D/g, '') === '16505551111';
+            if (esPruebaMetaUi) {
+              console.log(
+                '[WhatsApp webhook] Payload de PRUEBA (botón Test en Meta). Ignorado: no coincide con ninguna empresa; es normal. Mensajes reales traen otro phone_number_id largo.'
+              );
+            } else {
+              console.warn('[WhatsApp webhook] Sin empresa para mensajes entrantes.', {
+                phone_number_id: phoneNumberId || '(vacío)',
+                display_phone_number: value?.metadata?.display_phone_number || '(vacío)',
+                waba_entry_id: wabaFromEntry || '(vacío)',
+                hint:
+                  'Comprueba Phone number ID en Meta vs CRM, telefono_whatsapp en la empresa, o vuelve a conectar WhatsApp para guardar WABA (entry.id).',
+              });
+            }
           }
           continue;
         }
