@@ -35,13 +35,13 @@ async function listarEmpresas({ limit = 50, offset = 0 }) {
 
 async function getWhatsappConfig(empresaId) {
   const result = await query(
-    `SELECT whatsapp_cloud_access_token, whatsapp_cloud_phone_number_id FROM empresas WHERE id = $1`,
+    `SELECT whatsapp_cloud_access_token, whatsapp_cloud_phone_number_id, whatsapp_waba_id FROM empresas WHERE id = $1`,
     [empresaId]
   );
   return result.rows[0] || null;
 }
 
-async function updateWhatsappConfig(empresaId, { accessToken, phoneNumberId }) {
+async function updateWhatsappConfig(empresaId, { accessToken, phoneNumberId, wabaId }) {
   const updates = [];
   const values = [empresaId];
   let i = 2;
@@ -53,6 +53,11 @@ async function updateWhatsappConfig(empresaId, { accessToken, phoneNumberId }) {
   if (phoneNumberId !== undefined) {
     updates.push(`whatsapp_cloud_phone_number_id = $${i}`);
     values.push(phoneNumberId === '' ? null : phoneNumberId);
+    i++;
+  }
+  if (wabaId !== undefined) {
+    updates.push(`whatsapp_waba_id = $${i}`);
+    values.push(wabaId === '' ? null : wabaId);
     i++;
   }
   if (updates.length === 0) return await getWhatsappConfig(empresaId);
@@ -77,6 +82,30 @@ async function getEmpresaByWhatsappPhoneNumberId(phoneNumberId) {
     [id]
   );
   return result.rows[0] || null;
+}
+
+/**
+ * Meta envía entry.id = WABA en cada webhook. Si hay varios números en la misma cuenta, el phone_number_id
+ * guardado puede no coincidir; este lookup evita "Sin empresa" cuando el WABA sí está guardado.
+ */
+async function getEmpresaByWhatsappWabaId(wabaId) {
+  const id =
+    wabaId === undefined || wabaId === null ? '' : String(wabaId).replace(/\s+/g, '').trim();
+  if (!id) return null;
+  const result = await query(
+    `SELECT id, nombre FROM empresas
+     WHERE TRIM(COALESCE(whatsapp_waba_id::text, '')) = $1
+       AND whatsapp_cloud_access_token IS NOT NULL
+     LIMIT 2`,
+    [id]
+  );
+  if (result.rows.length === 1) return result.rows[0];
+  if (result.rows.length > 1) {
+    console.warn(
+      '[empresaModel] Más de una empresa con el mismo whatsapp_waba_id; no se resuelve el webhook sin phone_number_id único.'
+    );
+  }
+  return null;
 }
 
 /**
@@ -275,6 +304,7 @@ module.exports = {
   getWhatsappConfig,
   updateWhatsappConfig,
   getEmpresaByWhatsappPhoneNumberId,
+  getEmpresaByWhatsappWabaId,
   getEmpresaByWhatsappDisplayDigits,
   getIntegracionesConfig,
   updateIntegracionesConfig,

@@ -7,6 +7,7 @@ const {
   getWhatsappConfig,
   updateWhatsappConfig,
   getEmpresaByWhatsappPhoneNumberId,
+  getEmpresaByWhatsappWabaId,
   getEmpresaByWhatsappDisplayDigits,
   obtenerEmpresaPorId,
 } = require('../models/empresaModel');
@@ -26,6 +27,7 @@ const FB_GRAPH = 'https://graph.facebook.com/v19.0';
 
 // Evita spam de Graph API al sincronizar phone_number_id desde Meta (GET /whatsapp/status).
 const phoneIdSyncFromMetaAt = new Map(); // empresaId -> timestamp(ms)
+const wabaIdSyncFromMetaAt = new Map(); // empresaId -> timestamp(ms)
 
 /** IDs de mensajes ya procesados (evita doble respuesta por reintentos del webhook o ecos). */
 const processedMessageIds = new Set();
@@ -570,6 +572,8 @@ async function ejecutarFlujosAutomatizados(empresaId, contacto, mensajeTexto, co
 async function procesarCloudWebhookBody(body) {
   try {
     for (const entry of body.entry) {
+      const wabaFromEntry =
+        entry?.id === undefined || entry?.id === null ? null : String(entry.id).replace(/\s+/g, '').trim();
       const changes = entry.changes || [];
       for (const change of changes) {
         const value = change.value;
@@ -593,13 +597,28 @@ async function procesarCloudWebhookBody(body) {
             }
           }
         }
+        if (!empresa?.id && wabaFromEntry) {
+          empresa = await getEmpresaByWhatsappWabaId(wabaFromEntry);
+          if (empresa?.id && phoneNumberId) {
+            try {
+              await updateWhatsappConfig(empresa.id, { phoneNumberId });
+              console.warn(
+                '[WhatsApp webhook] Empresa resuelta por WABA (entry.id); phone_number_id sincronizado. Empresa',
+                empresa.id
+              );
+            } catch (eUp) {
+              console.warn('[WhatsApp webhook] No se pudo guardar phone_number_id (WABA):', eUp.message);
+            }
+          }
+        }
         if (!empresa?.id) {
           if (value?.messages?.length) {
             console.warn('[WhatsApp webhook] Sin empresa para mensajes entrantes.', {
               phone_number_id: phoneNumberId || '(vacío)',
               display_phone_number: value?.metadata?.display_phone_number || '(vacío)',
+              waba_entry_id: wabaFromEntry || '(vacío)',
               hint:
-                'Comprueba en Meta el Phone number ID del número y que coincida con whatsapp_cloud_phone_number_id, o rellena telefono_whatsapp en la empresa con el número de la línea.',
+                'Comprueba Phone number ID en Meta vs CRM, telefono_whatsapp en la empresa, o vuelve a conectar WhatsApp para guardar WABA (entry.id).',
             });
           }
           continue;
@@ -991,6 +1010,38 @@ async function resolverPhoneNumberIdPorAccessToken(accessToken) {
   return null;
 }
 
+/** Misma lógica que en facebookAuthController: localizar WABA por phone_number_id (rellena whatsapp_waba_id). */
+async function resolveWabaIdForPhoneNumberId(accessToken, phoneNumberId) {
+  const want = String(phoneNumberId || '').replace(/\s+/g, '').trim();
+  if (!want || !accessToken) return null;
+  try {
+    const meRes = await axios.get(`${FB_GRAPH}/me`, {
+      params: {
+        fields: 'businesses{owned_whatsapp_business_accounts{id,phone_numbers{id}}}',
+        access_token: accessToken,
+      },
+    });
+    const businesses = meRes.data?.businesses?.data;
+    if (!Array.isArray(businesses)) return null;
+    for (const biz of businesses) {
+      const wabas = biz.owned_whatsapp_business_accounts?.data;
+      if (!Array.isArray(wabas)) continue;
+      for (const waba of wabas) {
+        const phones = waba.phone_numbers?.data;
+        if (!Array.isArray(phones)) continue;
+        for (const p of phones) {
+          if (p.id && String(p.id).replace(/\s+/g, '').trim() === want) {
+            return String(waba.id);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('resolveWabaIdForPhoneNumberId', e.response?.data?.error?.message || e.message);
+  }
+  return null;
+}
+
 async function cloudStatus(req, res) {
   try {
     const empresaId = req.user.empresaId;
@@ -1032,11 +1083,37 @@ async function cloudStatus(req, res) {
       }
     }
 
+    if (tokenOk) {
+      const pidClean =
+        row?.whatsapp_cloud_phone_number_id && !esPlaceholderPhoneId(row.whatsapp_cloud_phone_number_id)
+          ? String(row.whatsapp_cloud_phone_number_id).trim()
+          : '';
+      const wabaEmpty = !String(row?.whatsapp_waba_id || '').trim();
+      if (pidClean && wabaEmpty) {
+        const nowW = Date.now();
+        const lastW = wabaIdSyncFromMetaAt.get(empresaId) || 0;
+        if (nowW - lastW >= 120000) {
+          wabaIdSyncFromMetaAt.set(empresaId, nowW);
+          try {
+            const wabaResolved = await resolveWabaIdForPhoneNumberId(token, pidClean);
+            if (wabaResolved) {
+              await updateWhatsappConfig(empresaId, { wabaId: wabaResolved });
+              row = await getWhatsappConfig(empresaId);
+              console.warn('[cloudStatus] whatsapp_waba_id sincronizado desde Graph:', wabaResolved);
+            }
+          } catch (e) {
+            console.warn('[cloudStatus] sync waba_id Meta:', e.message || e);
+          }
+        }
+      }
+    }
+
     const row2 = row;
     const configurado = isCloudConfigurado(row2 || {});
     const facebookConectado = !!(token && !esPlaceholderToken(token));
     const numeroConectado = !!(row2?.whatsapp_cloud_phone_number_id && !esPlaceholderPhoneId(row2.whatsapp_cloud_phone_number_id));
     const pid = row2?.whatsapp_cloud_phone_number_id;
+    const wabaStored = row2?.whatsapp_waba_id && String(row2.whatsapp_waba_id).trim();
     return res.status(200).json({
       ok: true,
       configurado,
@@ -1045,6 +1122,8 @@ async function cloudStatus(req, res) {
       numeroConectado,
       /** Mismo ID que Meta envía en el webhook; debe coincidir para que entren conversaciones */
       whatsappPhoneNumberId: pid && !esPlaceholderPhoneId(pid) ? String(pid).trim() : '',
+      /** entry.id en webhooks; permite enlazar si había varios números en la misma cuenta WABA */
+      whatsappWabaId: wabaStored || '',
     });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });

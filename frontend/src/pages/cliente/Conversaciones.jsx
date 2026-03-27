@@ -60,7 +60,12 @@ export default function Conversaciones() {
                       </p>
                       {waStatus.whatsappPhoneNumberId ? (
                         <p className="font-mono text-xs text-[#cbd5e0] break-all">
-                          ID en el CRM: {waStatus.whatsappPhoneNumberId}
+                          Phone number ID en el CRM: {waStatus.whatsappPhoneNumberId}
+                        </p>
+                      ) : null}
+                      {waStatus.whatsappWabaId ? (
+                        <p className="font-mono text-xs text-[#6b7a8a] break-all">
+                          WABA (cuenta WhatsApp Business en Meta): {waStatus.whatsappWabaId}
                         </p>
                       ) : null}
                       <p>
@@ -71,7 +76,7 @@ export default function Conversaciones() {
                         .
                       </p>
                       <p className="text-xs text-[#6b7a8a]">
-                        Si el número de la línea está en datos de la empresa (<code className="text-[#8b9cad]">telefono_whatsapp</code>), el servidor puede enlazar el webhook aunque el ID estuviera desfasado (última versión del backend).
+                        Si el número de la línea está en datos de la empresa (<code className="text-[#8b9cad]">telefono_whatsapp</code>), el servidor puede enlazar el webhook aunque el ID estuviera desfasado. Si tienes varios números en la misma cuenta, vuelve a conectar WhatsApp para guardar el WABA o revisa que el Phone number ID coincida con el número en WhatsApp → API de la nube.
                       </p>
                     </div>
                   )}

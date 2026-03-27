@@ -17,6 +17,38 @@ function getAppCredentials() {
   return { appId, appSecret };
 }
 
+/** Encuentra el WABA que contiene un phone_number_id (para whatsapp_waba_id y webhooks de Meta). */
+async function resolveWabaIdForPhoneNumberId(accessToken, phoneNumberId) {
+  const want = String(phoneNumberId || '').replace(/\s+/g, '').trim();
+  if (!want || !accessToken) return null;
+  try {
+    const meRes = await axios.get(`${FB_GRAPH}/me`, {
+      params: {
+        fields: 'businesses{owned_whatsapp_business_accounts{id,phone_numbers{id}}}',
+        access_token: accessToken,
+      },
+    });
+    const businesses = meRes.data?.businesses?.data;
+    if (!Array.isArray(businesses)) return null;
+    for (const biz of businesses) {
+      const wabas = biz.owned_whatsapp_business_accounts?.data;
+      if (!Array.isArray(wabas)) continue;
+      for (const waba of wabas) {
+        const phones = waba.phone_numbers?.data;
+        if (!Array.isArray(phones)) continue;
+        for (const p of phones) {
+          if (p.id && String(p.id).replace(/\s+/g, '').trim() === want) {
+            return String(waba.id);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('resolveWabaIdForPhoneNumberId', e.response?.data?.error?.message || e.message);
+  }
+  return null;
+}
+
 /**
  * GET /api/facebook/auth-url
  * Devuelve la URL de OAuth de Facebook para que el frontend redirija al usuario.
@@ -149,6 +181,7 @@ async function callback(req, res) {
     }
     const businesses = meRes.data?.businesses?.data;
     let phoneNumberId = null;
+    let savedWabaId = null;
     if (Array.isArray(businesses) && businesses.length > 0) {
       for (const biz of businesses) {
         const wabas = biz.owned_whatsapp_business_accounts?.data;
@@ -160,6 +193,7 @@ async function callback(req, res) {
           const phones = phoneRes.data?.data;
           if (Array.isArray(phones) && phones.length > 0) {
             phoneNumberId = phones[0].id;
+            savedWabaId = wabaId;
             break;
           }
         }
@@ -178,6 +212,7 @@ async function callback(req, res) {
     await updateWhatsappConfig(payload.empresaId, {
       accessToken,
       phoneNumberId: String(phoneNumberId),
+      ...(savedWabaId ? { wabaId: String(savedWabaId) } : {}),
     });
 
     return res.redirect(successRedirect);
@@ -200,6 +235,7 @@ async function disconnect(req, res) {
     await updateWhatsappConfig(empresaId, {
       accessToken: '',
       phoneNumberId: '',
+      wabaId: '',
     });
     return res.status(200).json({ ok: true, configurado: false, message: 'Cuenta desconectada' });
   } catch (err) {
@@ -329,6 +365,7 @@ async function embeddedSignupComplete(req, res) {
 
     let finalPhoneNumberId = phoneNumberId && String(phoneNumberId).trim();
     const providedWabaId = wabaId && String(wabaId).trim();
+    let finalWabaId = providedWabaId || null;
 
     // Si tenemos waba_id pero no phone_number_id, intentamos resolverlo directamente.
     if (!finalPhoneNumberId && providedWabaId) {
@@ -342,6 +379,7 @@ async function embeddedSignupComplete(req, res) {
       });
       if (Array.isArray(phones) && phones.length > 0) {
         finalPhoneNumberId = String(phones[0].id);
+        finalWabaId = providedWabaId;
       }
     }
 
@@ -357,18 +395,24 @@ async function embeddedSignupComplete(req, res) {
         for (const biz of businesses) {
           const wabas = biz.owned_whatsapp_business_accounts?.data;
           if (Array.isArray(wabas) && wabas.length > 0) {
-            const wabaId = wabas[0].id;
-            const phoneRes = await axios.get(`${FB_GRAPH}/${wabaId}/phone_numbers`, {
+            const wabaIdFromBiz = wabas[0].id;
+            const phoneRes = await axios.get(`${FB_GRAPH}/${wabaIdFromBiz}/phone_numbers`, {
               params: { access_token: accessToken },
             });
             const phones = phoneRes.data?.data;
             if (Array.isArray(phones) && phones.length > 0) {
               finalPhoneNumberId = String(phones[0].id);
+              if (!finalWabaId) finalWabaId = String(wabaIdFromBiz);
               break;
             }
           }
         }
       }
+    }
+
+    if (finalPhoneNumberId && !finalWabaId) {
+      const resolvedWaba = await resolveWabaIdForPhoneNumberId(accessToken, finalPhoneNumberId);
+      if (resolvedWaba) finalWabaId = resolvedWaba;
     }
 
     if (!finalPhoneNumberId) {
@@ -379,6 +423,7 @@ async function embeddedSignupComplete(req, res) {
       await updateWhatsappConfig(empresaId, {
         accessToken,
         phoneNumberId: '',
+        ...(providedWabaId ? { wabaId: providedWabaId } : {}),
       });
 
       return res.status(200).json({
@@ -392,6 +437,7 @@ async function embeddedSignupComplete(req, res) {
     await updateWhatsappConfig(empresaId, {
       accessToken,
       phoneNumberId: finalPhoneNumberId,
+      ...(finalWabaId ? { wabaId: String(finalWabaId) } : {}),
     });
 
     return res.status(200).json({ ok: true, configurado: true, message: 'WhatsApp conectado correctamente' });
