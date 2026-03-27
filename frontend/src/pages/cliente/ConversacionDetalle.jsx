@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 
@@ -52,13 +52,12 @@ export default function ConversacionDetalle() {
   const [error, setError] = useState('');
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [enviarAudio, setEnviarAudio] = useState(() => {
-    try {
-      return localStorage.getItem('crm_enviar_audio_manual') === '1';
-    } catch {
-      return false;
-    }
-  });
+  const [grabandoAudio, setGrabandoAudio] = useState(false);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const [enviandoAudio, setEnviandoAudio] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const mediaChunksRef = useRef([]);
+  const mediaStreamRef = useRef(null);
   const [motor, setMotor] = useState(null);
   const [updatingMotor, setUpdatingMotor] = useState(false);
   const [modoReactivacion, setModoReactivacion] = useState('soporte');
@@ -95,20 +94,104 @@ export default function ConversacionDetalle() {
     if (!texto.trim()) return;
     setEnviando(true);
     setError('');
-    api.post(`/crm/conversaciones/${id}/mensajes`, { contenido: texto.trim(), enviar_audio: enviarAudio })
+    api.post(`/crm/conversaciones/${id}/mensajes`, { contenido: texto.trim() })
       .then((r) => {
         setTexto('');
         load();
         if (r && r.enviadoWhatsApp === false && r.error) {
           setError(`Mensaje guardado en el CRM, pero no se pudo enviar por WhatsApp: ${r.error}`);
         }
-        if (r && r.enviadoWhatsApp === true && enviarAudio && r.enviadoAudio === false && r.errorAudio) {
-          setError(`Se envió el texto por WhatsApp, pero falló el audio: ${r.errorAudio}`);
-        }
       })
       .catch((e) => setError(e?.message || e.message || 'Error al enviar'))
       .finally(() => setEnviando(false));
   };
+
+  const iniciarGrabacion = async () => {
+    setError('');
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError('Tu navegador no soporta grabación de audio.');
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/webm';
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
+      mediaChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) mediaChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(mediaChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        if (blob.size > 0) setAudioBlob(blob);
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+          mediaStreamRef.current = null;
+        }
+      };
+      recorder.start();
+      setAudioBlob(null);
+      setGrabandoAudio(true);
+    } catch (e) {
+      setError('No pude iniciar la grabación. Verifica permisos de micrófono.');
+    }
+  };
+
+  const detenerGrabacion = () => {
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+    } catch (_) {}
+    setGrabandoAudio(false);
+  };
+
+  const cancelarAudio = () => {
+    setAudioBlob(null);
+    setGrabandoAudio(false);
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+    } catch (_) {}
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+  };
+
+  const enviarAudio = async () => {
+    if (!audioBlob) return;
+    setEnviandoAudio(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, `nota-voz-${Date.now()}.webm`);
+      await api.upload(`/crm/conversaciones/${id}/audio`, formData);
+      setAudioBlob(null);
+      load();
+    } catch (e) {
+      setError(e?.message || 'No se pudo enviar la nota de voz');
+    } finally {
+      setEnviandoAudio(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      try {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop();
+        }
+      } catch (_) {}
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -326,19 +409,50 @@ export default function ConversacionDetalle() {
 
       {/* Caja de texto */}
       <form onSubmit={enviar} className="border-t border-[#202c33] bg-[#202c33] px-3 py-2">
-        <label className="mb-2 flex items-center gap-2 text-xs text-[#8b9cad] px-1 select-none">
-          <input
-            type="checkbox"
-            checked={enviarAudio}
-            onChange={(e) => {
-              const v = !!e.target.checked;
-              setEnviarAudio(v);
-              try { localStorage.setItem('crm_enviar_audio_manual', v ? '1' : '0'); } catch {}
-            }}
-            className="accent-[#00a884]"
-          />
-          Enviar también como audio (TTS)
-        </label>
+        <div className="mb-2 flex items-center gap-2 text-xs">
+          {!grabandoAudio && !audioBlob && (
+            <button
+              type="button"
+              onClick={iniciarGrabacion}
+              className="rounded-lg border border-[#2d3a47] bg-[#1a2129] text-[#cbd5e0] px-2.5 py-1 hover:bg-[#24303b]"
+            >
+              Grabar audio
+            </button>
+          )}
+          {grabandoAudio && (
+            <>
+              <span className="text-rose-300">Grabando...</span>
+              <button
+                type="button"
+                onClick={detenerGrabacion}
+                className="rounded-lg border border-rose-500/40 bg-rose-500/15 text-rose-300 px-2.5 py-1 hover:bg-rose-500/25"
+              >
+                Detener
+              </button>
+            </>
+          )}
+          {!grabandoAudio && audioBlob && (
+            <>
+              <span className="text-emerald-300">Nota de voz lista</span>
+              <button
+                type="button"
+                onClick={enviarAudio}
+                disabled={enviandoAudio}
+                className="rounded-lg border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 px-2.5 py-1 hover:bg-emerald-500/25 disabled:opacity-50"
+              >
+                {enviandoAudio ? 'Enviando audio...' : 'Enviar audio'}
+              </button>
+              <button
+                type="button"
+                onClick={cancelarAudio}
+                disabled={enviandoAudio}
+                className="rounded-lg border border-[#2d3a47] bg-[#1a2129] text-[#cbd5e0] px-2.5 py-1 hover:bg-[#24303b] disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </>
+          )}
+        </div>
         <div className="flex gap-2">
         <input
           type="text"

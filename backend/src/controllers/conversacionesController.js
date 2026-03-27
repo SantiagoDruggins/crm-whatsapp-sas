@@ -1,7 +1,7 @@
 const { listar, getById, actualizar, actualizarUltimoMensaje, marcarPideAgente, desmarcarPideAgente, countPideAgente } = require('../models/conversacionModel');
 const { listarPorConversacion, crear } = require('../models/mensajeModel');
 const conversationStateModel = require('../models/conversationStateModel');
-const { enviarMensajeEmpresa, enviarAudioTtsEmpresa } = require('./whatsappController');
+const { enviarMensajeEmpresa, enviarAudioTtsEmpresa, enviarAudioArchivoEmpresa } = require('./whatsappController');
 const contactoModel = require('../models/contactoModel');
 
 async function listarConversaciones(req, res) {
@@ -168,12 +168,69 @@ async function actualizarMotorConversacion(req, res) {
   }
 }
 
+async function enviarAudioConversacion(req, res) {
+  try {
+    const conversacion = await getById(req.user.empresaId, req.params.id);
+    if (!conversacion) return res.status(404).json({ message: 'Conversación no encontrada' });
+    if (!req.file?.buffer) return res.status(400).json({ message: 'audio es requerido' });
+
+    let telefono = conversacion.contacto_telefono;
+    if (!telefono && conversacion.contacto_id) {
+      const contacto = await contactoModel.getById(req.user.empresaId, conversacion.contacto_id);
+      telefono = contacto?.telefono;
+    }
+    if (!telefono) return res.status(400).json({ message: 'No hay teléfono del contacto' });
+
+    const sent = await enviarAudioArchivoEmpresa(
+      req.user.empresaId,
+      telefono,
+      req.file.buffer,
+      req.file.mimetype || 'audio/ogg'
+    );
+    if (!sent.ok) {
+      return res.status(400).json({ ok: false, message: sent.error || 'No se pudo enviar audio' });
+    }
+
+    const mensaje = await crear(req.user.empresaId, conversacion.id, {
+      origen: 'agente',
+      usuarioId: req.user.id,
+      contenido: '[nota de voz enviada]',
+      esEntrada: false,
+      message_type: 'audio',
+      media_url: null,
+    });
+    await actualizarUltimoMensaje(conversacion.id);
+    if (conversacion.contacto_id) {
+      try {
+        await contactoModel.actualizarUltimoMensajeContacto(req.user.empresaId, conversacion.contacto_id, {
+          lastMessage: '[nota de voz enviada]',
+          lastMessageAt: new Date(),
+        });
+      } catch (e) {}
+      try {
+        await conversationStateModel.setMotorState(req.user.empresaId, conversacion.contacto_id, {
+          estado_operativo: 'asesor_activo',
+          intencion_actual: 'humano',
+          paso_actual: 'asesor_envio_audio',
+          bloqueo_bot: true,
+          updated_by: 'agente_crm_audio',
+        });
+      } catch (e) {}
+    }
+    await desmarcarPideAgente(conversacion.id);
+    return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: true, tipo: 'audio' });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
 module.exports = {
   listarConversaciones,
   obtenerConversacion,
   actualizarConversacion,
   historialConversacion,
   enviarMensajeConversacion,
+  enviarAudioConversacion,
   obtenerMotorConversacion,
   actualizarMotorConversacion,
 };

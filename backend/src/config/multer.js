@@ -90,11 +90,25 @@ const uploadEmpresaLogo = multer({
   }
 });
 
+const uploadConversacionAudio = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 12 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    const mime = (file.mimetype || '').toLowerCase();
+    const name = (file.originalname || '').toLowerCase();
+    const okMime = mime.startsWith('audio/');
+    const okExt = /\.(ogg|oga|opus|mp3|mpeg|m4a|aac|amr|wav|webm)$/i.test(name);
+    if (okMime || okExt) cb(null, true);
+    else cb(new Error('Solo archivos de audio'));
+  }
+});
+
 module.exports = {
   uploadComprobante,
   uploadBotConocimiento,
   uploadProductoImagen,
   uploadEmpresaLogo,
+  uploadConversacionAudio,
   dirComprobantes,
   dirBotConocimiento,
   dirProductos,

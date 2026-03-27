@@ -418,6 +418,19 @@ async function enviarAudioTtsEmpresa(empresaId, toPhone, texto) {
   }
 }
 
+/** Envía una nota de voz real (buffer) por WhatsApp Cloud API. */
+async function enviarAudioArchivoEmpresa(empresaId, toPhone, audioBuffer, mimeType = 'audio/ogg') {
+  if (!audioBuffer || !Buffer.isBuffer(audioBuffer) || audioBuffer.length === 0) {
+    return { ok: false, error: 'Audio inválido' };
+  }
+  try {
+    const sent = await subirYEnviarAudioEmpresa(empresaId, toPhone, audioBuffer, mimeType || 'audio/ogg');
+    return sent?.ok ? { ok: true } : { ok: false, error: sent?.error || 'No se pudo enviar audio' };
+  } catch (e) {
+    return { ok: false, error: e.message || 'Error enviando audio' };
+  }
+}
+
 /**
  * Decide si se debe enviar la respuesta también en audio (TTS). Opcional; no sustituye el envío en texto.
  * @param {string} texto - Texto de la respuesta del bot
@@ -1427,4 +1440,5 @@ module.exports = {
   isCloudConfigurado,
   enviarMensajeEmpresa,
   enviarAudioTtsEmpresa,
+  enviarAudioArchivoEmpresa,
 };

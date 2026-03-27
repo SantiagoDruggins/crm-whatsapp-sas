@@ -8,6 +8,7 @@ const {
   actualizarConversacion,
   historialConversacion,
   enviarMensajeConversacion,
+  enviarAudioConversacion,
   obtenerMotorConversacion,
   actualizarMotorConversacion,
 } = require('../controllers/conversacionesController');
@@ -19,7 +20,7 @@ const { listarFlows, obtenerFlow, crearFlow, actualizarFlow, eliminarFlow } = re
 const { listarWebhooks, crearWebhook, actualizarWebhook, eliminarWebhook } = require('../controllers/webhooksController');
 const { subirLogoEmpresa } = require('../controllers/empresaBrandingController');
 const { crearFeedback } = require('../controllers/feedbackController');
-const { uploadProductoImagen, uploadEmpresaLogo } = require('../config/multer');
+const { uploadProductoImagen, uploadEmpresaLogo, uploadConversacionAudio } = require('../config/multer');
 const { query } = require('../config/db');
 
 const router = express.Router();
@@ -50,6 +51,7 @@ router.get('/conversaciones/:id', asyncHandler(obtenerConversacion));
 router.patch('/conversaciones/:id', asyncHandler(actualizarConversacion));
 router.get('/conversaciones/:id/historial', asyncHandler(historialConversacion));
 router.post('/conversaciones/:id/mensajes', asyncHandler(enviarMensajeConversacion));
+router.post('/conversaciones/:id/audio', uploadConversacionAudio.single('audio'), asyncHandler(enviarAudioConversacion));
 router.get('/conversaciones/:id/motor', asyncHandler(obtenerMotorConversacion));
 router.patch('/conversaciones/:id/motor', asyncHandler(actualizarMotorConversacion));
 router.get('/actividad-reciente', asyncHandler(actividadReciente));
