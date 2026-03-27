@@ -562,18 +562,13 @@ async function ejecutarFlujosAutomatizados(empresaId, contacto, mensajeTexto, co
   }
 }
 
-async function cloudWebhookPost(req, res) {
+/**
+ * Procesa mensajes entrantes tras responder 200 a Meta.
+ * Antes el handler esperaba a la IA y el envío de respuesta; nginx/Meta pueden cortar por tiempo
+ * y el cliente ve “un solo check” o no recibe respuesta aunque el envío de prueba desde el panel funcione.
+ */
+async function procesarCloudWebhookBody(body) {
   try {
-    const body = req.body;
-    if (body.object !== 'whatsapp_business_account' || !body.entry) {
-      if (body?.object) {
-        console.warn('[WhatsApp webhook] Objeto ignorado (esperado whatsapp_business_account):', body.object);
-      }
-      return res.status(200).send('ok');
-    }
-
-    console.log('[WhatsApp webhook] POST ok', { entries: body.entry?.length });
-
     for (const entry of body.entry) {
       const changes = entry.changes || [];
       for (const change of changes) {
@@ -883,9 +878,34 @@ async function cloudWebhookPost(req, res) {
       }
     }
   } catch (err) {
-    console.error('cloudWebhookPost:', err);
+    console.error('procesarCloudWebhookBody:', err);
   }
-  return res.status(200).send('ok');
+}
+
+async function cloudWebhookPost(req, res) {
+  try {
+    const body = req.body;
+    if (body.object !== 'whatsapp_business_account' || !body.entry) {
+      if (body?.object) {
+        console.warn('[WhatsApp webhook] Objeto ignorado (esperado whatsapp_business_account):', body.object);
+      }
+      return res.status(200).send('ok');
+    }
+
+    console.log('[WhatsApp webhook] POST ok', { entries: body.entry?.length });
+    res.status(200).send('ok');
+
+    setImmediate(() => {
+      procesarCloudWebhookBody(body).catch((err) => {
+        console.error('[WhatsApp webhook] Error en procesamiento en segundo plano:', err);
+      });
+    });
+  } catch (err) {
+    console.error('cloudWebhookPost:', err);
+    if (!res.headersSent) {
+      return res.status(200).send('ok');
+    }
+  }
 }
 
 function esPlaceholderToken(val) {
