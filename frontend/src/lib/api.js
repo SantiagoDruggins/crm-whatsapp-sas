@@ -8,7 +8,18 @@ async function request(endpoint, options = {}) {
     ...(token && { Authorization: `Bearer ${token}` }),
     ...options.headers,
   };
-  const res = await fetch(url, { ...options, headers });
+  let res;
+  try {
+    res = await fetch(url, { ...options, headers });
+  } catch (err) {
+    const msg = err?.message || '';
+    if (err?.name === 'TypeError' && (msg.includes('fetch') || msg.includes('Failed'))) {
+      throw new Error(
+        'No se pudo conectar con el servidor. Comprueba tu red, que el sitio cargue por HTTPS y que la API esté en marcha en el VPS (pm2, nginx).'
+      );
+    }
+    throw err;
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || res.statusText || 'Error en la petición');
   return data;
@@ -18,7 +29,18 @@ async function requestFormData(endpoint, formData) {
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
   const token = typeof window !== 'undefined' && localStorage.getItem('token');
   const headers = { ...(token && { Authorization: `Bearer ${token}` }) };
-  const res = await fetch(url, { method: 'POST', headers, body: formData });
+  let res;
+  try {
+    res = await fetch(url, { method: 'POST', headers, body: formData });
+  } catch (err) {
+    const msg = err?.message || '';
+    if (err?.name === 'TypeError' && (msg.includes('fetch') || msg.includes('Failed'))) {
+      throw new Error(
+        'No se pudo conectar con el servidor. Comprueba tu red y que la API esté en marcha (pm2).'
+      );
+    }
+    throw err;
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || res.statusText || 'Error en la petición');
   return data;
