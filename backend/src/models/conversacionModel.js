@@ -1,21 +1,34 @@
 const { query } = require('../config/db');
 
 async function listar(empresaId, { limit = 50, offset = 0, pideAgente = false } = {}) {
+  let sql = `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono
+     FROM conversaciones conv
+     LEFT JOIN contactos c ON c.id = conv.contacto_id AND c.empresa_id = conv.empresa_id
+     WHERE conv.empresa_id = $1`;
+  const vals = [empresaId];
+  if (pideAgente) {
+    sql += ` AND conv.pide_agente_humano = true`;
+  }
+  sql += ` ORDER BY conv.pide_agente_humano_at DESC NULLS LAST, conv.ultimo_mensaje_at DESC NULLS LAST LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`;
+  vals.push(limit, offset);
   try {
-    let sql = `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono
-       FROM conversaciones conv
-       LEFT JOIN contactos c ON c.id = conv.contacto_id AND c.empresa_id = conv.empresa_id
-       WHERE conv.empresa_id = $1`;
-    const vals = [empresaId];
-    if (pideAgente) {
-      sql += ` AND conv.pide_agente_humano = true`;
-    }
-    sql += ` ORDER BY conv.pide_agente_humano_at DESC NULLS LAST, conv.ultimo_mensaje_at DESC NULLS LAST LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`;
-    vals.push(limit, offset);
     const result = await query(sql, vals);
     return result.rows;
   } catch (e) {
-    return [];
+    // Fallback para BDs antiguas sin columnas pide_agente_* (evita lista vacía en producción).
+    try {
+      let legacySql = `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono
+         FROM conversaciones conv
+         LEFT JOIN contactos c ON c.id = conv.contacto_id AND c.empresa_id = conv.empresa_id
+         WHERE conv.empresa_id = $1`;
+      const legacyVals = [empresaId];
+      legacySql += ` ORDER BY conv.ultimo_mensaje_at DESC NULLS LAST LIMIT $2 OFFSET $3`;
+      legacyVals.push(limit, offset);
+      const legacy = await query(legacySql, legacyVals);
+      return legacy.rows;
+    } catch {
+      return [];
+    }
   }
 }
 
