@@ -1,7 +1,4 @@
 const axios = require('axios');
-const path = require('path');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
 const config = require('../config/env');
 const {
   getWhatsappConfig,
@@ -20,7 +17,7 @@ const productoModel = require('../models/productoModel');
 const planModel = require('../models/planModel');
 const flowModel = require('../models/flowModel');
 const { generarRespuestaBot } = require('./iaController');
-const { getAiConfig, generateContent, transcribeAudioGemini, textoAVozGemini } = require('../services/aiProviderService');
+const { getAiConfig, generateContent, textoAVozGemini } = require('../services/aiProviderService');
 const { subscribeAppToWabaEdge } = require('../services/whatsappSubscribeWaba');
 
 const CLOUD_API_BASE = (config.whatsapp && config.whatsapp.cloudApiBaseUrl) ? config.whatsapp.cloudApiBaseUrl.replace(/\/$/, '') : 'https://graph.facebook.com/v19.0';
@@ -158,7 +155,7 @@ function clientePideAgenteHumano(contenido) {
   return frases.some((r) => r.test(t));
 }
 
-/** Parsea [IMAGEN: path] y [AUDIO: url] en la respuesta; devuelve { textoLimpio, urlsImagen, urlsAudio }. */
+/** Parsea [IMAGEN: path] en la respuesta; limpia también marcadores [AUDIO: ...]. */
 function extraerImagenesYAudiosDeRespuesta(respuesta, baseUrl) {
   if (!respuesta || typeof respuesta !== 'string') return { textoLimpio: respuesta, urlsImagen: [], urlsAudio: [] };
   const urlsImagen = [];
@@ -173,15 +170,11 @@ function extraerImagenesYAudiosDeRespuesta(respuesta, baseUrl) {
       if (url.startsWith('http')) urlsImagen.push(url);
     }
   }
-  const reAudio = /\[?AUDIO:\s*([^\]\n]+)\]?/gi;
-  while ((m = reAudio.exec(respuesta)) !== null) {
-    const path = (m[1] || '').trim();
-    if (path) {
-      const url = path.startsWith('http') ? path : `${(baseUrl || '').replace(/\/$/, '')}${path.startsWith('/') ? path : '/' + path}`;
-      if (url.startsWith('http')) urlsAudio.push(url);
-    }
-  }
-  textoLimpio = respuesta.replace(/\s*\[?IMAGEN:\s*[^\]\n]+\]?\s*/gi, '\n').replace(/\s*\[?AUDIO:\s*[^\]\n]+\]?\s*/gi, '\n').replace(/\n{2,}/g, '\n').trim();
+  textoLimpio = respuesta
+    .replace(/\s*\[?IMAGEN:\s*[^\]\n]+\]?\s*/gi, '\n')
+    .replace(/\s*\[?AUDIO:\s*[^\]\n]+\]?\s*/gi, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
   return { textoLimpio, urlsImagen, urlsAudio };
 }
 
@@ -272,23 +265,6 @@ async function extraerYCrearPedidoSiHay(empresaId, contactId, conversacionId, re
     console.warn('[WhatsApp] No se pudo crear pedido desde IA:', e.message);
   }
   return respuesta.replace(regex, '').replace(/\n{2,}/g, '\n').trim();
-}
-
-/** Obtiene la URL del medio de WhatsApp y descarga el contenido (para audios). */
-async function descargarMediaWhatsApp(mediaId, accessToken) {
-  const urlMeta = `${CLOUD_API_BASE}/${mediaId}`;
-  const resMeta = await axios.get(urlMeta, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    timeout: 10000,
-  });
-  const mediaUrl = resMeta.data?.url;
-  if (!mediaUrl) return { buffer: null, error: 'No URL en respuesta de media' };
-  const resFile = await axios.get(mediaUrl, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    responseType: 'arraybuffer',
-    timeout: 15000,
-  });
-  return { buffer: Buffer.from(resFile.data), error: null };
 }
 
 async function cloudWebhookGet(req, res) {
@@ -658,38 +634,9 @@ async function procesarCloudWebhookBody(body) {
                 '';
             }
 
-            // Mensajes de audio: descargar, guardar archivo para el CRM, transcribir con IA
-            let audioMediaUrl = null;
+            // Producción: audios desactivados en backend para evitar flujo inestable.
             if ((type === 'audio' || type === 'voice') && msg.audio?.id) {
-              try {
-                const waConfig = await getWhatsappConfig(empresa.id);
-                const token = waConfig?.whatsapp_cloud_access_token;
-                if (token) {
-                  const { buffer, error: errMedia } = await descargarMediaWhatsApp(msg.audio.id, token);
-                  if (buffer && buffer.length > 0) {
-                    const mime = msg.audio?.mime_type || 'audio/ogg';
-                    const ext = mime.includes('mpeg') || mime.includes('mp3') ? '.mp3' : mime.includes('m4a') || mime.includes('mp4') ? '.m4a' : '.ogg';
-                    const dirAudios = path.join(process.cwd(), 'uploads', 'audios', String(empresa.id));
-                    fs.mkdirSync(dirAudios, { recursive: true });
-                    const filename = `${uuidv4()}${ext}`;
-                    const filePath = path.join(dirAudios, filename);
-                    fs.writeFileSync(filePath, buffer);
-                    audioMediaUrl = `/uploads/audios/${empresa.id}/${filename}`;
-
-                    const empresaFull = await obtenerEmpresaPorId(empresa.id);
-                    const aiConfig = getAiConfig(empresaFull, config);
-                    if (aiConfig?.apiKey) {
-                      const b64 = buffer.toString('base64');
-                      const { text: transcribed, error: errTrans } = await transcribeAudioGemini(aiConfig.apiKey, b64, mime);
-                      if (transcribed && transcribed.trim()) text = transcribed.trim();
-                      else if (errTrans) console.warn('[WhatsApp] Transcripción audio:', errTrans);
-                    }
-                  } else if (errMedia) console.warn('[WhatsApp] Descarga audio:', errMedia);
-                }
-              } catch (errAudio) {
-                console.error('[WhatsApp] Error procesando audio:', errAudio.message);
-              }
-              if (!text) text = '[audio no transcrito]';
+              text = '[audio recibido]';
             }
 
             let contacto = await contactoModel.getByTelefono(empresa.id, from);
@@ -707,10 +654,6 @@ async function procesarCloudWebhookBody(body) {
             const conversacion = await conversacionModel.getOrCreate(empresa.id, contacto.id, 'whatsapp');
             const contenidoEntrada = text || '[mensaje no texto]';
             const payloadMensaje = { origen: 'cliente', contenido: contenidoEntrada, esEntrada: true };
-            if (audioMediaUrl) {
-              payloadMensaje.message_type = 'audio';
-              payloadMensaje.media_url = audioMediaUrl;
-            }
             await mensajeModel.crear(empresa.id, conversacion.id, payloadMensaje);
             await conversacionModel.actualizarUltimoMensaje(conversacion.id);
             await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: contenidoEntrada, lastMessageAt: new Date() });
@@ -828,14 +771,6 @@ async function procesarCloudWebhookBody(body) {
                         console.warn('[WhatsApp] Error enviando imagen:', eImg.message);
                       }
                     }
-                    for (const audioUrl of urlsAudio.slice(0, 2)) {
-                      try {
-                        await enviarAudioEmpresa(empresa.id, from, audioUrl);
-                        await new Promise((r) => setTimeout(r, 500));
-                      } catch (eAud) {
-                        console.warn('[WhatsApp] Error enviando audio:', eAud.message);
-                      }
-                    }
                     await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: textoEnviar, esEntrada: false });
                     await conversacionModel.actualizarUltimoMensaje(conversacion.id);
                     await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: textoEnviar, lastMessageAt: new Date() });
@@ -851,34 +786,6 @@ async function procesarCloudWebhookBody(body) {
                         }
                       } catch (eImg) {
                         console.warn('[WhatsApp] Error enviando fotos de productos:', eImg.message);
-                      }
-                    }
-                    const useAudioEnv = process.env.BOT_ENVIAR_RESPUESTA_EN_AUDIO === 'true';
-                    const useAudio = useAudioEnv || debeUsarAudioParaRespuesta(textoEnviar, useAudioEnv);
-                    if (useAudio && textoEnviar.length >= 10 && textoEnviar.length <= 2500) {
-                      try {
-                        const empresaFull = await obtenerEmpresaPorId(empresa.id);
-                        const aiConfig = getAiConfig(empresaFull, config);
-                        const geminiKey = config.gemini?.apiKey || (aiConfig?.provider === 'gemini' ? aiConfig.apiKey : null);
-                        const ttsModel = config.gemini?.ttsModel || process.env.GEMINI_TTS_MODEL || 'gemini-2.5-pro-preview-tts';
-                        let audioBuffer = null;
-                        let audioMime = 'audio/mpeg';
-                        if (geminiKey) {
-                          const geminiAudio = await textoAVozGemini(textoEnviar, geminiKey, ttsModel);
-                          if (geminiAudio?.buffer) {
-                            audioBuffer = geminiAudio.buffer;
-                            audioMime = geminiAudio.mimeType || 'audio/mpeg';
-                          }
-                        }
-                        if (!audioBuffer && config.openai?.apiKey) {
-                          audioBuffer = await textoAVozOpenAI(textoEnviar, config.openai.apiKey);
-                        }
-                        if (audioBuffer) {
-                          await new Promise((r) => setTimeout(r, 400));
-                          await subirYEnviarAudioEmpresa(empresa.id, from, audioBuffer, audioMime);
-                        }
-                      } catch (eAudio) {
-                        console.warn('[WhatsApp] Error enviando respuesta en audio:', eAudio.message);
                       }
                     }
                   }

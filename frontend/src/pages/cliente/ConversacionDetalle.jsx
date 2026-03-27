@@ -21,13 +21,6 @@ export default function ConversacionDetalle() {
   const [error, setError] = useState('');
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [enviarAudio, setEnviarAudio] = useState(() => {
-    try {
-      return localStorage.getItem('crm_enviar_audio') === '1';
-    } catch {
-      return false;
-    }
-  });
 
   const load = () => {
     api.get(`/crm/conversaciones/${id}/historial`).then((r) => {
@@ -60,15 +53,12 @@ export default function ConversacionDetalle() {
     if (!texto.trim()) return;
     setEnviando(true);
     setError('');
-    api.post(`/crm/conversaciones/${id}/mensajes`, { contenido: texto.trim(), enviar_audio: enviarAudio })
+    api.post(`/crm/conversaciones/${id}/mensajes`, { contenido: texto.trim() })
       .then((r) => {
         setTexto('');
         load();
         if (r && r.enviadoWhatsApp === false && r.error) {
           setError(`Mensaje guardado en el CRM, pero no se pudo enviar por WhatsApp: ${r.error}`);
-        }
-        if (r && r.enviadoWhatsApp === true && enviarAudio && r.enviadoAudio === false && r.errorAudio) {
-          setError(`Se envió el texto por WhatsApp, pero falló el audio: ${r.errorAudio}`);
         }
       })
       .catch((e) => setError(e?.message || e.message || 'Error al enviar'))
@@ -220,20 +210,7 @@ export default function ConversacionDetalle() {
       </div>
 
       {/* Caja de texto */}
-      <form onSubmit={enviar} className="border-t border-[#202c33] bg-[#202c33] px-3 py-2 flex flex-col gap-2">
-        <label className="flex items-center gap-2 text-xs text-[#8b9cad] px-1 select-none">
-          <input
-            type="checkbox"
-            checked={enviarAudio}
-            onChange={(e) => {
-              const v = !!e.target.checked;
-              setEnviarAudio(v);
-              try { localStorage.setItem('crm_enviar_audio', v ? '1' : '0'); } catch {}
-            }}
-            className="accent-[#00a884]"
-          />
-          Enviar también como audio (voz)
-        </label>
+      <form onSubmit={enviar} className="border-t border-[#202c33] bg-[#202c33] px-3 py-2">
         <div className="flex gap-2">
         <input
           type="text"
