@@ -23,6 +23,7 @@ export default function ConversacionDetalle() {
   const [enviando, setEnviando] = useState(false);
   const [motor, setMotor] = useState(null);
   const [updatingMotor, setUpdatingMotor] = useState(false);
+  const [modoReactivacion, setModoReactivacion] = useState('soporte');
 
   const load = () => {
     api.get(`/crm/conversaciones/${id}/historial`).then((r) => {
@@ -112,7 +113,9 @@ export default function ConversacionDetalle() {
   const actualizarMotor = (accion) => {
     setUpdatingMotor(true);
     setError('');
-    api.patch(`/crm/conversaciones/${id}/motor`, { accion })
+    const body = { accion };
+    if (accion === 'reactivar_bot') body.modo_inicial = modoReactivacion;
+    api.patch(`/crm/conversaciones/${id}/motor`, body)
       .then((r) => {
         if (r?.motor) setMotor(r.motor);
       })
@@ -160,6 +163,18 @@ export default function ConversacionDetalle() {
           >
             Pasar a asesor
           </button>
+          {isBotBloqueado && (
+            <select
+              value={modoReactivacion}
+              onChange={(e) => setModoReactivacion(e.target.value)}
+              className="hidden md:inline-flex rounded-lg border border-[#2d3a47] bg-[#0f1419] text-[#cbd5e0] px-2.5 py-1 text-xs focus:outline-none"
+              title="Modo inicial al reactivar el bot"
+            >
+              <option value="soporte">Reactivar en Soporte</option>
+              <option value="pedidos">Reactivar en Pedidos</option>
+              <option value="agenda">Reactivar en Agenda</option>
+            </select>
+          )}
           <button
             type="button"
             disabled={updatingMotor || !isBotBloqueado}

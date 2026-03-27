@@ -660,15 +660,6 @@ async function procesarCloudWebhookBody(body) {
             await mensajeModel.crear(empresa.id, conversacion.id, payloadMensaje);
             await conversacionModel.actualizarUltimoMensaje(conversacion.id);
             await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: contenidoEntrada, lastMessageAt: new Date() });
-            try {
-              await conversationStateModel.setMotorState(empresa.id, contacto.id, {
-                estado_operativo: 'bot_activo',
-                intencion_actual: 'soporte',
-                paso_actual: 'mensaje_recibido',
-                bloqueo_bot: false,
-                updated_by: 'webhook_inbound',
-              });
-            } catch (_) {}
 
             // Actualización automática de lead_status según palabras clave del mensaje
             const sugerido = sugerirLeadStatusDesdeTexto(contenidoEntrada);
@@ -685,6 +676,15 @@ async function procesarCloudWebhookBody(body) {
             // 1) marcar para notificación en CRM, 2) confirmar recepción, 3) pausar la IA.
             const yaPideAgente = !!conversacion.pide_agente_humano;
             const pideAgenteAhora = clientePideAgenteHumano(contenidoEntrada);
+            try {
+              await conversationStateModel.setMotorState(empresa.id, contacto.id, {
+                estado_operativo: yaPideAgente ? 'espera_asesor' : 'bot_activo',
+                intencion_actual: yaPideAgente ? 'humano' : 'soporte',
+                paso_actual: 'mensaje_recibido',
+                bloqueo_bot: yaPideAgente,
+                updated_by: 'webhook_inbound',
+              });
+            } catch (_) {}
             if (pideAgenteAhora && !yaPideAgente) {
               try {
                 await conversacionModel.marcarPideAgente(conversacion.id);

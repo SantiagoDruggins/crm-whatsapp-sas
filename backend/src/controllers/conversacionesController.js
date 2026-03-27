@@ -126,6 +126,10 @@ async function actualizarMotorConversacion(req, res) {
     if (!conversacion.contacto_id) return res.status(400).json({ message: 'La conversación no tiene contacto asociado' });
     const accion = String(req.body?.accion || '').trim().toLowerCase();
     if (!accion) return res.status(400).json({ message: 'accion es requerida' });
+    const modoInicialRaw = String(req.body?.modo_inicial || '').trim().toLowerCase();
+    const modoInicial = ['soporte', 'pedidos', 'agenda'].includes(modoInicialRaw) ? modoInicialRaw : 'soporte';
+    const intentFromModo = modoInicial === 'pedidos' ? 'pedido' : modoInicial === 'agenda' ? 'agenda' : 'soporte';
+    const pasoFromModo = modoInicial === 'pedidos' ? 'reactivado_en_pedidos' : modoInicial === 'agenda' ? 'reactivado_en_agenda' : 'reactivado_en_soporte';
 
     if (accion === 'pasar_asesor') {
       await marcarPideAgente(conversacion.id);
@@ -140,10 +144,11 @@ async function actualizarMotorConversacion(req, res) {
       await desmarcarPideAgente(conversacion.id);
       await conversationStateModel.setMotorState(req.user.empresaId, conversacion.contacto_id, {
         estado_operativo: 'bot_activo',
-        intencion_actual: 'soporte',
-        paso_actual: 'reactivado_desde_crm',
+        intencion_actual: intentFromModo,
+        paso_actual: pasoFromModo,
         bloqueo_bot: false,
         updated_by: 'crm_accion_manual',
+        extra: { modo_inicial: modoInicial },
       });
     } else {
       return res.status(400).json({ message: 'Acción inválida. Usa pasar_asesor o reactivar_bot' });
