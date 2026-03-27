@@ -342,14 +342,27 @@ async function enviarAudioEmpresa(empresaId, toPhone, audioUrl) {
 }
 
 /** Sube un buffer de audio a Meta y envía el mensaje de audio por WhatsApp. Para TTS (texto a voz). */
+function normalizeOutgoingAudioMime(mimeType = '') {
+  const m = String(mimeType || '').toLowerCase();
+  if (!m) return { mime: 'audio/ogg', ext: 'ogg' };
+  if (m.includes('webm')) return { mime: 'audio/ogg', ext: 'ogg' };
+  if (m.includes('ogg') || m.includes('opus')) return { mime: 'audio/ogg', ext: 'ogg' };
+  if (m.includes('mp4') || m.includes('m4a')) return { mime: 'audio/mp4', ext: 'm4a' };
+  if (m.includes('mpeg') || m.includes('mp3')) return { mime: 'audio/mpeg', ext: 'mp3' };
+  if (m.includes('aac')) return { mime: 'audio/aac', ext: 'aac' };
+  if (m.includes('amr')) return { mime: 'audio/amr', ext: 'amr' };
+  return { mime: 'audio/ogg', ext: 'ogg' };
+}
+
 async function subirYEnviarAudioEmpresa(empresaId, toPhone, audioBuffer, mimeType = 'audio/mpeg') {
   const row = await getWhatsappConfig(empresaId);
   if (!row?.whatsapp_cloud_access_token || !row?.whatsapp_cloud_phone_number_id) return { ok: false, error: 'WhatsApp no configurado' };
+  const out = normalizeOutgoingAudioMime(mimeType);
   const FormData = require('form-data');
   const form = new FormData();
-  form.append('file', audioBuffer, { filename: 'audio.mp3', contentType: mimeType });
+  form.append('file', audioBuffer, { filename: `audio.${out.ext}`, contentType: out.mime });
   form.append('messaging_product', 'whatsapp');
-  form.append('type', mimeType);
+  form.append('type', out.mime);
   const uploadUrl = `${CLOUD_API_BASE}/${row.whatsapp_cloud_phone_number_id}/media`;
   try {
     const up = await axios.post(uploadUrl, form, {

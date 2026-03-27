@@ -115,9 +115,15 @@ export default function ConversacionDetalle() {
       }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
+      const preferredMimes = [
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+        'audio/mp4',
+        'audio/mpeg',
+        'audio/webm;codecs=opus',
+        'audio/webm',
+      ];
+      const mimeType = preferredMimes.find((m) => MediaRecorder.isTypeSupported(m)) || '';
       const recorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = recorder;
       mediaChunksRef.current = [];
@@ -169,7 +175,14 @@ export default function ConversacionDetalle() {
     setError('');
     try {
       const formData = new FormData();
-      formData.append('audio', audioBlob, `nota-voz-${Date.now()}.webm`);
+      const extByType = audioBlob.type.includes('ogg')
+        ? 'ogg'
+        : audioBlob.type.includes('mp4')
+          ? 'm4a'
+          : audioBlob.type.includes('mpeg')
+            ? 'mp3'
+            : 'webm';
+      formData.append('audio', audioBlob, `nota-voz-${Date.now()}.${extByType}`);
       await api.upload(`/crm/conversaciones/${id}/audio`, formData);
       setAudioBlob(null);
       load();
