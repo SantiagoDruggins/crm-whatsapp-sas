@@ -105,7 +105,7 @@ export default function ConversacionDetalle() {
   const telefono = conversacion.contacto_telefono;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-[#0b141a] rounded-xl border border-[#2d3a47] overflow-hidden shadow-lg">
+    <div className="h-full flex flex-col flex-1 min-h-0 bg-[#0b141a] rounded-xl border border-[#2d3a47] overflow-hidden shadow-lg">
       {/* Header tipo WhatsApp */}
       <div className="h-14 px-4 flex items-center justify-between bg-[#202c33] border-b border-[#202c33]">
         <div className="flex items-center gap-3 min-w-0">
