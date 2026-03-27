@@ -16,6 +16,7 @@ const appointmentModel = require('../models/appointmentModel');
 const productoModel = require('../models/productoModel');
 const planModel = require('../models/planModel');
 const flowModel = require('../models/flowModel');
+const conversationStateModel = require('../models/conversationStateModel');
 const { generarRespuestaBot } = require('./iaController');
 const { getAiConfig, generateContent, textoAVozGemini } = require('../services/aiProviderService');
 const { subscribeAppToWabaEdge } = require('../services/whatsappSubscribeWaba');
@@ -659,6 +660,15 @@ async function procesarCloudWebhookBody(body) {
             await mensajeModel.crear(empresa.id, conversacion.id, payloadMensaje);
             await conversacionModel.actualizarUltimoMensaje(conversacion.id);
             await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: contenidoEntrada, lastMessageAt: new Date() });
+            try {
+              await conversationStateModel.setMotorState(empresa.id, contacto.id, {
+                estado_operativo: 'bot_activo',
+                intencion_actual: 'soporte',
+                paso_actual: 'mensaje_recibido',
+                bloqueo_bot: false,
+                updated_by: 'webhook_inbound',
+              });
+            } catch (_) {}
 
             // Actualización automática de lead_status según palabras clave del mensaje
             const sugerido = sugerirLeadStatusDesdeTexto(contenidoEntrada);
@@ -679,6 +689,15 @@ async function procesarCloudWebhookBody(body) {
               try {
                 await conversacionModel.marcarPideAgente(conversacion.id);
               } catch (e) {}
+              try {
+                await conversationStateModel.setMotorState(empresa.id, contacto.id, {
+                  estado_operativo: 'espera_asesor',
+                  intencion_actual: 'humano',
+                  paso_actual: 'solicitud_humano_detectada',
+                  bloqueo_bot: true,
+                  updated_by: 'detector_humano',
+                });
+              } catch (_) {}
               const confirmacionHumano =
                 'Perfecto, ya notifiqué a un asesor humano. En breve te atiende por este mismo chat de WhatsApp.';
               try {
@@ -701,12 +720,30 @@ async function procesarCloudWebhookBody(body) {
 
             // Mientras siga marcada para asesor humano, no ejecutar IA ni automatizaciones.
             if (yaPideAgente) {
+              try {
+                await conversationStateModel.setMotorState(empresa.id, contacto.id, {
+                  estado_operativo: 'espera_asesor',
+                  intencion_actual: 'humano',
+                  paso_actual: 'en_cola_de_asesor',
+                  bloqueo_bot: true,
+                  updated_by: 'detector_humano',
+                });
+              } catch (_) {}
               continue;
             }
 
             // Flujos / automatizaciones antes de llamar a la IA
             const resultadoFlujos = await ejecutarFlujosAutomatizados(empresa.id, contacto, contenidoEntrada, conversacion, from);
             if (resultadoFlujos.handled) {
+              try {
+                await conversationStateModel.setMotorState(empresa.id, contacto.id, {
+                  estado_operativo: 'bot_activo',
+                  intencion_actual: 'soporte',
+                  paso_actual: 'flujo_automatizado',
+                  bloqueo_bot: false,
+                  updated_by: 'flow_engine',
+                });
+              } catch (_) {}
               continue;
             }
 
@@ -758,6 +795,16 @@ async function procesarCloudWebhookBody(body) {
                   await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: textoRespuesta, esEntrada: false });
                   await conversacionModel.actualizarUltimoMensaje(conversacion.id);
                   await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: textoRespuesta, lastMessageAt: new Date() });
+                  try {
+                    await conversationStateModel.setMotorState(empresa.id, contacto.id, {
+                      estado_operativo: 'post_venta',
+                      intencion_actual: 'pedido',
+                      paso_actual: 'pedido_confirmado',
+                      bloqueo_bot: false,
+                      updated_by: 'pedido_auto',
+                      extra: { pedido_id: pedidoId || null },
+                    });
+                  } catch (_) {}
                 }
                 continue;
               }
@@ -774,6 +821,16 @@ async function procesarCloudWebhookBody(body) {
                 : '');
 
             if (textoParaBot) {
+              try {
+                const intentMap = { pedidos: 'pedido', agenda: 'agenda', support: 'soporte' };
+                await conversationStateModel.setMotorState(empresa.id, contacto.id, {
+                  estado_operativo: 'bot_activo',
+                  intencion_actual: intentMap[mode] || 'soporte',
+                  paso_actual: 'procesando_con_ia',
+                  bloqueo_bot: false,
+                  updated_by: 'ai_router',
+                });
+              } catch (_) {}
               let respuestaEnviada = null;
               try {
                 const { respuesta, error } = await generarRespuestaBot(empresa.id, textoParaBot, { contactId: contacto.id, conversacionId: conversacion.id, mode });
@@ -802,6 +859,16 @@ async function procesarCloudWebhookBody(body) {
                     await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: textoEnviar, esEntrada: false });
                     await conversacionModel.actualizarUltimoMensaje(conversacion.id);
                     await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: textoEnviar, lastMessageAt: new Date() });
+                    try {
+                      const pasoPorModo = mode === 'agenda' ? 'agenda_respuesta_enviada' : mode === 'pedidos' ? 'pedido_respuesta_enviada' : 'soporte_respuesta_enviada';
+                      await conversationStateModel.setMotorState(empresa.id, contacto.id, {
+                        estado_operativo: 'bot_activo',
+                        intencion_actual: mode === 'agenda' ? 'agenda' : mode === 'pedidos' ? 'pedido' : 'soporte',
+                        paso_actual: pasoPorModo,
+                        bloqueo_bot: false,
+                        updated_by: 'ai_response',
+                      });
+                    } catch (_) {}
                     respuestaEnviada = true;
                     if (esConsultaProductos(textoParaBot) && baseUrl) {
                       try {

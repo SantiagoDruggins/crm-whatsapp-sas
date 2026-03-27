@@ -115,6 +115,13 @@ async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
           bloque += `Nombre: ${nombreContacto}. Teléfono: ${ctx.contact.telefono || 'N/A'}. Lead: ${ctx.leadStatus}.`;
           if (ctx.tags && ctx.tags.length) bloque += ` Tags: ${ctx.tags.map((t) => t.name).join(', ')}.`;
           if (ctx.conversationState?.current_state) bloque += ` Estado conversación: ${ctx.conversationState.current_state}.`;
+          const motor = ctx.conversationState?.context_data?.motor_conversacion;
+          if (motor && typeof motor === 'object') {
+            if (motor.estado_operativo) bloque += ` Estado operativo: ${motor.estado_operativo}.`;
+            if (motor.intencion_actual) bloque += ` Intención actual: ${motor.intencion_actual}.`;
+            if (motor.paso_actual) bloque += ` Paso actual: ${motor.paso_actual}.`;
+            if (typeof motor.bloqueo_bot === 'boolean') bloque += ` Bot bloqueado: ${motor.bloqueo_bot ? 'sí' : 'no'}.`;
+          }
           if (ctx.appointments && ctx.appointments.length) {
             bloque += ` Próximas citas: ${ctx.appointments.map((a) => `${a.date}${a.time ? ' ' + a.time : ''} (${a.status})`).join('; ')}.`;
           }

@@ -1,5 +1,6 @@
 const { listar, getById, actualizar, actualizarUltimoMensaje, desmarcarPideAgente, countPideAgente } = require('../models/conversacionModel');
 const { listarPorConversacion, crear } = require('../models/mensajeModel');
+const conversationStateModel = require('../models/conversationStateModel');
 const { enviarMensajeEmpresa } = require('./whatsappController');
 const contactoModel = require('../models/contactoModel');
 
@@ -75,6 +76,15 @@ async function enviarMensajeConversacion(req, res) {
     if (conversacion.contacto_id) {
       try {
         await contactoModel.actualizarUltimoMensajeContacto(req.user.empresaId, conversacion.contacto_id, { lastMessage: texto, lastMessageAt: new Date() });
+      } catch (e) {}
+      try {
+        await conversationStateModel.setMotorState(req.user.empresaId, conversacion.contacto_id, {
+          estado_operativo: 'asesor_activo',
+          intencion_actual: 'humano',
+          paso_actual: 'asesor_respondio',
+          bloqueo_bot: true,
+          updated_by: 'agente_crm',
+        });
       } catch (e) {}
     }
     await desmarcarPideAgente(conversacion.id);
