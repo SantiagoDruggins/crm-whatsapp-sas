@@ -11,6 +11,37 @@ function Avatar({ nombre }) {
   );
 }
 
+function getGuiaContextual(motor) {
+  const intencion = (motor?.intencion_actual || '').toLowerCase();
+  const bloqueado = motor?.bloqueo_bot === true;
+  if (bloqueado) {
+    return {
+      title: 'Asesor humano en control',
+      detail: 'El bot está pausado. Responde de forma manual y, cuando quieras, reactiva el bot con el modo adecuado.',
+      tone: 'amber',
+    };
+  }
+  if (intencion === 'pedido') {
+    return {
+      title: 'Modo pedidos',
+      detail: 'Siguiente paso recomendado: confirmar producto, dirección y forma de pago para cerrar la venta.',
+      tone: 'emerald',
+    };
+  }
+  if (intencion === 'agenda') {
+    return {
+      title: 'Modo agenda',
+      detail: 'Siguiente paso recomendado: confirmar fecha/hora y verificar disponibilidad para cerrar la cita.',
+      tone: 'sky',
+    };
+  }
+  return {
+    title: 'Modo soporte',
+    detail: 'Siguiente paso recomendado: resolver la duda principal y, si hay intención comercial, pasar a pedidos o agenda.',
+    tone: 'slate',
+  };
+}
+
 export default function ConversacionDetalle() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -109,6 +140,7 @@ export default function ConversacionDetalle() {
   const telefono = conversacion.contacto_telefono;
   const motorLabel = motor?.estado_operativo || 'bot_activo';
   const isBotBloqueado = motor?.bloqueo_bot === true;
+  const guia = getGuiaContextual(motor);
 
   const actualizarMotor = (accion) => {
     setUpdatingMotor(true);
@@ -194,6 +226,20 @@ export default function ConversacionDetalle() {
             </a>
           )}
         </div>
+      </div>
+
+      <div
+        className={`px-4 py-2 border-b text-xs ${
+          guia.tone === 'amber'
+            ? 'bg-amber-500/10 border-amber-500/20 text-amber-200'
+            : guia.tone === 'emerald'
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-200'
+              : guia.tone === 'sky'
+                ? 'bg-sky-500/10 border-sky-500/20 text-sky-200'
+                : 'bg-[#1a2129] border-[#2d3a47] text-[#9fb0c1]'
+        }`}
+      >
+        <span className="font-semibold">{guia.title}:</span> {guia.detail}
       </div>
 
       {/* Citas arriba del chat */}
