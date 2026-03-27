@@ -1261,8 +1261,102 @@ async function cloudSend(req, res) {
   }
 }
 
+/**
+ * GET /whatsapp/debug-meta — Compara IDs en CRM con Graph (WABA, números, apps suscritas). Diagnóstico sin secretos.
+ */
+async function cloudDebugMeta(req, res) {
+  try {
+    const empresaId = req.user.empresaId;
+    if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
+    const row = await getWhatsappConfig(empresaId);
+    const token = row?.whatsapp_cloud_access_token;
+    let phoneIdLocal = row?.whatsapp_cloud_phone_number_id;
+    let wabaLocal = row?.whatsapp_waba_id;
+
+    const out = {
+      ok: true,
+      enCrm: {
+        phoneNumberId: phoneIdLocal && String(phoneIdLocal).trim() ? String(phoneIdLocal).trim() : null,
+        wabaId: wabaLocal && String(wabaLocal).trim() ? String(wabaLocal).trim() : null,
+      },
+      metaGraph: {},
+      comparacion: {},
+    };
+
+    if (!token || esPlaceholderToken(token)) {
+      out.ok = false;
+      out.mensaje = 'No hay token de WhatsApp válido. Conecta WhatsApp en el panel.';
+      return res.status(200).json(out);
+    }
+
+    if ((!wabaLocal || !String(wabaLocal).trim()) && phoneIdLocal && !esPlaceholderPhoneId(phoneIdLocal)) {
+      wabaLocal = await resolveWabaIdForPhoneNumberId(token, phoneIdLocal);
+      if (wabaLocal) out.enCrm.wabaIdResueltoSoloParaEstaConsulta = String(wabaLocal).trim();
+    }
+
+    const wabaId = (wabaLocal && String(wabaLocal).trim()) || (out.enCrm.wabaIdResueltoSoloParaEstaConsulta || '');
+    if (!wabaId) {
+      out.ok = false;
+      out.mensaje =
+        'No hay WABA en la BD. Abre WhatsApp Cloud API (sincroniza status) o vuelve a conectar Facebook para guardar whatsapp_waba_id.';
+      return res.status(200).json(out);
+    }
+
+    try {
+      const [subRes, phonesRes] = await Promise.all([
+        axios.get(`${FB_GRAPH}/${wabaId}/subscribed_apps`, {
+          params: { access_token: token },
+          timeout: 15000,
+        }),
+        axios.get(`${FB_GRAPH}/${wabaId}/phone_numbers`, {
+          params: { access_token: token, limit: 50 },
+          timeout: 15000,
+        }),
+      ]);
+      out.metaGraph.subscribedApps = subRes.data;
+      const phones = phonesRes.data?.data || [];
+      out.metaGraph.phoneNumbers = phones.map((p) => ({
+        id: p.id ? String(p.id).trim() : '',
+        display_phone_number: p.display_phone_number || '',
+        verified_name: p.verified_name || '',
+      }));
+      const idsEnMeta = phones.map((p) => String(p.id || '').replace(/\s+/g, '').trim()).filter(Boolean);
+      const pidClean = String(phoneIdLocal || '').replace(/\s+/g, '').trim();
+      const coincide = pidClean && idsEnMeta.length ? idsEnMeta.includes(pidClean) : null;
+      out.comparacion = {
+        phoneNumberIdCoincideConMeta: coincide,
+        idsDeNumerosEnMeta: idsEnMeta,
+        webhookCallbackDebeSer:
+          (config.publicBaseUrl || config.whatsapp?.publicWebhookBaseUrl || '').replace(/\/$/, '') +
+          '/api/whatsapp/webhook',
+      };
+      if (coincide === false) {
+        out.comparacion.alerta =
+          'El Phone number ID guardado en el CRM no coincide con ningún número de este WABA en Meta. Los webhooks pueden traer otro ID → "Sin empresa" en el servidor. Reconecta WhatsApp o corrige el ID manualmente.';
+      }
+      if (coincide === true) {
+        out.comparacion.nota =
+          'IDs coherentes. Si igual no entran mensajes: en developers.facebook.com → Tu app → WhatsApp → Configuración → Webhook: suscribe el campo "messages" y comprueba que la URL sea la de webhookCallbackDebeSer (HTTPS).';
+      }
+    } catch (e) {
+      out.metaGraph.error = e.response?.data?.error || { message: e.message };
+      out.ok = false;
+    }
+
+    return res.status(200).json(out);
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
 function cloudWebhookConfig(req, res) {
-  const base = (config.whatsapp && config.whatsapp.publicWebhookBaseUrl) ? config.whatsapp.publicWebhookBaseUrl : '';
+  const base = (
+    (config.whatsapp && config.whatsapp.publicWebhookBaseUrl) ||
+    config.publicBaseUrl ||
+    ''
+  )
+    .toString()
+    .replace(/\/$/, '');
   const webhookUrl = base ? `${base}/api/whatsapp/webhook` : '';
   const verifyToken = (config.whatsapp && config.whatsapp.cloudVerifyToken) ? config.whatsapp.cloudVerifyToken : '';
   return res.json({ webhookUrl, verifyToken });
@@ -1272,6 +1366,7 @@ module.exports = {
   cloudWebhookGet,
   cloudWebhookPost,
   cloudWebhookConfig,
+  cloudDebugMeta,
   cloudStatus,
   cloudConfigGet,
   cloudConfigUpdate,

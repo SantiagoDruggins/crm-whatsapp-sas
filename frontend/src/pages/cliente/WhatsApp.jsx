@@ -31,6 +31,8 @@ export default function WhatsApp() {
   const [conectando, setConectando] = useState(false);
   const [desconectando, setDesconectando] = useState(false);
   const [webhookConfig, setWebhookConfig] = useState({ webhookUrl: '', verifyToken: '' });
+  const [debugMeta, setDebugMeta] = useState(null);
+  const [debugMetaLoading, setDebugMetaLoading] = useState(false);
   const [embeddedSignupConfig, setEmbeddedSignupConfig] = useState(null);
   /** Login for Business (FACEBOOK_BUSINESS_LOGIN_CONFIG_ID): un clic con FB.login + config_id */
   const [fbBusinessConfig, setFbBusinessConfig] = useState(null);
@@ -751,6 +753,30 @@ export default function WhatsApp() {
             <span className="text-[#8b9cad]">Verify token: </span>
             <span className="text-white font-mono">{webhookConfig.verifyToken || '—'}</span>
           </div>
+          <p className="text-xs text-[#6b7a8a] pt-2">
+            Si envías pruebas desde aquí pero no entran conversaciones, el webhook de Meta no está llegando o el Phone number ID no coincide. Pulsa el botón y revisa la comparación con Graph.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setDebugMetaLoading(true);
+              setDebugMeta(null);
+              api
+                .get('/whatsapp/debug-meta')
+                .then((r) => setDebugMeta(r))
+                .catch((e) => setDebugMeta({ error: e.message || 'Error' }))
+                .finally(() => setDebugMetaLoading(false));
+            }}
+            disabled={debugMetaLoading}
+            className="mt-2 rounded-lg bg-[#2d3a47] text-[#cbd5e0] px-3 py-2 text-sm hover:bg-[#3d4a57] disabled:opacity-50"
+          >
+            {debugMetaLoading ? 'Consultando Meta…' : 'Comprobar con Meta (diagnóstico)'}
+          </button>
+          {debugMeta && (
+            <pre className="mt-3 p-3 rounded-lg bg-[#0f1419] text-xs text-[#cbd5e0] overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-words">
+              {JSON.stringify(debugMeta, null, 2)}
+            </pre>
+          )}
         </div>
       </details>
     </div>
