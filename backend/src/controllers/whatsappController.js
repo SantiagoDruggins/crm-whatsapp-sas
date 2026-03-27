@@ -360,17 +360,19 @@ function normalizeOutgoingAudioMime(mimeType = '') {
   return { mime: 'audio/ogg', ext: 'ogg' };
 }
 
-async function convertWebmToOgg(buffer, mimeType) {
+async function convertToPreferredAudio(buffer, mimeType) {
   const out = normalizeOutgoingAudioMime(mimeType);
-  if (!out.mime.includes('webm')) return { ok: true, buffer, mimeType: out.mime };
+  const shouldForceConvert = true; // maximize compatibilidad para notas de voz
   const tmpDir = path.join(os.tmpdir(), 'wa-audio-convert');
   try {
     fs.mkdirSync(tmpDir, { recursive: true });
   } catch (_) {}
+  const inExt = out.ext || 'bin';
   const base = `wa-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const inputPath = path.join(tmpDir, `${base}.webm`);
+  const inputPath = path.join(tmpDir, `${base}.${inExt}`);
   const outputPath = path.join(tmpDir, `${base}.ogg`);
   try {
+    if (!shouldForceConvert) return { ok: true, buffer, mimeType: out.mime };
     fs.writeFileSync(inputPath, buffer);
     await execFileAsync('ffmpeg', [
       '-y',
@@ -388,10 +390,15 @@ async function convertWebmToOgg(buffer, mimeType) {
   } catch (e) {
     const msg = String(e?.message || '');
     if (/ffmpeg/i.test(msg) || /not recognized|ENOENT/i.test(msg)) {
-      return {
-        ok: false,
-        error: 'El servidor no tiene ffmpeg instalado para convertir audio/webm. Instala ffmpeg en el VPS o usa un navegador que grabe en OGG/MP4.',
-      };
+      // Si no hay ffmpeg, usamos el original solo si NO es webm.
+      if (!out.mime.includes('webm')) {
+        return { ok: true, buffer, mimeType: out.mime };
+      }
+      return { ok: false, error: 'El servidor no tiene ffmpeg instalado para convertir audio/webm. Instala ffmpeg en el VPS.' };
+    }
+    // Si la conversión falla por otra razón, intentar enviar original (excepto webm).
+    if (!out.mime.includes('webm')) {
+      return { ok: true, buffer, mimeType: out.mime };
     }
     return { ok: false, error: `No se pudo convertir audio webm: ${msg}` };
   } finally {
@@ -483,7 +490,7 @@ async function enviarAudioArchivoEmpresa(empresaId, toPhone, audioBuffer, mimeTy
     return { ok: false, error: 'Audio inválido' };
   }
   try {
-    const conv = await convertWebmToOgg(audioBuffer, mimeType || 'audio/ogg');
+    const conv = await convertToPreferredAudio(audioBuffer, mimeType || 'audio/ogg');
     if (!conv.ok) return { ok: false, error: conv.error || 'No se pudo convertir audio' };
     const sent = await subirYEnviarAudioEmpresa(empresaId, toPhone, conv.buffer, conv.mimeType || 'audio/ogg');
     return sent?.ok ? { ok: true } : { ok: false, error: sent?.error || 'No se pudo enviar audio' };
@@ -631,6 +638,17 @@ async function procesarCloudWebhookBody(body) {
       const changes = entry.changes || [];
       for (const change of changes) {
         const value = change.value;
+        if (Array.isArray(value?.statuses) && value.statuses.length > 0) {
+          for (const st of value.statuses) {
+            if (String(st?.status || '').toLowerCase() === 'failed') {
+              console.warn('[WhatsApp status failed]', {
+                id: st?.id || null,
+                recipient: st?.recipient_id || null,
+                errors: st?.errors || [],
+              });
+            }
+          }
+        }
         const rawPid = value?.metadata?.phone_number_id;
         const phoneNumberId =
           rawPid === undefined || rawPid === null ? null : String(rawPid).replace(/\s+/g, '').trim();
