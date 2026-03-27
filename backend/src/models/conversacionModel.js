@@ -1,15 +1,39 @@
 const { query } = require('../config/db');
 
+let supportFlagsColumnsCache = null;
+
+async function hasSupportFlagsColumns() {
+  if (supportFlagsColumnsCache !== null) return supportFlagsColumnsCache;
+  try {
+    const r = await query(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM information_schema.columns
+         WHERE table_name = 'conversaciones'
+           AND column_name = 'pide_agente_humano'
+       ) AS ok`
+    );
+    supportFlagsColumnsCache = !!r.rows[0]?.ok;
+    return supportFlagsColumnsCache;
+  } catch {
+    supportFlagsColumnsCache = false;
+    return false;
+  }
+}
+
 async function listar(empresaId, { limit = 50, offset = 0, pideAgente = false } = {}) {
+  const hasFlags = await hasSupportFlagsColumns();
   let sql = `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono
      FROM conversaciones conv
      LEFT JOIN contactos c ON c.id = conv.contacto_id AND c.empresa_id = conv.empresa_id
      WHERE conv.empresa_id = $1`;
   const vals = [empresaId];
-  if (pideAgente) {
+  if (pideAgente && hasFlags) {
     sql += ` AND conv.pide_agente_humano = true`;
   }
-  sql += ` ORDER BY conv.pide_agente_humano_at DESC NULLS LAST, conv.ultimo_mensaje_at DESC NULLS LAST LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`;
+  sql += hasFlags
+    ? ` ORDER BY conv.pide_agente_humano_at DESC NULLS LAST, conv.ultimo_mensaje_at DESC NULLS LAST LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`
+    : ` ORDER BY conv.ultimo_mensaje_at DESC NULLS LAST LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`;
   vals.push(limit, offset);
   try {
     const result = await query(sql, vals);
@@ -54,6 +78,7 @@ async function actualizarUltimoMensaje(id) {
 
 async function marcarPideAgente(conversacionId) {
   try {
+    if (!(await hasSupportFlagsColumns())) return;
     await query(`UPDATE conversaciones SET pide_agente_humano = true, pide_agente_humano_at = COALESCE(pide_agente_humano_at, now()), updated_at = now() WHERE id = $1`, [conversacionId]);
   } catch (e) {
     // Columna puede no existir si no se corrió la migración
@@ -62,12 +87,14 @@ async function marcarPideAgente(conversacionId) {
 
 async function desmarcarPideAgente(conversacionId) {
   try {
+    if (!(await hasSupportFlagsColumns())) return;
     await query(`UPDATE conversaciones SET pide_agente_humano = false, pide_agente_humano_at = NULL, updated_at = now() WHERE id = $1`, [conversacionId]);
   } catch (e) {}
 }
 
 async function countPideAgente(empresaId) {
   try {
+    if (!(await hasSupportFlagsColumns())) return 0;
     const r = await query(`SELECT COUNT(*) AS total FROM conversaciones WHERE empresa_id = $1 AND pide_agente_humano = true`, [empresaId]);
     return parseInt(r.rows[0]?.total || 0, 10);
   } catch (e) {

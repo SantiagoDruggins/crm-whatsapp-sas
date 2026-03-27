@@ -149,6 +149,8 @@ function clientePideAgenteHumano(contenido) {
     /\bpersona\s+real\b/,
     /\b(agente|operador|asesor)\s+humano\b/,
     /\b(ponme|pásame|pásenme|conecten)\s+(con\s+)?(un\s+)?(agente|operador|persona)\b/,
+    /\b(asesor|agente|humano)\s+por\s+favor\b/,
+    /\bquiero\s+un\s+asesor\b/,
     /\b(atención\s+)?(humana|personal)\b/,
     /\b(contactar|hablar)\s+con\s+(alguien|alguien\s+de)\b/,
   ];
@@ -669,11 +671,37 @@ async function procesarCloudWebhookBody(body) {
               }
             }
 
-            // Si el cliente pide hablar con una persona/agente real, marcar para avisar en el CRM
-            if (clientePideAgenteHumano(contenidoEntrada)) {
+            // Si el cliente pide hablar con una persona/agente real:
+            // 1) marcar para notificación en CRM, 2) confirmar recepción, 3) pausar la IA.
+            const yaPideAgente = !!conversacion.pide_agente_humano;
+            const pideAgenteAhora = clientePideAgenteHumano(contenidoEntrada);
+            if (pideAgenteAhora && !yaPideAgente) {
               try {
                 await conversacionModel.marcarPideAgente(conversacion.id);
               } catch (e) {}
+              const confirmacionHumano =
+                'Perfecto, ya notifiqué a un asesor humano. En breve te atiende por este mismo chat de WhatsApp.';
+              try {
+                const sent = await enviarMensajeEmpresa(empresa.id, from, confirmacionHumano);
+                if (sent.ok) {
+                  await mensajeModel.crear(empresa.id, conversacion.id, {
+                    origen: 'bot',
+                    contenido: confirmacionHumano,
+                    esEntrada: false,
+                  });
+                  await conversacionModel.actualizarUltimoMensaje(conversacion.id);
+                  await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, {
+                    lastMessage: confirmacionHumano,
+                    lastMessageAt: new Date(),
+                  });
+                }
+              } catch (e) {}
+              continue;
+            }
+
+            // Mientras siga marcada para asesor humano, no ejecutar IA ni automatizaciones.
+            if (yaPideAgente) {
+              continue;
             }
 
             // Flujos / automatizaciones antes de llamar a la IA
