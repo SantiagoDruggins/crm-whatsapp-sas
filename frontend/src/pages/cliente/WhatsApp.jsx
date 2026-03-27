@@ -33,6 +33,8 @@ export default function WhatsApp() {
   const [webhookConfig, setWebhookConfig] = useState({ webhookUrl: '', verifyToken: '' });
   const [debugMeta, setDebugMeta] = useState(null);
   const [debugMetaLoading, setDebugMetaLoading] = useState(false);
+  const [subscribeWabaLoading, setSubscribeWabaLoading] = useState(false);
+  const [subscribeWabaMsg, setSubscribeWabaMsg] = useState('');
   const [embeddedSignupConfig, setEmbeddedSignupConfig] = useState(null);
   /** Login for Business (FACEBOOK_BUSINESS_LOGIN_CONFIG_ID): un clic con FB.login + config_id */
   const [fbBusinessConfig, setFbBusinessConfig] = useState(null);
@@ -754,7 +756,29 @@ export default function WhatsApp() {
             <span className="text-white font-mono">{webhookConfig.verifyToken || '—'}</span>
           </div>
           <p className="text-xs text-[#6b7a8a] pt-2">
-            Si envías pruebas desde aquí pero no entran conversaciones, el webhook de Meta no está llegando o el Phone number ID no coincide. Pulsa el botón y revisa la comparación con Graph.
+            Si el botón “Probar” en Meta sí genera logs pero <strong className="text-[#cbd5e0]">desde el móvil no llega ningún POST</strong>, suele faltar registrar la app en el WABA en Meta. Pulsa “Registrar app en WABA (webhooks)” y vuelve a escribir desde el celular.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSubscribeWabaMsg('');
+              setSubscribeWabaLoading(true);
+              api
+                .post('/whatsapp/subscribe-waba', {})
+                .then((r) => setSubscribeWabaMsg(r.message || 'OK'))
+                .catch((e) => setSubscribeWabaMsg(e.message || 'Error'))
+                .finally(() => setSubscribeWabaLoading(false));
+            }}
+            disabled={subscribeWabaLoading}
+            className="mt-2 rounded-lg bg-[#00c896]/20 text-[#00c896] border border-[#00c896]/40 px-3 py-2 text-sm hover:bg-[#00c896]/30 disabled:opacity-50"
+          >
+            {subscribeWabaLoading ? 'Registrando en Meta…' : 'Registrar app en WABA (webhooks entrantes)'}
+          </button>
+          {subscribeWabaMsg ? (
+            <p className="mt-2 text-xs text-[#8b9cad]">{subscribeWabaMsg}</p>
+          ) : null}
+          <p className="text-xs text-[#6b7a8a] pt-2">
+            Diagnóstico Graph: pulsa “Comprobar con Meta” y revisa si el Phone number ID coincide.
           </p>
           <button
             type="button"

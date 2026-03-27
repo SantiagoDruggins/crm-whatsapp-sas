@@ -21,6 +21,7 @@ const planModel = require('../models/planModel');
 const flowModel = require('../models/flowModel');
 const { generarRespuestaBot } = require('./iaController');
 const { getAiConfig, generateContent, transcribeAudioGemini, textoAVozGemini } = require('../services/aiProviderService');
+const { subscribeAppToWabaEdge } = require('../services/whatsappSubscribeWaba');
 
 const CLOUD_API_BASE = (config.whatsapp && config.whatsapp.cloudApiBaseUrl) ? config.whatsapp.cloudApiBaseUrl.replace(/\/$/, '') : 'https://graph.facebook.com/v19.0';
 const FB_GRAPH = 'https://graph.facebook.com/v19.0';
@@ -1373,6 +1374,43 @@ function cloudWebhookConfig(req, res) {
   return res.json({ webhookUrl, verifyToken });
 }
 
+/**
+ * POST /whatsapp/subscribe-waba — Registra la app en el WABA en Meta (necesario para webhooks de mensajes reales).
+ */
+async function cloudSubscribeWaba(req, res) {
+  try {
+    const empresaId = req.user.empresaId;
+    if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
+    const row = await getWhatsappConfig(empresaId);
+    const token = row?.whatsapp_cloud_access_token;
+    if (!token || esPlaceholderToken(token)) {
+      return res.status(400).json({ message: 'Falta token de WhatsApp. Conecta la cuenta primero.' });
+    }
+    let wabaId = row?.whatsapp_waba_id && String(row.whatsapp_waba_id).trim();
+    if (!wabaId && row?.whatsapp_cloud_phone_number_id && !esPlaceholderPhoneId(row.whatsapp_cloud_phone_number_id)) {
+      wabaId = await resolveWabaIdForPhoneNumberId(token, row.whatsapp_cloud_phone_number_id);
+    }
+    if (!wabaId) {
+      return res.status(400).json({
+        message:
+          'No hay WABA en la base de datos. Abre esta página para sincronizar o vuelve a conectar Facebook/WhatsApp.',
+      });
+    }
+    const sub = await subscribeAppToWabaEdge(wabaId, token);
+    if (!sub.ok) {
+      const msg = sub.error?.message || JSON.stringify(sub.error);
+      return res.status(502).json({ ok: false, message: msg, meta: sub.error });
+    }
+    return res.status(200).json({
+      ok: true,
+      message: 'Listo. Meta debería enviar webhooks de mensajes a tu servidor. Escribe de nuevo desde el móvil.',
+      data: sub.data,
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
 module.exports = {
   cloudWebhookGet,
   cloudWebhookPost,
@@ -1383,6 +1421,7 @@ module.exports = {
   cloudConfigUpdate,
   cloudRegisterPhone,
   cloudSend,
+  cloudSubscribeWaba,
   isCloudConfigurado,
   enviarMensajeEmpresa,
   enviarAudioTtsEmpresa,

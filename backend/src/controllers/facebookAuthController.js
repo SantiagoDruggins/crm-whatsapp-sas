@@ -2,6 +2,7 @@ const axios = require('axios');
 const config = require('../config/env');
 const { signToken, verifyToken } = require('../utils/jwt');
 const { updateWhatsappConfig } = require('../models/empresaModel');
+const { subscribeAppToWabaEdge } = require('../services/whatsappSubscribeWaba');
 
 const FB_GRAPH = 'https://graph.facebook.com/v19.0';
 
@@ -214,6 +215,19 @@ async function callback(req, res) {
       phoneNumberId: String(phoneNumberId),
       ...(savedWabaId ? { wabaId: String(savedWabaId) } : {}),
     });
+
+    let wabaParaWebhook = savedWabaId ? String(savedWabaId) : null;
+    if (!wabaParaWebhook) {
+      wabaParaWebhook = await resolveWabaIdForPhoneNumberId(accessToken, String(phoneNumberId));
+    }
+    if (wabaParaWebhook) {
+      const sub = await subscribeAppToWabaEdge(wabaParaWebhook, accessToken);
+      if (sub.ok) {
+        console.log('[Facebook OAuth] App suscrita al WABA (webhooks entrantes):', wabaParaWebhook);
+      } else {
+        console.warn('[Facebook OAuth] No se pudo suscribir app al WABA:', sub.error);
+      }
+    }
 
     return res.redirect(successRedirect);
   } catch (err) {
@@ -439,6 +453,15 @@ async function embeddedSignupComplete(req, res) {
       phoneNumberId: finalPhoneNumberId,
       ...(finalWabaId ? { wabaId: String(finalWabaId) } : {}),
     });
+
+    if (finalWabaId) {
+      const sub = await subscribeAppToWabaEdge(String(finalWabaId), accessToken);
+      if (sub.ok) {
+        console.log('[EmbeddedSignup] App suscrita al WABA (webhooks):', finalWabaId);
+      } else {
+        console.warn('[EmbeddedSignup] No se pudo suscribir app al WABA:', sub.error);
+      }
+    }
 
     return res.status(200).json({ ok: true, configurado: true, message: 'WhatsApp conectado correctamente' });
   } catch (err) {
