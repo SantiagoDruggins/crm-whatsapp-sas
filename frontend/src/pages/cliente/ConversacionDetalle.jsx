@@ -21,6 +21,8 @@ export default function ConversacionDetalle() {
   const [error, setError] = useState('');
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [motor, setMotor] = useState(null);
+  const [updatingMotor, setUpdatingMotor] = useState(false);
 
   const load = () => {
     api.get(`/crm/conversaciones/${id}/historial`).then((r) => {
@@ -33,6 +35,7 @@ export default function ConversacionDetalle() {
       } else {
         setCitas([]);
       }
+      api.get(`/crm/conversaciones/${id}/motor`).then((m) => setMotor(m.motor || null)).catch(() => setMotor(null));
     }).catch((e) => setError(e?.message || (e && String(e)) || 'Error al cargar la conversación')).finally(() => setLoading(false));
   };
 
@@ -103,6 +106,19 @@ export default function ConversacionDetalle() {
   };
 
   const telefono = conversacion.contacto_telefono;
+  const motorLabel = motor?.estado_operativo || 'bot_activo';
+  const isBotBloqueado = motor?.bloqueo_bot === true;
+
+  const actualizarMotor = (accion) => {
+    setUpdatingMotor(true);
+    setError('');
+    api.patch(`/crm/conversaciones/${id}/motor`, { accion })
+      .then((r) => {
+        if (r?.motor) setMotor(r.motor);
+      })
+      .catch((e) => setError(e?.message || 'No se pudo actualizar el motor de conversación'))
+      .finally(() => setUpdatingMotor(false));
+  };
 
   return (
     <div className="h-full flex flex-col flex-1 min-h-0 bg-[#0b141a] rounded-xl border border-[#2d3a47] overflow-hidden shadow-lg">
@@ -124,17 +140,45 @@ export default function ConversacionDetalle() {
               </p>
             )}
           </div>
-        </div>
-        {telefono && (
-          <a
-            href={`https://wa.me/${String(telefono).replace(/\D/g, '')}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-[#00a884] hover:text-[#25d366] font-medium"
+          <span
+            className={`hidden sm:inline-flex rounded-full px-2.5 py-1 text-[11px] border ${
+              isBotBloqueado
+                ? 'bg-amber-500/15 text-amber-300 border-amber-400/30'
+                : 'bg-emerald-500/15 text-emerald-300 border-emerald-400/30'
+            }`}
+            title={`Estado operativo: ${motorLabel}`}
           >
-            Abrir en WhatsApp
-          </a>
-        )}
+            {isBotBloqueado ? 'Asesor / Bot pausado' : 'Bot activo'}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={updatingMotor || isBotBloqueado}
+            onClick={() => actualizarMotor('pasar_asesor')}
+            className="hidden md:inline-flex rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-300 px-2.5 py-1 text-xs hover:bg-amber-500/20 disabled:opacity-50"
+          >
+            Pasar a asesor
+          </button>
+          <button
+            type="button"
+            disabled={updatingMotor || !isBotBloqueado}
+            onClick={() => actualizarMotor('reactivar_bot')}
+            className="hidden md:inline-flex rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 px-2.5 py-1 text-xs hover:bg-emerald-500/20 disabled:opacity-50"
+          >
+            Reactivar bot
+          </button>
+          {telefono && (
+            <a
+              href={`https://wa.me/${String(telefono).replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-[#00a884] hover:text-[#25d366] font-medium"
+            >
+              Abrir en WhatsApp
+            </a>
+          )}
+        </div>
       </div>
 
       {/* Citas arriba del chat */}

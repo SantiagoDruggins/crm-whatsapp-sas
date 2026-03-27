@@ -2,7 +2,15 @@ const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const empresaEstadoMiddleware = require('../middleware/empresaEstadoMiddleware');
 const { listarContactos, obtenerContacto, crearContacto, actualizarContacto, eliminarContacto } = require('../controllers/contactosController');
-const { listarConversaciones, obtenerConversacion, actualizarConversacion, historialConversacion, enviarMensajeConversacion } = require('../controllers/conversacionesController');
+const {
+  listarConversaciones,
+  obtenerConversacion,
+  actualizarConversacion,
+  historialConversacion,
+  enviarMensajeConversacion,
+  obtenerMotorConversacion,
+  actualizarMotorConversacion,
+} = require('../controllers/conversacionesController');
 const { listarProductos, obtenerProducto, crearProducto, actualizarProducto, eliminarProducto, subirImagenProducto } = require('../controllers/productosController');
 const { listarTags, obtenerTag, crearTag, actualizarTag, eliminarTag, listarTagsContacto, actualizarTagsContacto } = require('../controllers/tagsController');
 const { listarAppointments, obtenerAppointment, crearAppointment, actualizarAppointment, eliminarAppointment, listarAppointmentsContacto } = require('../controllers/appointmentsController');
@@ -42,6 +50,8 @@ router.get('/conversaciones/:id', asyncHandler(obtenerConversacion));
 router.patch('/conversaciones/:id', asyncHandler(actualizarConversacion));
 router.get('/conversaciones/:id/historial', asyncHandler(historialConversacion));
 router.post('/conversaciones/:id/mensajes', asyncHandler(enviarMensajeConversacion));
+router.get('/conversaciones/:id/motor', asyncHandler(obtenerMotorConversacion));
+router.patch('/conversaciones/:id/motor', asyncHandler(actualizarMotorConversacion));
 router.get('/actividad-reciente', asyncHandler(actividadReciente));
 
 // Flujos / Automatizaciones
