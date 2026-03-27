@@ -52,6 +52,13 @@ export default function ConversacionDetalle() {
   const [error, setError] = useState('');
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [enviarAudio, setEnviarAudio] = useState(() => {
+    try {
+      return localStorage.getItem('crm_enviar_audio_manual') === '1';
+    } catch {
+      return false;
+    }
+  });
   const [motor, setMotor] = useState(null);
   const [updatingMotor, setUpdatingMotor] = useState(false);
   const [modoReactivacion, setModoReactivacion] = useState('soporte');
@@ -88,12 +95,15 @@ export default function ConversacionDetalle() {
     if (!texto.trim()) return;
     setEnviando(true);
     setError('');
-    api.post(`/crm/conversaciones/${id}/mensajes`, { contenido: texto.trim() })
+    api.post(`/crm/conversaciones/${id}/mensajes`, { contenido: texto.trim(), enviar_audio: enviarAudio })
       .then((r) => {
         setTexto('');
         load();
         if (r && r.enviadoWhatsApp === false && r.error) {
           setError(`Mensaje guardado en el CRM, pero no se pudo enviar por WhatsApp: ${r.error}`);
+        }
+        if (r && r.enviadoWhatsApp === true && enviarAudio && r.enviadoAudio === false && r.errorAudio) {
+          setError(`Se envió el texto por WhatsApp, pero falló el audio: ${r.errorAudio}`);
         }
       })
       .catch((e) => setError(e?.message || e.message || 'Error al enviar'))
@@ -316,6 +326,19 @@ export default function ConversacionDetalle() {
 
       {/* Caja de texto */}
       <form onSubmit={enviar} className="border-t border-[#202c33] bg-[#202c33] px-3 py-2">
+        <label className="mb-2 flex items-center gap-2 text-xs text-[#8b9cad] px-1 select-none">
+          <input
+            type="checkbox"
+            checked={enviarAudio}
+            onChange={(e) => {
+              const v = !!e.target.checked;
+              setEnviarAudio(v);
+              try { localStorage.setItem('crm_enviar_audio_manual', v ? '1' : '0'); } catch {}
+            }}
+            className="accent-[#00a884]"
+          />
+          Enviar también como audio (TTS)
+        </label>
         <div className="flex gap-2">
         <input
           type="text"
