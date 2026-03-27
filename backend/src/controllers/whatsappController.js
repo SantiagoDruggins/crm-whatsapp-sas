@@ -1,4 +1,9 @@
 const axios = require('axios');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
 const config = require('../config/env');
 const {
   getWhatsappConfig,
@@ -20,6 +25,7 @@ const conversationStateModel = require('../models/conversationStateModel');
 const { generarRespuestaBot } = require('./iaController');
 const { getAiConfig, generateContent, textoAVozGemini } = require('../services/aiProviderService');
 const { subscribeAppToWabaEdge } = require('../services/whatsappSubscribeWaba');
+const execFileAsync = promisify(execFile);
 
 const CLOUD_API_BASE = (config.whatsapp && config.whatsapp.cloudApiBaseUrl) ? config.whatsapp.cloudApiBaseUrl.replace(/\/$/, '') : 'https://graph.facebook.com/v19.0';
 const FB_GRAPH = 'https://graph.facebook.com/v19.0';
@@ -345,13 +351,53 @@ async function enviarAudioEmpresa(empresaId, toPhone, audioUrl) {
 function normalizeOutgoingAudioMime(mimeType = '') {
   const m = String(mimeType || '').toLowerCase();
   if (!m) return { mime: 'audio/ogg', ext: 'ogg' };
-  if (m.includes('webm')) return { mime: 'audio/ogg', ext: 'ogg' };
+  if (m.includes('webm')) return { mime: 'audio/webm', ext: 'webm' };
   if (m.includes('ogg') || m.includes('opus')) return { mime: 'audio/ogg', ext: 'ogg' };
   if (m.includes('mp4') || m.includes('m4a')) return { mime: 'audio/mp4', ext: 'm4a' };
   if (m.includes('mpeg') || m.includes('mp3')) return { mime: 'audio/mpeg', ext: 'mp3' };
   if (m.includes('aac')) return { mime: 'audio/aac', ext: 'aac' };
   if (m.includes('amr')) return { mime: 'audio/amr', ext: 'amr' };
   return { mime: 'audio/ogg', ext: 'ogg' };
+}
+
+async function convertWebmToOgg(buffer, mimeType) {
+  const out = normalizeOutgoingAudioMime(mimeType);
+  if (!out.mime.includes('webm')) return { ok: true, buffer, mimeType: out.mime };
+  const tmpDir = path.join(os.tmpdir(), 'wa-audio-convert');
+  try {
+    fs.mkdirSync(tmpDir, { recursive: true });
+  } catch (_) {}
+  const base = `wa-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const inputPath = path.join(tmpDir, `${base}.webm`);
+  const outputPath = path.join(tmpDir, `${base}.ogg`);
+  try {
+    fs.writeFileSync(inputPath, buffer);
+    await execFileAsync('ffmpeg', [
+      '-y',
+      '-i',
+      inputPath,
+      '-vn',
+      '-c:a',
+      'libopus',
+      '-b:a',
+      '48k',
+      outputPath,
+    ]);
+    const converted = fs.readFileSync(outputPath);
+    return { ok: true, buffer: converted, mimeType: 'audio/ogg' };
+  } catch (e) {
+    const msg = String(e?.message || '');
+    if (/ffmpeg/i.test(msg) || /not recognized|ENOENT/i.test(msg)) {
+      return {
+        ok: false,
+        error: 'El servidor no tiene ffmpeg instalado para convertir audio/webm. Instala ffmpeg en el VPS o usa un navegador que grabe en OGG/MP4.',
+      };
+    }
+    return { ok: false, error: `No se pudo convertir audio webm: ${msg}` };
+  } finally {
+    try { fs.unlinkSync(inputPath); } catch (_) {}
+    try { fs.unlinkSync(outputPath); } catch (_) {}
+  }
 }
 
 async function subirYEnviarAudioEmpresa(empresaId, toPhone, audioBuffer, mimeType = 'audio/mpeg') {
@@ -437,7 +483,9 @@ async function enviarAudioArchivoEmpresa(empresaId, toPhone, audioBuffer, mimeTy
     return { ok: false, error: 'Audio inválido' };
   }
   try {
-    const sent = await subirYEnviarAudioEmpresa(empresaId, toPhone, audioBuffer, mimeType || 'audio/ogg');
+    const conv = await convertWebmToOgg(audioBuffer, mimeType || 'audio/ogg');
+    if (!conv.ok) return { ok: false, error: conv.error || 'No se pudo convertir audio' };
+    const sent = await subirYEnviarAudioEmpresa(empresaId, toPhone, conv.buffer, conv.mimeType || 'audio/ogg');
     return sent?.ok ? { ok: true } : { ok: false, error: sent?.error || 'No se pudo enviar audio' };
   } catch (e) {
     return { ok: false, error: e.message || 'Error enviando audio' };
