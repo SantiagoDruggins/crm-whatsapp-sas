@@ -16,4 +16,15 @@ async function listarPorConversacion(empresaId, conversacionId, { limit = 100, o
   return result.rows;
 }
 
-module.exports = { crear, listarPorConversacion };
+/** Últimos N mensajes en orden cronológico (para contexto de IA). */
+async function listarUltimosPorConversacion(empresaId, conversacionId, limit = 35) {
+  const lim = Math.min(80, Math.max(5, Number(limit) || 35));
+  const result = await query(
+    `SELECT * FROM mensajes WHERE conversacion_id = $1 AND empresa_id = $2 ORDER BY created_at DESC LIMIT $3`,
+    [conversacionId, empresaId, lim]
+  );
+  const rows = result.rows || [];
+  return rows.reverse();
+}
+
+module.exports = { crear, listarPorConversacion, listarUltimosPorConversacion };

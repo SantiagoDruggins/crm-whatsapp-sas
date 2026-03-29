@@ -26,6 +26,7 @@ const conversationStateModel = require('../models/conversationStateModel');
 const { generarRespuestaBot } = require('./iaController');
 const { getAiConfig, generateContent, textoAVozGemini, transcribeAudioGemini } = require('../services/aiProviderService');
 const { subscribeAppToWabaEdge } = require('../services/whatsappSubscribeWaba');
+const { scheduleLeadClassification } = require('../services/leadClassifierService');
 const execFileAsync = promisify(execFile);
 
 const CLOUD_API_BASE = (config.whatsapp && config.whatsapp.cloudApiBaseUrl) ? config.whatsapp.cloudApiBaseUrl.replace(/\/$/, '') : 'https://graph.facebook.com/v19.0';
@@ -987,6 +988,8 @@ async function procesarCloudWebhookBody(body) {
               }
             }
 
+            scheduleLeadClassification(empresa.id, contacto.id, conversacion.id);
+
             // Si el cliente pide hablar con una persona/agente real:
             // 1) marcar para notificación en CRM, 2) confirmar recepción, 3) pausar la IA.
             const yaPideAgente = !!conversacion.pide_agente_humano;
@@ -1110,6 +1113,7 @@ async function procesarCloudWebhookBody(body) {
                   await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: textoRespuesta, esEntrada: false });
                   await conversacionModel.actualizarUltimoMensaje(conversacion.id);
                   await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: textoRespuesta, lastMessageAt: new Date() });
+                  scheduleLeadClassification(empresa.id, contacto.id, conversacion.id);
                   try {
                     await conversationStateModel.setMotorState(empresa.id, contacto.id, {
                       estado_operativo: 'post_venta',
@@ -1178,6 +1182,7 @@ async function procesarCloudWebhookBody(body) {
                     await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: textoEnviar, esEntrada: false });
                     await conversacionModel.actualizarUltimoMensaje(conversacion.id);
                     await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: textoEnviar, lastMessageAt: new Date() });
+                    scheduleLeadClassification(empresa.id, contacto.id, conversacion.id);
                     try {
                       const pasoPorModo = mode === 'agenda' ? 'agenda_respuesta_enviada' : mode === 'pedidos' ? 'pedido_respuesta_enviada' : 'soporte_respuesta_enviada';
                       await conversationStateModel.setMotorState(empresa.id, contacto.id, {
@@ -1212,6 +1217,7 @@ async function procesarCloudWebhookBody(body) {
                     await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: fallback, esEntrada: false });
                     await conversacionModel.actualizarUltimoMensaje(conversacion.id);
                     await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: fallback, lastMessageAt: new Date() });
+                    scheduleLeadClassification(empresa.id, contacto.id, conversacion.id);
                   }
                 }
               } catch (err) {
@@ -1221,6 +1227,7 @@ async function procesarCloudWebhookBody(body) {
                   await enviarMensajeEmpresa(empresa.id, from, fallback);
                   await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: fallback, esEntrada: false });
                   await conversacionModel.actualizarUltimoMensaje(conversacion.id);
+                  scheduleLeadClassification(empresa.id, contacto.id, conversacion.id);
                 } catch (e2) {
                   console.error('[WhatsApp] No se pudo enviar fallback:', e2.message);
                 }

@@ -83,10 +83,39 @@ export default function Contactos() {
     };
   }, []);
 
+  /** Actualiza la tabla sin spinner (IA puede cambiar lead_status en segundo plano). */
+  const refreshSilent = useCallback(() => {
+    api
+      .get('/crm/contactos')
+      .then((r) => {
+        const raw = Array.isArray(r?.contactos) ? r.contactos : [];
+        const list = raw.filter((c) => c != null && typeof c === 'object');
+        setContactos(list);
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     const cleanup = load();
     return () => { if (typeof cleanup === 'function') cleanup(); };
   }, [load]);
+
+  useEffect(() => {
+    const POLL_MS = 12000;
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return;
+      refreshSilent();
+    };
+    const interval = setInterval(tick, POLL_MS);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') refreshSilent();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [refreshSilent]);
 
   const handleSubmit = (e) => {
     e.preventDefault();

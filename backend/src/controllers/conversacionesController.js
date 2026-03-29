@@ -13,6 +13,13 @@ const {
 } = require('./whatsappController');
 const contactoModel = require('../models/contactoModel');
 const productoModel = require('../models/productoModel');
+const { scheduleLeadClassification } = require('../services/leadClassifierService');
+
+function notificarClasificacionLeadSiAplica(empresaId, conversacion) {
+  if (conversacion?.contacto_id) {
+    scheduleLeadClassification(empresaId, conversacion.contacto_id, conversacion.id);
+  }
+}
 
 async function listarConversaciones(req, res) {
   try {
@@ -81,6 +88,7 @@ async function enviarMensajeConversacion(req, res) {
     if (telefono) {
       const sent = await enviarMensajeEmpresa(req.user.empresaId, telefono, texto);
       if (!sent.ok) {
+        notificarClasificacionLeadSiAplica(req.user.empresaId, conversacion);
         return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: false, error: sent.error || 'No se pudo enviar por WhatsApp' });
       }
       enviadoWhatsApp = true;
@@ -106,6 +114,7 @@ async function enviarMensajeConversacion(req, res) {
       } catch (e) {}
     }
     await desmarcarPideAgente(conversacion.id);
+    notificarClasificacionLeadSiAplica(req.user.empresaId, conversacion);
     return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp, enviadoAudio, errorAudio });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
@@ -228,6 +237,7 @@ async function enviarAudioConversacion(req, res) {
       } catch (e) {}
     }
     await desmarcarPideAgente(conversacion.id);
+    notificarClasificacionLeadSiAplica(req.user.empresaId, conversacion);
     return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: true, tipo: 'audio' });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
@@ -288,6 +298,7 @@ async function enviarImagenConversacion(req, res) {
       } catch (e) {}
     }
     await desmarcarPideAgente(conversacion.id);
+    notificarClasificacionLeadSiAplica(req.user.empresaId, conversacion);
     return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: true, tipo: 'image' });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
@@ -348,6 +359,7 @@ async function enviarDocumentoConversacion(req, res) {
       } catch (e) {}
     }
     await desmarcarPideAgente(conversacion.id);
+    notificarClasificacionLeadSiAplica(req.user.empresaId, conversacion);
     return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: true, tipo: 'document' });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
@@ -435,6 +447,7 @@ async function enviarProductoCatalogoConversacion(req, res) {
           } catch (e) {}
         }
         await desmarcarPideAgente(conversacion.id);
+        notificarClasificacionLeadSiAplica(req.user.empresaId, conversacion);
         return res.status(201).json({
           ok: true,
           mensaje,
@@ -492,6 +505,7 @@ async function enviarProductoCatalogoConversacion(req, res) {
       } catch (e) {}
     }
     await desmarcarPideAgente(conversacion.id);
+    notificarClasificacionLeadSiAplica(req.user.empresaId, conversacion);
     return res.status(201).json({
       ok: true,
       mensaje,
