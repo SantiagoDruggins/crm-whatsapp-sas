@@ -4,6 +4,7 @@ const os = require('os');
 const path = require('path');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
+const { v4: uuidv4 } = require('uuid');
 const config = require('../config/env');
 const {
   getWhatsappConfig,
@@ -23,7 +24,7 @@ const planModel = require('../models/planModel');
 const flowModel = require('../models/flowModel');
 const conversationStateModel = require('../models/conversationStateModel');
 const { generarRespuestaBot } = require('./iaController');
-const { getAiConfig, generateContent, textoAVozGemini } = require('../services/aiProviderService');
+const { getAiConfig, generateContent, textoAVozGemini, transcribeAudioGemini } = require('../services/aiProviderService');
 const { subscribeAppToWabaEdge } = require('../services/whatsappSubscribeWaba');
 const execFileAsync = promisify(execFile);
 
@@ -425,6 +426,54 @@ async function enviarAudioEmpresa(empresaId, toPhone, audioUrl) {
   } catch (err) {
     return { ok: false, error: err.response?.data?.error?.message || err.message };
   }
+}
+
+function extensionDesdeMimeAudio(mime) {
+  const m = String(mime || '').toLowerCase();
+  if (m.includes('ogg') || m.includes('opus')) return '.ogg';
+  if (m.includes('mpeg') || m.includes('mp3')) return '.mp3';
+  if (m.includes('mp4') || m.includes('m4a')) return '.m4a';
+  if (m.includes('wav')) return '.wav';
+  if (m.includes('aac')) return '.aac';
+  if (m.includes('amr')) return '.amr';
+  if (m.includes('webm')) return '.webm';
+  return '.ogg';
+}
+
+/** Descarga un archivo de media de WhatsApp Cloud (paso 1: GET id → url; paso 2: GET url con Bearer). */
+async function descargarMediaWhatsapp(accessToken, mediaId) {
+  if (!accessToken || !mediaId) return { ok: false, error: 'Falta token o media id' };
+  try {
+    const metaRes = await axios.get(`${CLOUD_API_BASE}/${mediaId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      timeout: 20000,
+    });
+    const mediaUrl = metaRes.data?.url;
+    const mimeType = metaRes.data?.mime_type || 'audio/ogg';
+    if (!mediaUrl) return { ok: false, error: 'Meta no devolvió URL de descarga' };
+    const binRes = await axios.get(mediaUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      responseType: 'arraybuffer',
+      timeout: 90000,
+      maxContentLength: 25 * 1024 * 1024,
+      maxBodyLength: 25 * 1024 * 1024,
+    });
+    const buffer = Buffer.from(binRes.data);
+    if (!buffer.length) return { ok: false, error: 'Archivo de media vacío' };
+    return { ok: true, buffer, mimeType };
+  } catch (err) {
+    return { ok: false, error: err.response?.data?.error?.message || err.message };
+  }
+}
+
+function resolverClaveGeminiTranscripcion(empresaRow, cfg) {
+  if (empresaRow?.gemini_api_key && String(empresaRow.gemini_api_key).trim()) {
+    return String(empresaRow.gemini_api_key).trim();
+  }
+  const ac = getAiConfig(empresaRow, cfg);
+  if (ac?.provider === 'gemini' && ac.apiKey) return ac.apiKey;
+  if (cfg.gemini?.apiKey && String(cfg.gemini.apiKey).trim()) return String(cfg.gemini.apiKey).trim();
+  return '';
 }
 
 /** Sube un buffer de audio a Meta y envía el mensaje de audio por WhatsApp. Para TTS (texto a voz). */
@@ -847,6 +896,8 @@ async function procesarCloudWebhookBody(body) {
             const from = msg.from;
             const type = msg.type;
             let text = '';
+            let inboundMediaType = null;
+            let inboundMediaUrl = null;
             if (type === 'text') text = msg.text?.body || '';
             else if (type === 'button') text = msg.button?.text || '';
             else if (type === 'interactive') {
@@ -855,11 +906,51 @@ async function procesarCloudWebhookBody(body) {
                 msg.interactive?.list_reply?.title ||
                 msg.interactive?.button_reply?.id ||
                 '';
-            }
-
-            // Producción: audios desactivados en backend para evitar flujo inestable.
-            if ((type === 'audio' || type === 'voice') && msg.audio?.id) {
-              text = '[audio recibido]';
+            } else if ((type === 'audio' || type === 'voice') && msg.audio?.id) {
+              const waRow = await getWhatsappConfig(empresa.id);
+              const token = waRow?.whatsapp_cloud_access_token;
+              if (!token) {
+                text = '[audio recibido — WhatsApp sin token en el CRM]';
+              } else {
+                const down = await descargarMediaWhatsapp(token, msg.audio.id);
+                if (!down.ok || !down.buffer?.length) {
+                  text = '[audio no transcrito]';
+                  console.warn('[WhatsApp] No se pudo descargar nota de voz:', down.error);
+                } else {
+                  const mime = down.mimeType || msg.audio?.mime_type || 'audio/ogg';
+                  const dir = path.join(process.cwd(), 'uploads', 'whatsapp-incoming');
+                  try {
+                    fs.mkdirSync(dir, { recursive: true });
+                  } catch (e) {}
+                  const fname = `${uuidv4()}${extensionDesdeMimeAudio(mime)}`;
+                  try {
+                    fs.writeFileSync(path.join(dir, fname), down.buffer);
+                    inboundMediaType = 'audio';
+                    inboundMediaUrl = `/api/uploads/whatsapp-incoming/${fname}`;
+                  } catch (e) {
+                    console.warn('[WhatsApp] No se pudo guardar audio entrante:', e.message);
+                  }
+                  const empresaFull = await obtenerEmpresaPorId(empresa.id);
+                  const gemKey = resolverClaveGeminiTranscripcion(empresaFull, config);
+                  if (gemKey) {
+                    const modelTr = (empresaFull?.ai_model_transcribe || 'gemini-2.5-flash').toString().trim();
+                    const tr = await transcribeAudioGemini(
+                      gemKey,
+                      down.buffer.toString('base64'),
+                      mime,
+                      modelTr
+                    );
+                    if (tr.text && String(tr.text).trim()) {
+                      text = String(tr.text).trim();
+                    } else {
+                      text = '[audio no transcrito]';
+                      if (tr.error) console.warn('[WhatsApp] Transcripción:', tr.error);
+                    }
+                  } else {
+                    text = '[audio recibido — configura clave Gemini (Integraciones o servidor) para transcribir]';
+                  }
+                }
+              }
             }
 
             let contacto = await contactoModel.getByTelefono(empresa.id, from);
@@ -877,6 +968,10 @@ async function procesarCloudWebhookBody(body) {
             const conversacion = await conversacionModel.getOrCreate(empresa.id, contacto.id, 'whatsapp');
             const contenidoEntrada = text || '[mensaje no texto]';
             const payloadMensaje = { origen: 'cliente', contenido: contenidoEntrada, esEntrada: true };
+            if (inboundMediaType === 'audio' && inboundMediaUrl) {
+              payloadMensaje.message_type = 'audio';
+              payloadMensaje.media_url = inboundMediaUrl;
+            }
             await mensajeModel.crear(empresa.id, conversacion.id, payloadMensaje);
             await conversacionModel.actualizarUltimoMensaje(conversacion.id);
             await contactoModel.actualizarUltimoMensajeContacto(empresa.id, contacto.id, { lastMessage: contenidoEntrada, lastMessageAt: new Date() });
@@ -1032,13 +1127,17 @@ async function procesarCloudWebhookBody(body) {
               console.warn('[WhatsApp] Error creando pedido automático:', ePedido.message);
             }
 
-            const textoParaBot =
-              (text && String(text).trim()) ||
-              (contenidoEntrada &&
-              contenidoEntrada !== '[mensaje no texto]' &&
-              contenidoEntrada !== '[audio no transcrito]'
-                ? contenidoEntrada
-                : '');
+            const rawInbound = (text && String(text).trim()) || '';
+            const audioSinTextoUtil =
+              (type === 'audio' || type === 'voice') && rawInbound.startsWith('[');
+            const textoParaBot = audioSinTextoUtil
+              ? ''
+              : rawInbound ||
+                (contenidoEntrada &&
+                contenidoEntrada !== '[mensaje no texto]' &&
+                contenidoEntrada !== '[audio no transcrito]'
+                  ? contenidoEntrada
+                  : '');
 
             if (textoParaBot) {
               try {

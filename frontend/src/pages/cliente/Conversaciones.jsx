@@ -8,7 +8,7 @@ export default function Conversaciones() {
   const [error, setError] = useState('');
   const [waStatus, setWaStatus] = useState(null);
 
-  useEffect(() => {
+  const fetchLista = () => {
     Promise.all([
       api.get('/crm/conversaciones'),
       api.get('/whatsapp/status').catch(() => ({})),
@@ -19,6 +19,30 @@ export default function Conversaciones() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchLista();
+  }, []);
+
+  useEffect(() => {
+    const LISTA_POLL_MS = 8000;
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return;
+      api
+        .get('/crm/conversaciones')
+        .then((r) => setConversaciones(r.conversaciones || []))
+        .catch(() => {});
+    };
+    const interval = setInterval(tick, LISTA_POLL_MS);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
 
   if (loading) return <p className="text-[#8b9cad]">Cargando conversaciones...</p>;

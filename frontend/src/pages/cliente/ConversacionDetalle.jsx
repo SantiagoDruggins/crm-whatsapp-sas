@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 
@@ -70,24 +70,98 @@ export default function ConversacionDetalle() {
   const [captionImagen, setCaptionImagen] = useState('');
   const inputImagenRef = useRef(null);
   const inputDocRef = useRef(null);
+  const scrollMessagesRef = useRef(null);
 
-  const load = () => {
-    api.get(`/crm/conversaciones/${id}/historial`).then((r) => {
-      setConversacion(r.conversacion);
-      setMensajes(r.mensajes || []);
-      if (r.conversacion?.contacto_id) {
-        api.get(`/crm/contactos/${r.conversacion.contacto_id}/appointments`).then((res) => {
-          setCitas(Array.isArray(res?.appointments) ? res.appointments : []);
-        }).catch(() => setCitas([]));
-      } else {
-        setCitas([]);
+  const CHAT_POLL_MS = 3500;
+
+  const load = useCallback(
+    (options = {}) => {
+      const showSpinner = options.showSpinner !== false;
+      const scrollBottom = options.scrollBottom !== false;
+      if (showSpinner) {
+        setLoading(true);
+        setError('');
       }
-      api.get(`/crm/conversaciones/${id}/motor`).then((m) => setMotor(m.motor || null)).catch(() => setMotor(null));
-    }).catch((e) => setError(e?.message || (e && String(e)) || 'Error al cargar la conversación')).finally(() => setLoading(false));
-  };
+      api
+        .get(`/crm/conversaciones/${id}/historial`)
+        .then((r) => {
+          setConversacion(r.conversacion);
+          setMensajes(r.mensajes || []);
+          if (r.conversacion?.contacto_id) {
+            api
+              .get(`/crm/contactos/${r.conversacion.contacto_id}/appointments`)
+              .then((res) => {
+                setCitas(Array.isArray(res?.appointments) ? res.appointments : []);
+              })
+              .catch(() => setCitas([]));
+          } else {
+            setCitas([]);
+          }
+          api
+            .get(`/crm/conversaciones/${id}/motor`)
+            .then((m) => setMotor(m.motor || null))
+            .catch(() => setMotor(null));
+          if (scrollBottom && scrollMessagesRef.current) {
+            requestAnimationFrame(() => {
+              const el = scrollMessagesRef.current;
+              if (el) el.scrollTop = el.scrollHeight;
+            });
+          }
+        })
+        .catch((e) => setError(e?.message || (e && String(e)) || 'Error al cargar la conversación'))
+        .finally(() => {
+          if (showSpinner) setLoading(false);
+        });
+    },
+    [id]
+  );
 
   useEffect(() => {
     load();
+  }, [id, load]);
+
+  /** Actualización en tiempo casi real del hilo (sin recargar la página). */
+  useEffect(() => {
+    if (!id) return;
+    const poll = () => {
+      if (document.visibilityState !== 'visible') return;
+      api
+        .get(`/crm/conversaciones/${id}/historial`)
+        .then((r) => {
+          setConversacion((prev) => r.conversacion ?? prev);
+          setMensajes((prev) => {
+            const next = r.mensajes || [];
+            const prevLast = prev[prev.length - 1];
+            const nextLast = next[next.length - 1];
+            const hasNew =
+              next.length !== prev.length || (nextLast?.id != null && nextLast?.id !== prevLast?.id);
+            if (hasNew && scrollMessagesRef.current) {
+              const el = scrollMessagesRef.current;
+              const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 200;
+              if (nearBottom) {
+                requestAnimationFrame(() => {
+                  el.scrollTop = el.scrollHeight;
+                });
+              }
+            }
+            return next;
+          });
+          api
+            .get(`/crm/conversaciones/${id}/motor`)
+            .then((m) => setMotor(m.motor || null))
+            .catch(() => {});
+        })
+        .catch(() => {});
+    };
+    const interval = setInterval(poll, CHAT_POLL_MS);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') poll();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, [id]);
 
   useEffect(() => {
@@ -113,7 +187,7 @@ export default function ConversacionDetalle() {
     api.post(`/crm/conversaciones/${id}/mensajes`, { contenido: texto.trim() })
       .then((r) => {
         setTexto('');
-        load();
+        load({ showSpinner: false });
         if (r && r.enviadoWhatsApp === false && r.error) {
           setError(`Mensaje guardado en el CRM, pero no se pudo enviar por WhatsApp: ${r.error}`);
         }
@@ -197,7 +271,7 @@ export default function ConversacionDetalle() {
       if (captionImagen.trim()) formData.append('caption', captionImagen.trim());
       await api.upload(`/crm/conversaciones/${id}/imagen`, formData);
       setCaptionImagen('');
-      load();
+      load({ showSpinner: false });
     } catch (err) {
       setError(err?.message || 'No se pudo enviar la imagen');
     } finally {
@@ -215,7 +289,7 @@ export default function ConversacionDetalle() {
       const formData = new FormData();
       formData.append('documento', file);
       await api.upload(`/crm/conversaciones/${id}/documento`, formData);
-      load();
+      load({ showSpinner: false });
     } catch (err) {
       setError(err?.message || 'No se pudo enviar el archivo');
     } finally {
@@ -231,7 +305,7 @@ export default function ConversacionDetalle() {
     try {
       const r = await api.post(`/crm/conversaciones/${id}/enviar-producto`, { producto_id: productoCatalogoId });
       setProductoCatalogoId('');
-      load();
+      load({ showSpinner: false });
       if (r?.advertencia) setAviso(r.advertencia);
     } catch (err) {
       setError(err?.message || 'No se pudo enviar el producto');
@@ -256,7 +330,7 @@ export default function ConversacionDetalle() {
       formData.append('audio', audioBlob, `nota-voz-${Date.now()}.${extByType}`);
       await api.upload(`/crm/conversaciones/${id}/audio`, formData);
       setAudioBlob(null);
-      load();
+      load({ showSpinner: false });
     } catch (e) {
       setError(e?.message || 'No se pudo enviar la nota de voz');
     } finally {
@@ -288,7 +362,7 @@ export default function ConversacionDetalle() {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 rounded-xl border border-[#2d3a47] bg-[#1a2129] p-6">
         <p className="text-[#f87171] text-center">{error}</p>
-        <button type="button" onClick={() => { setError(''); setLoading(true); load(); }} className="text-sm text-[#00c896] hover:text-[#00e0a8]">
+        <button type="button" onClick={() => { setError(''); load(); }} className="text-sm text-[#00c896] hover:text-[#00e0a8]">
           Reintentar
         </button>
       </div>
@@ -444,7 +518,10 @@ export default function ConversacionDetalle() {
       )}
 
       {/* Área de mensajes con fondo tipo WhatsApp (solo esta zona hace scroll) */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-3 bg-[radial-gradient(circle_at_top,_#202c33_0,_#0b141a_55%,_#0b141a_100%)]">
+      <div
+        ref={scrollMessagesRef}
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-3 bg-[radial-gradient(circle_at_top,_#202c33_0,_#0b141a_55%,_#0b141a_100%)]"
+      >
         {mensajes.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <p className="text-[#8696a0] text-sm text-center px-4">

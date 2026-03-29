@@ -5,7 +5,8 @@ import { ToastContainer } from './Toast';
 import NotificationPopup from './NotificationPopup';
 import { api } from '../lib/api';
 
-const POLL_INTERVAL_MS = 25000;
+/** Actividad reciente (campanita / toasts): más frecuente que antes para acercarse a “tiempo real”. */
+const POLL_INTERVAL_MS = 12000;
 let toastId = 0;
 function nextToastId() {
   return `toast-${++toastId}-${Date.now()}`;

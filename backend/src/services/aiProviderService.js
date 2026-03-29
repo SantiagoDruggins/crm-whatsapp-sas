@@ -235,9 +235,9 @@ async function textoAVozGemini(texto, apiKey, ttsModel) {
  * @param {string} mimeType - e.g. 'audio/ogg', 'audio/mpeg'
  * @returns {Promise<{ text: string, error: string | null }>}
  */
-async function transcribeAudioGemini(apiKey, audioBase64, mimeType = 'audio/ogg') {
+async function transcribeAudioGemini(apiKey, audioBase64, mimeType = 'audio/ogg', modelOverride) {
   if (!apiKey || !audioBase64) return { text: '', error: 'Faltan apiKey o audio' };
-  const model = 'gemini-2.5-flash'; // Flash suele soportar audio y es rápido
+  const model = (modelOverride && String(modelOverride).trim().replace(/^models\//, '')) || 'gemini-2.5-flash';
   const parts = [
     { text: 'Transcribe this voice message to text. Reply only with the transcription, in the same language as the audio. Do not add any comment or greeting.' },
     { inlineData: { mimeType: mimeType || 'audio/ogg', data: audioBase64 } }
