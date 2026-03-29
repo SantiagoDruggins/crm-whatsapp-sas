@@ -4,7 +4,16 @@ const { v4: uuidv4 } = require('uuid');
 const { signToken } = require('../utils/jwt');
 const config = require('../config/env');
 const { crearEmpresaConDemo, obtenerEmpresaPorEmail } = require('../models/empresaModel');
-const { crearUsuarioEmpresa, obtenerUsuarioPorEmailGlobal, actualizarLastLogin, getById, actualizarPerfil, actualizarPassword } = require('../models/usuarioModel');
+const {
+  crearUsuarioEmpresa,
+  obtenerUsuarioPorEmailGlobal,
+  actualizarLastLogin,
+  getByIdConCrm,
+  actualizarPerfil,
+  actualizarPassword,
+} = require('../models/usuarioModel');
+const { crearRolAdminInicial } = require('../models/crmRoleModel');
+const { usuarioClienteDesdeFila } = require('../lib/crmPermissions');
 const { query } = require('../config/db');
 const { sendMail } = require('../services/emailService');
 
@@ -13,9 +22,11 @@ const RESET_TOKEN_EXPIRY_HOURS = 1;
 
 async function getMe(req, res) {
   try {
-    const user = await getById(req.user.id);
+    const user = await getByIdConCrm(req.user.id);
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
-    return res.json({ ok: true, usuario: { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol, empresa_id: user.empresa_id, last_login_at: user.last_login_at } });
+    const usuario = usuarioClienteDesdeFila(user);
+    usuario.last_login_at = user.last_login_at;
+    return res.json({ ok: true, usuario });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
   }
@@ -27,7 +38,8 @@ async function actualizarMiPerfil(req, res) {
     const result = await actualizarPerfil(req.user.id, { nombre, email });
     if (result.error) return res.status(409).json({ message: result.error });
     if (!result.row) return res.status(400).json({ message: 'Nada que actualizar' });
-    return res.json({ ok: true, usuario: { id: result.row.id, nombre: result.row.nombre, email: result.row.email, rol: result.row.rol } });
+    const user = await getByIdConCrm(req.user.id);
+    return res.json({ ok: true, usuario: usuarioClienteDesdeFila(user) });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
   }
@@ -58,9 +70,34 @@ async function registrarEmpresa(req, res) {
     if (existente) return res.status(409).json({ message: 'Ya existe una empresa con ese email' });
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     const empresa = await crearEmpresaConDemo({ nombre: nombre_empresa, email: email_empresa, passwordHash });
-    const adminUsuario = await crearUsuarioEmpresa({ empresaId: empresa.id, nombre: empresa.nombre, email: email_empresa, passwordHash, rol: 'admin' });
+    const adminRole = await crearRolAdminInicial(empresa.id);
+    const adminUsuario = await crearUsuarioEmpresa({
+      empresaId: empresa.id,
+      nombre: empresa.nombre,
+      email: email_empresa,
+      passwordHash,
+      rol: 'admin',
+      crmRoleId: adminRole.id,
+    });
     const token = signToken({ userId: adminUsuario.id, empresaId: empresa.id, rol: adminUsuario.rol });
-    return res.status(201).json({ message: 'Empresa registrada con demo de 3 días', token, empresa: { id: empresa.id, nombre: empresa.nombre, email: empresa.email, estado: empresa.estado, demo_expires_at: empresa.demo_expires_at, plan: empresa.plan }, usuario: { id: adminUsuario.id, nombre: adminUsuario.nombre, email: adminUsuario.email, rol: adminUsuario.rol } });
+    const usuario = usuarioClienteDesdeFila({
+      ...adminUsuario,
+      crm_permisos: adminRole.permisos,
+      crm_is_full_access: adminRole.is_full_access,
+    });
+    return res.status(201).json({
+      message: 'Empresa registrada con demo de 3 días',
+      token,
+      empresa: {
+        id: empresa.id,
+        nombre: empresa.nombre,
+        email: empresa.email,
+        estado: empresa.estado,
+        demo_expires_at: empresa.demo_expires_at,
+        plan: empresa.plan,
+      },
+      usuario,
+    });
   } catch (err) {
     console.error('registrarEmpresa', err);
     return res.status(500).json({ message: err.message || 'Error al registrar empresa' });
@@ -77,7 +114,8 @@ async function login(req, res) {
     if (!match) return res.status(401).json({ message: 'Credenciales inválidas' });
     const token = signToken({ userId: usuario.id, empresaId: usuario.empresa_id, rol: usuario.rol });
     await actualizarLastLogin(usuario.id);
-    return res.json({ message: 'Login exitoso', token, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, empresa_id: usuario.empresa_id } });
+    const usuarioOut = usuarioClienteDesdeFila(usuario);
+    return res.json({ message: 'Login exitoso', token, usuario: usuarioOut });
   } catch (err) {
     console.error('login', err);
     return res.status(500).json({ message: err.message || 'Error al iniciar sesión' });

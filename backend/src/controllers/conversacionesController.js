@@ -14,6 +14,7 @@ const {
 const contactoModel = require('../models/contactoModel');
 const productoModel = require('../models/productoModel');
 const { scheduleLeadClassification } = require('../services/leadClassifierService');
+const { userCan } = require('../lib/crmPermissions');
 
 function notificarClasificacionLeadSiAplica(empresaId, conversacion) {
   if (conversacion?.contacto_id) {
@@ -26,6 +27,9 @@ async function listarConversaciones(req, res) {
     const empresaId = req.user.empresaId;
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
     const pideAgenteOnly = req.query.pide_agente === '1' || req.query.pide_agente === 'true';
+    if (pideAgenteOnly && !userCan(req, 'pide_agente')) {
+      return res.status(403).json({ message: 'No tienes permiso para ver “Pide agente”.', code: 'CRM_FORBIDDEN' });
+    }
     const [conversaciones, pideAgenteCount] = await Promise.all([
       listar(empresaId, { limit: Number(req.query.limit) || 50, offset: Number(req.query.offset) || 0, pideAgente: pideAgenteOnly }),
       countPideAgente(empresaId),

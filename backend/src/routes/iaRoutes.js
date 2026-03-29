@@ -1,6 +1,7 @@
 const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const empresaEstadoMiddleware = require('../middleware/empresaEstadoMiddleware');
+const { requireCrmPermission } = require('../middleware/crmPermissionMiddleware');
 const { uploadBotConocimiento } = require('../config/multer');
 const { responder, listarBots, crearBot, obtenerBot, actualizarBot, eliminarBot, subirArchivoConocimiento } = require('../controllers/iaController');
 
@@ -9,6 +10,7 @@ const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, ne
 
 router.use(authMiddleware);
 router.use(empresaEstadoMiddleware);
+router.use(requireCrmPermission('bot_ia'));
 
 router.post('/responder', asyncHandler(responder));
 router.get('/bots', asyncHandler(listarBots));

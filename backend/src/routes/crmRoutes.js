@@ -39,26 +39,17 @@ const {
   uploadConversacionDocumento,
   uploadFlowMedia,
 } = require('../config/multer');
-const { query } = require('../config/db');
+const crmEquipoRoutes = require('./crmEquipoRoutes');
+const { crmPathPermissionMiddleware } = require('../middleware/crmPathPermissionMiddleware');
 
 const router = express.Router();
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 router.use(authMiddleware);
 router.use(empresaEstadoMiddleware);
+router.use('/equipo', crmEquipoRoutes);
+router.use(crmPathPermissionMiddleware);
 
-async function listarUsuariosEmpresa(req, res) {
-  try {
-    const empresaId = req.user.empresaId;
-    if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
-    const result = await query(`SELECT id, nombre, email, rol FROM usuarios WHERE empresa_id = $1 AND is_active = true ORDER BY nombre`, [empresaId]);
-    return res.status(200).json({ ok: true, usuarios: result.rows });
-  } catch (err) {
-    return res.status(500).json({ message: err.message || 'Error' });
-  }
-}
-
-router.get('/usuarios', asyncHandler(listarUsuariosEmpresa));
 router.get('/contactos', asyncHandler(listarContactos));
 router.get('/contactos/:id', asyncHandler(obtenerContacto));
 router.post('/contactos', asyncHandler(crearContacto));

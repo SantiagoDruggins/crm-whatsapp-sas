@@ -8,7 +8,8 @@ import OlvidePassword from './pages/OlvidePassword';
 import ResetPassword from './pages/ResetPassword';
 import LayoutCliente from './components/LayoutCliente';
 import LayoutSuperAdmin from './components/LayoutSuperAdmin';
-import DashboardResumen from './pages/cliente/DashboardResumen';
+import CrmHomeRedirect from './pages/cliente/CrmHomeRedirect';
+import Equipo from './pages/cliente/Equipo';
 import Contactos from './pages/cliente/Contactos';
 import ErrorBoundary from './components/ErrorBoundary';
 import Conversaciones from './pages/cliente/Conversaciones';
@@ -42,7 +43,7 @@ function App() {
       <Route path="/olvide-password" element={<OlvidePassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/dashboard" element={<LayoutCliente />}>
-        <Route index element={<DashboardResumen />} />
+        <Route index element={<CrmHomeRedirect />} />
         <Route path="contactos" element={<ErrorBoundary><Contactos /></ErrorBoundary>} />
         <Route path="conversaciones" element={<Conversaciones />} />
         <Route path="conversaciones/:id" element={<ErrorBoundary><ConversacionDetalle /></ErrorBoundary>} />
@@ -51,6 +52,7 @@ function App() {
         <Route path="ia" element={<BotIA />} />
         <Route path="catalogo" element={<Catalogo />} />
         <Route path="pagos" element={<Pagos />} />
+        <Route path="equipo" element={<Equipo />} />
         <Route path="integraciones" element={<Integraciones />} />
         <Route path="pedidos" element={<Pedidos />} />
         <Route path="agenda" element={<Agenda />} />

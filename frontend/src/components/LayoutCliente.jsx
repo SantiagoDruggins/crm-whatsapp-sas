@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { contactAssetUrl, contactInitials, hueFromPhone } from '../lib/contactVisual';
 import PanelDemoTour, { restartPanelDemoTour } from './PanelDemoTour';
 import FloatingWhatsappHelp from './FloatingWhatsappHelp';
+import { canAccess, firstDashboardPath, DASHBOARD_ROUTE_PERM } from '../lib/crmPermissions';
 
 /** Actividad reciente (campanita / toasts): más frecuente que antes para acercarse a “tiempo real”. */
 const POLL_INTERVAL_MS = 12000;
@@ -67,26 +68,63 @@ function BellContactThumb({ nombre, telefono, avatarUrl }) {
 }
 
 const nav = [
-  { path: '/dashboard', label: 'Panel' },
+  { path: '/dashboard', label: 'Panel', perm: 'panel' },
   { section: 'CRM' },
-  { path: '/dashboard/contactos', label: 'Contactos' },
-  { path: '/dashboard/conversaciones', label: 'Conversaciones' },
-  { path: '/dashboard/pide-agente', label: 'Pide agente humano', badge: 'pideAgente' },
+  { path: '/dashboard/contactos', label: 'Contactos', perm: 'contactos' },
+  { path: '/dashboard/conversaciones', label: 'Conversaciones', perm: 'conversaciones' },
+  { path: '/dashboard/pide-agente', label: 'Pide agente humano', badge: 'pideAgente', perm: 'pide_agente' },
   { section: 'Canal y ventas' },
-  { path: '/dashboard/whatsapp', label: 'WhatsApp Cloud API' },
-  { path: '/dashboard/ia', label: 'Bot IA' },
-  { path: '/dashboard/catalogo', label: 'Catálogo' },
-  { path: '/dashboard/pedidos', label: 'Pedidos' },
-  { path: '/dashboard/agenda', label: 'Agenda' },
+  { path: '/dashboard/whatsapp', label: 'WhatsApp Cloud API', perm: 'whatsapp' },
+  { path: '/dashboard/ia', label: 'Bot IA', perm: 'bot_ia' },
+  { path: '/dashboard/catalogo', label: 'Catálogo', perm: 'catalogo' },
+  { path: '/dashboard/pedidos', label: 'Pedidos', perm: 'pedidos' },
+  { path: '/dashboard/agenda', label: 'Agenda', perm: 'agenda' },
   { section: 'Configuración' },
-  { path: '/dashboard/automatizaciones', label: 'Automatizaciones' },
-  { path: '/dashboard/integraciones', label: 'Integraciones' },
-  { path: '/dashboard/pagos', label: 'Pagos' },
-  { path: '/dashboard/branding', label: 'Marca / logo' },
-  { path: '/dashboard/sugerencias', label: 'Sugerencias' },
+  { path: '/dashboard/automatizaciones', label: 'Automatizaciones', perm: 'automatizaciones' },
+  { path: '/dashboard/integraciones', label: 'Integraciones', perm: 'integraciones' },
+  { path: '/dashboard/pagos', label: 'Pagos', perm: 'pagos' },
+  { path: '/dashboard/equipo', label: 'Equipo y roles', esAdminOnly: true },
+  { path: '/dashboard/branding', label: 'Marca / logo', perm: 'branding' },
+  { path: '/dashboard/sugerencias', label: 'Sugerencias', perm: 'sugerencias' },
   { path: '/dashboard/ayuda', label: 'Ayuda' },
   { path: '/dashboard/mi-cuenta', label: 'Mi cuenta' },
 ];
+
+function buildVisibleNav(u) {
+  const result = [];
+  let i = 0;
+  while (i < nav.length) {
+    const item = nav[i];
+    if (item.section) {
+      const start = i + 1;
+      let j = start;
+      while (j < nav.length && !nav[j].section) j += 1;
+      const slice = nav.slice(start, j);
+      const visibleLinks = slice.filter((link) => {
+        if (link.esAdminOnly && !u.es_admin_crm) return false;
+        if (link.perm && !canAccess(u, link.perm)) return false;
+        return true;
+      });
+      if (visibleLinks.length) {
+        result.push(item);
+        result.push(...visibleLinks);
+      }
+      i = j;
+      continue;
+    }
+    if (item.esAdminOnly && !u.es_admin_crm) {
+      i += 1;
+      continue;
+    }
+    if (item.perm && !canAccess(u, item.perm)) {
+      i += 1;
+      continue;
+    }
+    result.push(item);
+    i += 1;
+  }
+  return result;
+}
 
 export default function LayoutCliente() {
   const navigate = useNavigate();
@@ -100,13 +138,8 @@ export default function LayoutCliente() {
       return {};
     }
   });
-  const usuario = (() => {
-    try {
-      return JSON.parse(localStorage.getItem('usuario') || '{}');
-    } catch {
-      return {};
-    }
-  })();
+  const usuario = usuarioState;
+  const visibleNav = buildVisibleNav(usuario);
 
   const [toasts, setToasts] = useState([]);
   const [popup, setPopup] = useState({ open: false, type: '', title: '', detail: '', linkTo: '', linkLabel: '' });
@@ -123,6 +156,35 @@ export default function LayoutCliente() {
   const addToast = useCallback((item) => {
     setToasts((prev) => [...prev, { ...item, id: item.id || nextToastId() }]);
   }, []);
+
+  useEffect(() => {
+    if (!localStorage.getItem('token')) return;
+    api
+      .get('/auth/me')
+      .then((r) => {
+        if (r.usuario) {
+          localStorage.setItem('usuario', JSON.stringify(r.usuario));
+          setUsuarioState(r.usuario);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const p = location.pathname;
+    if (!p.startsWith('/dashboard')) return;
+    if (p.startsWith('/dashboard/mi-cuenta') || p.startsWith('/dashboard/ayuda')) return;
+    if (p.startsWith('/dashboard/equipo')) {
+      if (!usuarioState.es_admin_crm) navigate(firstDashboardPath(usuarioState), { replace: true });
+      return;
+    }
+    for (const [prefix, perm] of DASHBOARD_ROUTE_PERM) {
+      if (p === prefix || p.startsWith(`${prefix}/`)) {
+        if (!canAccess(usuarioState, perm)) navigate(firstDashboardPath(usuarioState), { replace: true });
+        return;
+      }
+    }
+  }, [location.pathname, usuarioState, navigate]);
 
   useEffect(() => {
     if (!localStorage.getItem('token')) return;
@@ -291,7 +353,7 @@ export default function LayoutCliente() {
           </Link>
         </div>
         <nav className="p-2 flex-1 overflow-y-auto">
-          {nav.map((item, idx) => {
+          {visibleNav.map((item, idx) => {
             if (item.section) {
               return (
                 <div key={`section-${idx}-${item.section}`} className="px-4 pt-3 pb-1">
