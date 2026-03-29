@@ -6,6 +6,7 @@ import NotificationPopup from './NotificationPopup';
 import { api } from '../lib/api';
 import { contactAssetUrl, contactInitials, hueFromPhone } from '../lib/contactVisual';
 import PanelDemoTour, { restartPanelDemoTour } from './PanelDemoTour';
+import FloatingWhatsappHelp from './FloatingWhatsappHelp';
 
 /** Actividad reciente (campanita / toasts): más frecuente que antes para acercarse a “tiempo real”. */
 const POLL_INTERVAL_MS = 12000;
@@ -436,6 +437,7 @@ export default function LayoutCliente() {
       </div>
 
       <PanelDemoTour empresa={empresa} usuario={usuario} />
+      <FloatingWhatsappHelp message="Hola, necesito ayuda con el panel de ChatProBusiness." />
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       <NotificationPopup
         open={popup.open}

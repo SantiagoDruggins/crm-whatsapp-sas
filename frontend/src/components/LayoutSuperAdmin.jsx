@@ -1,4 +1,5 @@
 import { Outlet, useNavigate, useLocation, Link, Navigate } from 'react-router-dom';
+import FloatingWhatsappHelp from './FloatingWhatsappHelp';
 
 const nav = [
   { path: '/admin', label: 'Métricas' },
@@ -68,6 +69,7 @@ export default function LayoutSuperAdmin() {
           <Outlet />
         </main>
       </div>
+      <FloatingWhatsappHelp message="Hola, necesito ayuda con el panel de super admin." ariaLabel="Soporte por WhatsApp" />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import FloatingWhatsappHelp from '../components/FloatingWhatsappHelp';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -107,6 +108,7 @@ export default function Login() {
           </p>
         </div>
       </div>
+      <FloatingWhatsappHelp message="Hola, necesito ayuda para iniciar sesión en ChatProBusiness." />
     </div>
   );
 }

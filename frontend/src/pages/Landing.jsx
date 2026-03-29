@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ModalNequi from '../components/ModalNequi';
+import FloatingWhatsappHelp from '../components/FloatingWhatsappHelp';
 import { NEQUI_PAGO, formatearNequiTelefono } from '../lib/nequi';
 
 const styles = {
@@ -293,6 +294,7 @@ export default function Landing() {
           </p>
         </div>
       </footer>
+      <FloatingWhatsappHelp message="Hola, tengo una consulta sobre ChatProBusiness." />
     </div>
   );
 }

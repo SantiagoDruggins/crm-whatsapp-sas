@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import FloatingWhatsappHelp from '../components/FloatingWhatsappHelp';
 
 export default function Registro() {
   const navigate = useNavigate();
@@ -134,6 +135,7 @@ export default function Registro() {
           </p>
         </div>
       </div>
+      <FloatingWhatsappHelp message="Hola, tengo una duda sobre el registro o la demo de ChatProBusiness." />
     </div>
   );
 }
