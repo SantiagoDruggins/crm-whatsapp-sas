@@ -236,9 +236,9 @@ export default function LayoutCliente() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f1419] flex">
+    <div className="h-dvh max-h-dvh overflow-hidden bg-[#0f1419] flex">
       {/* Sidebar */}
-      <aside className="w-56 border-r border-[#2d3a47] bg-[#1a2129] flex flex-col shrink-0">
+      <aside className="w-56 border-r border-[#2d3a47] bg-[#1a2129] flex flex-col shrink-0 min-h-0">
         <div className="p-4 border-b border-[#2d3a47]">
           <Link to="/dashboard" className="flex items-center gap-2">
             {empresa.logo_url ? (
@@ -306,7 +306,7 @@ export default function LayoutCliente() {
       </aside>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
         <header className="h-14 border-b border-[#2d3a47] bg-[#1a2129]/80 backdrop-blur flex items-center justify-between px-6 shrink-0">
           <span className="text-[#8b9cad] text-sm">
             {nav.find((n) => location.pathname === n.path || (n.path !== '/dashboard' && location.pathname.startsWith(n.path)))?.label || 'Panel'}
