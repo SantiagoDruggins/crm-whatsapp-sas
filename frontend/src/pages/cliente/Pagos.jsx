@@ -2,6 +2,19 @@ import { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import ModalNequi from '../../components/ModalNequi';
 import { NEQUI_PAGO, formatearNequiTelefono } from '../../lib/nequi';
+import { extrasPlanPorCodigo, precioAproxPorDia } from '../../lib/planPresentacion';
+
+function textoLimitesPlan(p) {
+  const u =
+    p.max_usuarios != null
+      ? `${Number(p.max_usuarios)} usuario${Number(p.max_usuarios) === 1 ? '' : 's'}`
+      : 'Usuarios ilimitados';
+  const c =
+    p.max_contactos != null
+      ? `hasta ${Number(p.max_contactos).toLocaleString('es-CO')} contactos`
+      : 'Contactos ilimitados';
+  return `${u} · ${c}`;
+}
 
 const API_BASE = '/api';
 
@@ -58,6 +71,8 @@ export default function Pagos() {
 
   if (loading) return <p className="text-[#8b9cad]">Cargando...</p>;
 
+  const planExSeleccionado = planSeleccionado ? extrasPlanPorCodigo(planSeleccionado.codigo) : null;
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-white mb-6">Pagos</h1>
@@ -65,7 +80,9 @@ export default function Pagos() {
 
       <div className="mb-8">
         <h2 className="text-lg font-semibold text-white mb-1">Planes disponibles</h2>
-        <p className="text-[#8b9cad] text-sm mb-2">Precios en COP (Colombia). Pago por Nequi.</p>
+        <p className="text-[#8b9cad] text-sm mb-2">
+          Compara cupos y elige el que encaje con tu equipo. Precios en COP; pago por Nequi.
+        </p>
         <p className="text-white font-medium mb-1">Nequi: {formatearNequiTelefono()} — {NEQUI_PAGO.nombre}</p>
         <button
           type="button"
@@ -74,35 +91,64 @@ export default function Pagos() {
         >
           Ver datos de pago Nequi
         </button>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {planes.length === 0 ? (
             <p className="text-[#8b9cad] col-span-full">No hay planes cargados. Contacta al administrador.</p>
           ) : (
             planes
               .filter((p) => p.codigo !== 'demo')
-              .map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setPlanSeleccionado(p)}
-                  className={`text-left bg-[#1a2129] rounded-xl p-5 border transition ${
-                    planSeleccionado?.id === p.id
-                      ? 'border-[#00c896] shadow-[0_0_0_1px_rgba(0,200,150,0.4)]'
-                      : 'border-[#2d3a47] hover:border-[#00c896]/60'
-                  }`}
-                >
-                  <h3 className="text-white font-semibold">{p.nombre}</h3>
-                  <p className="text-[#8b9cad] text-sm">{p.descripcion}</p>
-                  <p className="text-[#00c896] font-bold mt-2">
-                    ${Number(p.precio_mensual || 0).toLocaleString('es-CO', { minimumFractionDigits: 0 })} COP / mes
-                  </p>
-                  <p className="text-xs text-[#8b9cad] mt-1">Código: {p.codigo}</p>
-                  <p className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#00c896]">
-                    Seleccionar este plan
-                    <span className="inline-block w-3 h-3 rounded-full bg-[#00c896]/30 border border-[#00c896]" />
-                  </p>
-                </button>
-              ))
+              .map((p) => {
+                const ex = extrasPlanPorCodigo(p.codigo);
+                const dia = precioAproxPorDia(p.precio_mensual);
+                const selected = planSeleccionado?.id === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPlanSeleccionado(p)}
+                    className={`relative flex flex-col text-left rounded-xl border p-5 transition ${
+                      ex.destacado ? 'bg-[#00c896]/5' : 'bg-[#1a2129]'
+                    } ${
+                      selected
+                        ? 'border-[#00c896] shadow-[0_0_0_1px_rgba(0,200,150,0.4)]'
+                        : 'border-[#2d3a47] hover:border-[#00c896]/60'
+                    }`}
+                  >
+                    {ex.destacado ? (
+                      <span className="absolute -top-2.5 right-3 rounded-full bg-[#00c896] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0f1419]">
+                        Popular
+                      </span>
+                    ) : ex.badge ? (
+                      <span className="mb-1 inline-flex w-fit rounded-full border border-[#3d4f63] px-2 py-0.5 text-[10px] font-medium text-[#b8c5d6]">
+                        {ex.badge}
+                      </span>
+                    ) : null}
+                    <h3 className="text-lg font-semibold text-white">{p.nombre}</h3>
+                    {ex.tagline ? <p className="mt-0.5 text-xs text-[#8b9cad]">{ex.tagline}</p> : null}
+                    <p className="mt-2 text-xs text-[#6b7a8a]">{textoLimitesPlan(p)}</p>
+                    <ul className="mt-3 flex flex-1 flex-col gap-1.5 text-xs text-[#c5d0dc]">
+                      {(ex.features.length ? ex.features : [p.descripcion]).slice(0, 5).map((line) => (
+                        <li key={line} className="flex gap-1.5">
+                          <span className="shrink-0 text-[#00c896]" aria-hidden>
+                            ✓
+                          </span>
+                          <span>{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-3 text-lg font-bold text-[#00c896]">
+                      ${Number(p.precio_mensual || 0).toLocaleString('es-CO', { minimumFractionDigits: 0 })}{' '}
+                      <span className="text-xs font-normal text-[#8b9cad]">COP / mes</span>
+                    </p>
+                    {dia ? <p className="text-[11px] text-[#6b7a8a]">~ ${dia} COP / día</p> : null}
+                    <p className="mt-2 text-[10px] text-[#6b7a8a]">Código: {p.codigo}</p>
+                    <p className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#00c896]">
+                      Elegir plan
+                      <span className="inline-block h-2 w-2 rounded-full bg-[#00c896]/40 ring-1 ring-[#00c896]" />
+                    </p>
+                  </button>
+                );
+              })
           )}
         </div>
       </div>
@@ -184,7 +230,7 @@ export default function Pagos() {
 
       {planSeleccionado && (
         <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-40 px-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4"
           onClick={() => setPlanSeleccionado(null)}
         >
           <div
@@ -207,13 +253,29 @@ export default function Pagos() {
               </button>
             </div>
 
-            <div className="bg-[#0f1419] border border-[#2d3a47] rounded-xl p-4 mb-4">
+            <div className="mb-4 rounded-xl border border-[#2d3a47] bg-[#0f1419] p-4">
               <p className="text-sm font-semibold text-white">{planSeleccionado.nombre}</p>
-              <p className="text-xs text-[#8b9cad] mt-1">{planSeleccionado.descripcion}</p>
-              <p className="text-[#00c896] font-bold mt-2">
-                ${Number(planSeleccionado.precio_mensual || 0).toLocaleString('es-CO', { minimumFractionDigits: 0 })} COP / mes
+              {planExSeleccionado?.tagline ? (
+                <p className="mt-1 text-xs text-[#8b9cad]">{planExSeleccionado.tagline}</p>
+              ) : null}
+              <p className="mt-2 text-xs text-[#6b7a8a]">{textoLimitesPlan(planSeleccionado)}</p>
+              <ul className="mt-3 space-y-1 text-xs text-[#c5d0dc]">
+                {(planExSeleccionado?.features?.length ? planExSeleccionado.features : [planSeleccionado.descripcion]).map(
+                  (f) => (
+                    <li key={f} className="flex gap-2">
+                      <span className="text-[#00c896]" aria-hidden>
+                        ✓
+                      </span>
+                      {f}
+                    </li>
+                  )
+                )}
+              </ul>
+              <p className="mt-3 text-lg font-bold text-[#00c896]">
+                ${Number(planSeleccionado.precio_mensual || 0).toLocaleString('es-CO', { minimumFractionDigits: 0 })} COP{' '}
+                <span className="text-xs font-normal text-[#8b9cad]">/ mes</span>
               </p>
-              <p className="text-xs text-[#8b9cad] mt-1">Código del plan: {planSeleccionado.codigo}</p>
+              <p className="mt-1 text-xs text-[#8b9cad]">Código del plan: {planSeleccionado.codigo}</p>
             </div>
 
             <p className="text-xs text-[#8b9cad] mb-4">

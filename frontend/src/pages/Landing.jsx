@@ -3,6 +3,12 @@ import { Link } from 'react-router-dom';
 import ModalNequi from '../components/ModalNequi';
 import FloatingWhatsappHelp from '../components/FloatingWhatsappHelp';
 import { NEQUI_PAGO, formatearNequiTelefono } from '../lib/nequi';
+import {
+  LANDING_PLANES,
+  extrasPlanPorCodigo,
+  filasComparativaConCeldas,
+  precioAproxPorDia,
+} from '../lib/planPresentacion';
 
 const styles = {
   section: 'py-16 md:py-24 px-4 md:px-6 max-w-6xl mx-auto',
@@ -190,24 +196,98 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto">
           <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Precios en Colombia</p>
           <h2 className={styles.h2}>Planes y precios (COP)</h2>
-          <p className={styles.p + ' mb-2'}>La demo incluye hasta 50 contactos por 3 días. Al pagar, cada plan tiene su límite de contactos. Pago por Nequi; subes el comprobante y activamos en 24 h.</p>
+          <p className={styles.p + ' mb-2'}>
+            La demo incluye hasta 50 contactos por 3 días. Cada plan suma cupos claros de usuarios y contactos para que elijas con tranquilidad. Pago por Nequi; subes el comprobante y activamos en 24 h.
+          </p>
           <p className="text-white font-medium mb-2">Nequi: {formatearNequiTelefono()} — {NEQUI_PAGO.nombre}</p>
           <button type="button" onClick={() => setModalNequi(true)} className="text-[#00c896] text-sm hover:underline mb-10">Ver datos de pago Nequi</button>
           <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { nombre: 'Básico', precio: 39900, desc: '1 usuario, hasta 500 contactos, CRM, Bot IA y WhatsApp. Ideal para emprendedores.', codigo: 'BASICO_MENSUAL' },
-              { nombre: 'Profesional', precio: 89900, desc: 'Hasta 3 usuarios, 2000 contactos, Bot IA y WhatsApp. Para equipos pequeños.', codigo: 'PROFESIONAL_MENSUAL', destacado: true },
-              { nombre: 'Empresarial', precio: 149900, desc: 'Usuarios y contactos ilimitados, soporte prioritario.', codigo: 'EMPRESARIAL_MENSUAL' },
-            ].map((plan) => (
-              <div key={plan.codigo} className={`rounded-2xl border p-6 ${plan.destacado ? 'border-[#00c896] bg-[#00c896]/5' : 'border-[#2d3a47] bg-[#232d38]'}`}>
-                <h3 className="text-xl font-bold text-white mb-2">{plan.nombre}</h3>
-                <p className="text-[#00c896] font-bold text-2xl mb-2">${plan.precio.toLocaleString('es-CO', { minimumFractionDigits: 0 })} COP <span className="text-sm font-normal text-[#8b9cad]">/ mes</span></p>
-                <p className="text-[#8b9cad] text-sm mb-6">{plan.desc}</p>
-                <Link to="/registro" className={plan.destacado ? styles.cta + ' w-full block text-center' : styles.ctaOutline + ' w-full block text-center'}>
-                  {plan.destacado ? 'Empezar ahora' : 'Crear demo'}
-                </Link>
-              </div>
-            ))}
+            {LANDING_PLANES.map((plan) => {
+              const ex = extrasPlanPorCodigo(plan.codigo);
+              const dia = precioAproxPorDia(plan.precio);
+              return (
+                <div
+                  key={plan.codigo}
+                  className={`relative flex flex-col rounded-2xl border p-6 pt-8 ${
+                    ex.destacado
+                      ? 'border-[#00c896] bg-[#00c896]/5 shadow-[0_0_40px_-12px_rgba(0,200,150,0.35)]'
+                      : 'border-[#2d3a47] bg-[#232d38]'
+                  }`}
+                >
+                  {ex.destacado ? (
+                    <span className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#00c896] px-3 py-1 text-xs font-bold text-[#0f1419]">
+                      Más elegido
+                    </span>
+                  ) : ex.badge ? (
+                    <span className="mb-2 inline-flex w-fit rounded-full border border-[#3d4f63] bg-[#1a2129] px-2.5 py-0.5 text-xs font-medium text-[#b8c5d6]">
+                      {ex.badge}
+                    </span>
+                  ) : null}
+                  <h3 className="text-xl font-bold text-white">{plan.nombre}</h3>
+                  {ex.tagline ? <p className="mt-1 text-sm text-[#8b9cad]">{ex.tagline}</p> : null}
+                  <p className="mt-4 text-2xl font-bold text-[#00c896]">
+                    ${plan.precio.toLocaleString('es-CO', { minimumFractionDigits: 0 })} COP{' '}
+                    <span className="text-sm font-normal text-[#8b9cad]">/ mes</span>
+                  </p>
+                  {dia ? (
+                    <p className="text-xs text-[#6b7a8a]">Equivale aprox. a ${dia} COP al día</p>
+                  ) : null}
+                  <ul className="mb-6 mt-4 flex flex-1 flex-col gap-2.5 text-sm text-[#c5d0dc]">
+                    {ex.features.map((f) => (
+                      <li key={f} className="flex gap-2">
+                        <span className="mt-0.5 shrink-0 text-[#00c896]" aria-hidden>
+                          ✓
+                        </span>
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    to="/registro"
+                    onClick={trackDemo}
+                    className={
+                      (plan.ctaDestacado ? styles.cta : styles.ctaOutline) + ' mt-auto w-full justify-center text-center'
+                    }
+                  >
+                    {plan.cta}
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-14 overflow-x-auto rounded-2xl border border-[#2d3a47] bg-[#232d38]/80">
+            <p className="border-b border-[#2d3a47] px-4 py-3 text-sm font-semibold text-white">Comparativa en un vistazo</p>
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#2d3a47] text-[#8b9cad]">
+                  <th className="px-4 py-3 font-medium" scope="col">
+                    Incluye
+                  </th>
+                  <th className="px-4 py-3 font-medium" scope="col">
+                    Básico
+                  </th>
+                  <th className="px-4 py-3 font-medium text-[#00c896]" scope="col">
+                    Profesional
+                  </th>
+                  <th className="px-4 py-3 font-medium" scope="col">
+                    Empresarial
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="text-[#e9edef]">
+                {filasComparativaConCeldas().map((row) => (
+                  <tr key={row.label} className="border-b border-[#2d3a47]/80 last:border-0">
+                    <th className="px-4 py-2.5 font-normal text-[#8b9cad]" scope="row">
+                      {row.label}
+                    </th>
+                    <td className="px-4 py-2.5">{row.basico}</td>
+                    <td className="px-4 py-2.5 font-medium text-white">{row.pro}</td>
+                    <td className="px-4 py-2.5">{row.empresarial}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           <div id="marca-blanca" className="mt-16 pt-16 border-t border-[#2d3a47]">
