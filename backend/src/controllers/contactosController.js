@@ -1,3 +1,4 @@
+const path = require('path');
 const { listar, getById, crear, actualizar, eliminar, countByEmpresa } = require('../models/contactoModel');
 
 function normalizarTagsBody(val) {
@@ -86,4 +87,26 @@ async function eliminarContacto(req, res) {
   }
 }
 
-module.exports = { listarContactos, obtenerContacto, crearContacto, actualizarContacto, eliminarContacto };
+async function subirAvatarContacto(req, res) {
+  try {
+    const empresaId = req.user.empresaId;
+    if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
+    if (!req.file?.filename) return res.status(400).json({ message: 'Selecciona una imagen (jpg, png, webp)' });
+    const contacto = await getById(empresaId, req.params.id);
+    if (!contacto) return res.status(404).json({ message: 'Contacto no encontrado' });
+    const avatarUrl = '/uploads/contactos-avatars/' + path.basename(req.file.filename);
+    const updated = await actualizar(empresaId, req.params.id, { avatar_url: avatarUrl });
+    return res.status(200).json({ ok: true, avatar_url: avatarUrl, contacto: updated });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error al subir foto' });
+  }
+}
+
+module.exports = {
+  listarContactos,
+  obtenerContacto,
+  crearContacto,
+  actualizarContacto,
+  eliminarContacto,
+  subirAvatarContacto,
+};

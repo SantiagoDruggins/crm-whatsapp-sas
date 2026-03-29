@@ -1,11 +1,29 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { contactAssetUrl, contactInitials, hueFromPhone } from '../../lib/contactVisual';
 
-function Avatar({ nombre }) {
-  const inicial = (nombre || '').trim().charAt(0).toUpperCase() || '?';
+function Avatar({ nombre, imageUrl, telefono }) {
+  const [imgErr, setImgErr] = useState(false);
+  const inicial = contactInitials({ nombreCompleto: nombre, telefono });
+  const hue = hueFromPhone(telefono);
+  const showImg = imageUrl && !imgErr;
+  if (showImg) {
+    return (
+      <img
+        key={imageUrl}
+        src={imageUrl}
+        alt=""
+        className="w-9 h-9 rounded-full object-cover border border-[#2d3a47] shrink-0 bg-[#202c33]"
+        onError={() => setImgErr(true)}
+      />
+    );
+  }
   return (
-    <div className="w-9 h-9 rounded-full bg-[#00a884] flex items-center justify-center text-sm font-semibold text-white">
+    <div
+      className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white shrink-0 border border-[#2d3a47]/60"
+      style={{ background: `linear-gradient(145deg, hsl(${hue}, 45%, 32%), hsl(${hue}, 40%, 22%))` }}
+    >
       {inicial}
     </div>
   );
@@ -174,10 +192,17 @@ export default function ConversacionDetalle() {
   const nombreContacto = useMemo(
     () =>
       conversacion
-        ? ([conversacion.contacto_nombre, conversacion.contacto_apellidos].filter(Boolean).join(' ').trim() || 'Contacto')
+        ? ([conversacion.contacto_nombre, conversacion.contacto_apellidos].filter(Boolean).join(' ').trim() ||
+            conversacion.contacto_telefono ||
+            'Contacto')
         : 'Contacto',
-    [conversacion?.contacto_nombre, conversacion?.contacto_apellidos]
+    [conversacion?.contacto_nombre, conversacion?.contacto_apellidos, conversacion?.contacto_telefono]
   );
+
+  const avatarHeaderUrl = useMemo(() => {
+    const raw = conversacion?.contacto_avatar_url;
+    return raw ? contactAssetUrl(raw) : '';
+  }, [conversacion?.contacto_avatar_url]);
 
   const enviar = (e) => {
     e.preventDefault();
@@ -417,7 +442,7 @@ export default function ConversacionDetalle() {
           >
             ←
           </button>
-          <Avatar nombre={nombreContacto} />
+          <Avatar nombre={nombreContacto} imageUrl={avatarHeaderUrl} telefono={telefono} />
           <div className="min-w-0">
             <p className="text-sm font-semibold text-white truncate">{nombreContacto}</p>
             {telefono && (

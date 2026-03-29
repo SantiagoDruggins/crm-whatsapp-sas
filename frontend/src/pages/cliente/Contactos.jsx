@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { contactAssetUrl, contactInitials, hueFromPhone } from '../../lib/contactVisual';
 
 const LEAD_STATUS_OPTIONS = [
   { value: 'new', label: 'Nuevo' },
@@ -31,11 +32,40 @@ function safeTags(c) {
   return '—';
 }
 
+function TablaAvatar({ contacto: c }) {
+  const [imgErr, setImgErr] = useState(false);
+  const telefono = c?.telefono || '';
+  const full = [c?.nombre, c?.apellidos].filter(Boolean).join(' ').trim();
+  const initials = contactInitials({ nombreCompleto: full, telefono });
+  const hue = hueFromPhone(telefono);
+  const raw = c?.avatar_url;
+  const src = raw && !imgErr ? contactAssetUrl(raw) : '';
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        className="w-10 h-10 rounded-full object-cover border border-[#2d3a47] shrink-0 bg-[#232d38]"
+        onError={() => setImgErr(true)}
+      />
+    );
+  }
+  return (
+    <div
+      className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 border border-[#2d3a47]/50"
+      style={{ background: `linear-gradient(145deg, hsl(${hue}, 48%, 34%), hsl(${hue}, 42%, 22%))` }}
+    >
+      {initials}
+    </div>
+  );
+}
+
 export default function Contactos() {
   const [contactos, setContactos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [modal, setModal] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null);
   const [form, setForm] = useState({
     nombre: '',
     apellidos: '',
@@ -133,7 +163,20 @@ export default function Contactos() {
     if (modal?.id) {
       api
         .patch(`/crm/contactos/${modal.id}`, payload)
-        .then(() => {
+        .then(async () => {
+          if (avatarFile) {
+            const fd = new FormData();
+            fd.append('avatar', avatarFile);
+            try {
+              await api.upload(`/crm/contactos/${modal.id}/avatar`, fd);
+            } catch (e) {
+              setError(e?.message || 'Datos guardados, pero falló la subida de la foto.');
+              setAvatarFile(null);
+              load();
+              return;
+            }
+          }
+          setAvatarFile(null);
           setModal(null);
           setForm({ nombre: '', apellidos: '', email: '', telefono: '', tags: '', notas: '', lead_status: 'new' });
           load();
@@ -152,6 +195,7 @@ export default function Contactos() {
   };
 
   const openEdit = (c) => {
+    setAvatarFile(null);
     setModal(c);
     setForm({
       nombre: c?.nombre ?? '',
@@ -165,6 +209,7 @@ export default function Contactos() {
   };
 
   const openNew = () => {
+    setAvatarFile(null);
     setModal({});
     setForm({ nombre: '', apellidos: '', email: '', telefono: '', tags: '', notas: '', lead_status: 'new' });
     setError('');
@@ -229,7 +274,7 @@ export default function Contactos() {
             <table className="w-full text-left min-w-[640px]">
               <thead>
                 <tr className="border-b border-[#2d3a47]">
-                  <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Nombre</th>
+                  <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Contacto</th>
                   <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Email</th>
                   <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Teléfono</th>
                   <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Lead</th>
@@ -247,8 +292,13 @@ export default function Contactos() {
                 ) : (
                   list.map((c, idx) => (
                     <tr key={c?.id ?? `contact-${idx}`} className="border-b border-[#2d3a47] hover:bg-[#232d38]/50">
-                      <td className="px-4 py-3 text-white">
-                        {String(c?.nombre ?? '').trim()} {String(c?.apellidos ?? '').trim()}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <TablaAvatar contacto={c} />
+                          <span className="text-white font-medium truncate">
+                            {String(c?.nombre ?? '').trim()} {String(c?.apellidos ?? '').trim()}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-[#8b9cad]">{c?.email ?? '—'}</td>
                       <td className="px-4 py-3 text-[#8b9cad]">{c?.telefono ?? '—'}</td>
@@ -286,7 +336,7 @@ export default function Contactos() {
       {modal !== null && (
         <div
           className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-          onClick={() => setModal(null)}
+          onClick={() => { setModal(null); setAvatarFile(null); }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-title"
@@ -354,6 +404,20 @@ export default function Contactos() {
                 rows={2}
                 className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
               />
+              {modal?.id ? (
+                <div>
+                  <label className="block text-sm text-[#8b9cad] mb-1">Foto (lista de conversaciones y chat)</label>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
+                    className="w-full text-sm text-[#8b9cad] file:mr-3 file:rounded-lg file:border-0 file:bg-[#232d38] file:px-3 file:py-1.5 file:text-[#e6edf3]"
+                  />
+                  {avatarFile ? (
+                    <p className="text-xs text-[#6b7a8a] mt-1">Se subirá al guardar: {avatarFile.name}</p>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="flex gap-2 pt-2">
                 <button
                   type="submit"
@@ -363,7 +427,7 @@ export default function Contactos() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setModal(null)}
+                  onClick={() => { setModal(null); setAvatarFile(null); }}
                   className="rounded-xl border border-[#2d3a47] text-[#8b9cad] px-4 py-2 hover:text-white"
                 >
                   Cancelar

@@ -50,6 +50,37 @@ function sugerirLeadStatusDesdeTexto(contenido) {
   return null;
 }
 
+/** Meta envía a veces el nombre público de WhatsApp en value.contacts (no incluye foto de perfil en Cloud API). */
+function mapaNombresPerfilWhatsappPorWaId(contactsArr) {
+  const map = {};
+  if (!Array.isArray(contactsArr)) return map;
+  for (const co of contactsArr) {
+    const wid = String(co?.wa_id || co?.waId || '').replace(/\D/g, '');
+    const pname = (co?.profile?.name && String(co.profile.name).trim()) || '';
+    if (wid && pname.length >= 1) map[wid] = pname.slice(0, 255);
+  }
+  return map;
+}
+
+async function aplicarNombrePerfilWhatsappSiCorresponde(empresaId, contacto, waDigits, profileNameByWa) {
+  const digits = String(waDigits || '').replace(/\D/g, '');
+  const nameWa = profileNameByWa[digits];
+  if (!nameWa || !contacto?.id) return contacto;
+  const current = (contacto.nombre || '').trim();
+  const phone = String(contacto.telefono || digits).replace(/\D/g, '');
+  const curDigits = current.replace(/\D/g, '');
+  const empty = !current;
+  const looksLikePhone = (phone && curDigits === phone && phone.length >= 8) || /^\d{8,}$/.test(curDigits);
+  if (!(empty || looksLikePhone)) return contacto;
+  if (nameWa === current) return contacto;
+  try {
+    await contactoModel.actualizar(empresaId, contacto.id, { nombre: nameWa });
+    return { ...contacto, nombre: nameWa };
+  } catch (_) {
+    return contacto;
+  }
+}
+
 function normalizeText(s) {
   return (s || '')
     .toString()
@@ -886,6 +917,7 @@ async function procesarCloudWebhookBody(body) {
         }
 
         if (value?.messages) {
+          const profileNameByWa = mapaNombresPerfilWhatsappPorWaId(value.contacts);
           console.log('[WhatsApp webhook] Procesando mensaje(s) empresa', empresa.id, 'n=', value.messages.length);
           for (const msg of value.messages) {
             const msgId = msg.id;
@@ -966,6 +998,7 @@ async function procesarCloudWebhookBody(body) {
               }
               contacto = await contactoModel.getOrCreateByTelefono(empresa.id, from);
             }
+            contacto = await aplicarNombrePerfilWhatsappSiCorresponde(empresa.id, contacto, from, profileNameByWa);
             const conversacion = await conversacionModel.getOrCreate(empresa.id, contacto.id, 'whatsapp');
             const contenidoEntrada = text || '[mensaje no texto]';
             const payloadMensaje = { origen: 'cliente', contenido: contenidoEntrada, esEntrada: true };

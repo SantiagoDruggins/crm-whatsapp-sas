@@ -13,6 +13,7 @@ async function actividadReciente(req, res) {
     const [convRes, citasRes, pedidosRes, pideAgenteCount] = await Promise.all([
       query(
         `SELECT c.id, c.ultimo_mensaje_at, co.nombre AS contacto_nombre, co.apellidos AS contacto_apellidos, co.telefono AS contacto_telefono,
+                co.avatar_url AS contacto_avatar_url,
                 (SELECT MAX(m.created_at) FROM mensajes m
                  WHERE m.conversacion_id = c.id AND m.empresa_id = c.empresa_id AND m.es_entrada = true) AS ultimo_mensaje_cliente_at
          FROM conversaciones c
@@ -48,7 +49,8 @@ async function actividadReciente(req, res) {
       ultimo_mensaje_at: r.ultimo_mensaje_at,
       ultimo_mensaje_cliente_at: r.ultimo_mensaje_cliente_at,
       contacto_nombre: [r.contacto_nombre, r.contacto_apellidos].filter(Boolean).join(' ').trim() || r.contacto_telefono || 'Contacto',
-      contacto_telefono: r.contacto_telefono
+      contacto_telefono: r.contacto_telefono,
+      contacto_avatar_url: r.contacto_avatar_url || null,
     }));
     const citas_proximas = citasRes.rows || [];
     const pedidos_recientes = pedidosRes.rows || [];

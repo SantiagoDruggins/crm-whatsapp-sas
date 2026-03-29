@@ -23,7 +23,8 @@ async function hasSupportFlagsColumns() {
 
 async function listar(empresaId, { limit = 50, offset = 0, pideAgente = false } = {}) {
   const hasFlags = await hasSupportFlagsColumns();
-  let sql = `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono
+  let sql = `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono,
+            c.avatar_url AS contacto_avatar_url, c.lead_status AS contacto_lead_status, c.last_message AS contacto_last_message
      FROM conversaciones conv
      LEFT JOIN contactos c ON c.id = conv.contacto_id AND c.empresa_id = conv.empresa_id
      WHERE conv.empresa_id = $1`;
@@ -41,7 +42,8 @@ async function listar(empresaId, { limit = 50, offset = 0, pideAgente = false } 
   } catch (e) {
     // Fallback para BDs antiguas sin columnas pide_agente_* (evita lista vacía en producción).
     try {
-      let legacySql = `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono
+      let legacySql = `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono,
+            c.avatar_url AS contacto_avatar_url, c.lead_status AS contacto_lead_status, c.last_message AS contacto_last_message
          FROM conversaciones conv
          LEFT JOIN contactos c ON c.id = conv.contacto_id AND c.empresa_id = conv.empresa_id
          WHERE conv.empresa_id = $1`;
@@ -58,7 +60,8 @@ async function listar(empresaId, { limit = 50, offset = 0, pideAgente = false } 
 
 async function getById(empresaId, id) {
   const result = await query(
-    `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono
+    `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono,
+            c.avatar_url AS contacto_avatar_url, c.lead_status AS contacto_lead_status, c.last_message AS contacto_last_message
      FROM conversaciones conv
      LEFT JOIN contactos c ON c.id = conv.contacto_id AND c.empresa_id = conv.empresa_id
      WHERE conv.id = $1 AND conv.empresa_id = $2`,

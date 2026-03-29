@@ -9,12 +9,14 @@ const dirProductos = path.join(process.cwd(), 'uploads', 'productos');
 const dirEmpresas = path.join(process.cwd(), 'uploads', 'empresas');
 const dirFlowsMedia = path.join(process.cwd(), 'uploads', 'flows-media');
 const dirConversaciones = path.join(process.cwd(), 'uploads', 'conversaciones');
+const dirContactosAvatars = path.join(process.cwd(), 'uploads', 'contactos-avatars');
 try { fs.mkdirSync(dirComprobantes, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirBotConocimiento, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirProductos, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirEmpresas, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirFlowsMedia, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirConversaciones, { recursive: true }); } catch (e) {}
+try { fs.mkdirSync(dirContactosAvatars, { recursive: true }); } catch (e) {}
 
 const storageComprobantes = multer.diskStorage({
   destination(req, file, cb) { cb(null, dirComprobantes); },
@@ -48,6 +50,15 @@ const storageEmpresaLogo = multer.diskStorage({
   filename(req, file, cb) {
     const ext = (path.extname(file.originalname) || '.png').toLowerCase();
     const safe = /\.(jpe?g|png|gif|webp)$/i.test(ext) ? ext : '.png';
+    cb(null, uuidv4() + safe);
+  }
+});
+
+const storageContactoAvatar = multer.diskStorage({
+  destination(req, file, cb) { cb(null, dirContactosAvatars); },
+  filename(req, file, cb) {
+    const ext = (path.extname(file.originalname) || '.jpg').toLowerCase();
+    const safe = /\.(jpe?g|png|gif|webp)$/i.test(ext) ? ext : '.jpg';
     cb(null, uuidv4() + safe);
   }
 });
@@ -87,6 +98,16 @@ const uploadProductoImagen = multer({
 const uploadEmpresaLogo = multer({
   storage: storageEmpresaLogo,
   limits: { fileSize: 3 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    const ok = /\.(jpe?g|png|gif|webp)$/i.test(file.originalname) || (file.mimetype && file.mimetype.startsWith('image/'));
+    if (ok) cb(null, true);
+    else cb(new Error('Solo imágenes (jpg, png, gif, webp)'));
+  }
+});
+
+const uploadContactoAvatar = multer({
+  storage: storageContactoAvatar,
+  limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter(req, file, cb) {
     const ok = /\.(jpe?g|png|gif|webp)$/i.test(file.originalname) || (file.mimetype && file.mimetype.startsWith('image/'));
     if (ok) cb(null, true);
@@ -174,6 +195,7 @@ module.exports = {
   uploadBotConocimiento,
   uploadProductoImagen,
   uploadEmpresaLogo,
+  uploadContactoAvatar,
   uploadConversacionAudio,
   uploadConversacionImagen,
   uploadConversacionDocumento,
@@ -182,6 +204,7 @@ module.exports = {
   dirBotConocimiento,
   dirProductos,
   dirEmpresas,
+  dirContactosAvatars,
   dirFlowsMedia,
   dirConversaciones,
 };

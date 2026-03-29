@@ -4,6 +4,7 @@ import ModalNequi from './ModalNequi';
 import { ToastContainer } from './Toast';
 import NotificationPopup from './NotificationPopup';
 import { api } from '../lib/api';
+import { contactAssetUrl, contactInitials, hueFromPhone } from '../lib/contactVisual';
 
 /** Actividad reciente (campanita / toasts): más frecuente que antes para acercarse a “tiempo real”. */
 const POLL_INTERVAL_MS = 12000;
@@ -36,6 +37,31 @@ function publicAssetUrl(url) {
   const path = u.startsWith('/') ? u : '/' + u;
   if (path.startsWith('/uploads/')) return `${base}/api${path}`;
   return base + path;
+}
+
+function BellContactThumb({ nombre, telefono, avatarUrl }) {
+  const [imgErr, setImgErr] = useState(false);
+  const initials = contactInitials({ nombreCompleto: nombre || '', telefono: telefono || '' });
+  const hue = hueFromPhone(telefono || '');
+  const src = avatarUrl && !imgErr ? contactAssetUrl(avatarUrl) : '';
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        className="w-9 h-9 rounded-full object-cover border border-[#2d3a47] shrink-0 bg-[#1a2129]"
+        onError={() => setImgErr(true)}
+      />
+    );
+  }
+  return (
+    <div
+      className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0 border border-[#2d3a47]/60"
+      style={{ background: `linear-gradient(145deg, hsl(${hue}, 45%, 34%), hsl(${hue}, 40%, 22%))` }}
+    >
+      {initials}
+    </div>
+  );
 }
 
 const nav = [
@@ -360,7 +386,11 @@ export default function LayoutCliente() {
                         onClick={() => setBellOpen(false)}
                         className="flex items-center gap-3 px-4 py-3 hover:bg-[#232d38] border-b border-[#2d3a47] last:border-b-0"
                       >
-                        <span className="text-lg">💬</span>
+                        <BellContactThumb
+                          nombre={c.contacto_nombre}
+                          telefono={c.contacto_telefono}
+                          avatarUrl={c.contacto_avatar_url}
+                        />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-white truncate">{c.contacto_nombre || c.contacto_telefono || 'Contacto'}</p>
                           <p className="text-xs text-[#8b9cad]">{haceCuanto(c.ultimo_mensaje_at)}</p>

@@ -85,7 +85,7 @@ function normalizarTags(val) {
 }
 
 async function actualizar(empresaId, id, data) {
-  const updates = ['nombre', 'apellidos', 'email', 'tags', 'notas', 'lead_status', 'conversation_status', 'assigned_to'];
+  const updates = ['nombre', 'apellidos', 'email', 'tags', 'notas', 'lead_status', 'conversation_status', 'assigned_to', 'avatar_url'];
   const setClause = [];
   const values = [id, empresaId];
   let idx = 3;

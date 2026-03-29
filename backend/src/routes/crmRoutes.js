@@ -1,7 +1,14 @@
 const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const empresaEstadoMiddleware = require('../middleware/empresaEstadoMiddleware');
-const { listarContactos, obtenerContacto, crearContacto, actualizarContacto, eliminarContacto } = require('../controllers/contactosController');
+const {
+  listarContactos,
+  obtenerContacto,
+  crearContacto,
+  actualizarContacto,
+  eliminarContacto,
+  subirAvatarContacto,
+} = require('../controllers/contactosController');
 const {
   listarConversaciones,
   obtenerConversacion,
@@ -26,6 +33,7 @@ const { crearFeedback } = require('../controllers/feedbackController');
 const {
   uploadProductoImagen,
   uploadEmpresaLogo,
+  uploadContactoAvatar,
   uploadConversacionAudio,
   uploadConversacionImagen,
   uploadConversacionDocumento,
@@ -55,6 +63,7 @@ router.get('/contactos', asyncHandler(listarContactos));
 router.get('/contactos/:id', asyncHandler(obtenerContacto));
 router.post('/contactos', asyncHandler(crearContacto));
 router.patch('/contactos/:id', asyncHandler(actualizarContacto));
+router.post('/contactos/:id/avatar', uploadContactoAvatar.single('avatar'), asyncHandler(subirAvatarContacto));
 router.delete('/contactos/:id', asyncHandler(eliminarContacto));
 router.get('/conversaciones', asyncHandler(listarConversaciones));
 router.get('/conversaciones/:id', asyncHandler(obtenerConversacion));
