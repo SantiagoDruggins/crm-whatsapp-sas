@@ -179,6 +179,43 @@ function resolvePublicMediaUrl(relativeOrAbsolute) {
   return `${base}${p}`;
 }
 
+/**
+ * Comprueba que la URL sea descargable como imagen (mismo tipo de petición que hace Meta al usar image.link).
+ * Evita falsos positivos: API 200 pero WhatsApp no entrega al cliente.
+ */
+async function verificarUrlImagenPublica(imageUrl) {
+  const u = String(imageUrl || '').trim();
+  if (!u) return { ok: false, error: 'URL vacía' };
+  if (!/^https:\/\//i.test(u)) {
+    return { ok: false, error: 'WhatsApp exige URL HTTPS pública (no http ni rutas locales)' };
+  }
+  try {
+    const r = await axios.get(u, {
+      timeout: 12000,
+      maxContentLength: 3 * 1024 * 1024,
+      responseType: 'arraybuffer',
+      validateStatus: (s) => s >= 200 && s < 400,
+      headers: {
+        'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+        Accept: 'image/jpeg,image/png,image/webp,image/gif;q=0.9,*/*;q=0.1',
+      },
+    });
+    const ct = (r.headers['content-type'] || '').toLowerCase();
+    if (!ct.includes('image/')) {
+      return { ok: false, error: `La URL no devuelve imagen (Content-Type: ${ct || 'vacío'}). Revisa nginx y que /api/uploads sea público.` };
+    }
+    return { ok: true };
+  } catch (err) {
+    const st = err.response?.status;
+    const meta = err.response?.data;
+    let detail = err.message || 'Error de red';
+    if (typeof meta === 'string' && meta.length < 200) detail = meta;
+    if (st === 404) detail = '404: archivo no encontrado (¿falta location /api/uploads en nginx?)';
+    if (st === 401 || st === 403) detail = `${st}: la imagen no es pública (Meta no puede descargarla)`;
+    return { ok: false, error: detail };
+  }
+}
+
 /** Parsea [IMAGEN: path] en la respuesta; limpia también marcadores [AUDIO: ...]. */
 function extraerImagenesYAudiosDeRespuesta(respuesta) {
   if (!respuesta || typeof respuesta !== 'string') return { textoLimpio: respuesta, urlsImagen: [], urlsAudio: [] };
@@ -336,11 +373,16 @@ async function enviarImagenEmpresa(empresaId, toPhone, imageUrl, caption) {
   try {
     await axios.post(url, body, {
       headers: { Authorization: `Bearer ${row.whatsapp_cloud_access_token}`, 'Content-Type': 'application/json' },
-      timeout: 15000
+      timeout: 20000
     });
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err.response?.data?.error?.message || err.message };
+    const metaErr = err.response?.data?.error;
+    const detail = metaErr?.message || metaErr?.error_user_msg || err.message;
+    if (metaErr) {
+      console.warn('[WhatsApp] enviarImagenEmpresa:', detail, metaErr);
+    }
+    return { ok: false, error: detail };
   }
 }
 
@@ -1610,4 +1652,5 @@ module.exports = {
   enviarImagenEmpresa,
   enviarDocumentoEmpresa,
   resolvePublicMediaUrl,
+  verificarUrlImagenPublica,
 };

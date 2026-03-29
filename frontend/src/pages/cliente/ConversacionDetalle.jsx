@@ -50,6 +50,7 @@ export default function ConversacionDetalle() {
   const [citas, setCitas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [aviso, setAviso] = useState('');
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [grabandoAudio, setGrabandoAudio] = useState(false);
@@ -226,10 +227,12 @@ export default function ConversacionDetalle() {
     if (!productoCatalogoId) return;
     setEnviandoCatalogo(true);
     setError('');
+    setAviso('');
     try {
-      await api.post(`/crm/conversaciones/${id}/enviar-producto`, { producto_id: productoCatalogoId });
+      const r = await api.post(`/crm/conversaciones/${id}/enviar-producto`, { producto_id: productoCatalogoId });
       setProductoCatalogoId('');
       load();
+      if (r?.advertencia) setAviso(r.advertencia);
     } catch (err) {
       setError(err?.message || 'No se pudo enviar el producto');
     } finally {
@@ -512,6 +515,11 @@ export default function ConversacionDetalle() {
       </div>
 
       {/* Caja de texto */}
+      {aviso && (
+        <div className="border-t border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          {aviso}
+        </div>
+      )}
       <form onSubmit={enviar} className="border-t border-[#202c33] bg-[#202c33] px-3 py-2">
         <input ref={inputImagenRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="hidden" onChange={enviarImagenSeleccionada} />
         <input ref={inputDocRef} type="file" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.csv,.zip,application/pdf" className="hidden" onChange={enviarDocumentoSeleccionado} />

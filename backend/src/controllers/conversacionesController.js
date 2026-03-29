@@ -9,6 +9,7 @@ const {
   enviarImagenEmpresa,
   enviarDocumentoEmpresa,
   resolvePublicMediaUrl,
+  verificarUrlImagenPublica,
 } = require('./whatsappController');
 const contactoModel = require('../models/contactoModel');
 const productoModel = require('../models/productoModel');
@@ -370,18 +371,25 @@ async function enviarProductoCatalogoConversacion(req, res) {
     if (!producto) return res.status(404).json({ message: 'Producto no encontrado' });
 
     const precioTxt = `${Number(producto.precio || 0).toLocaleString('es-CO')} ${producto.moneda || 'COP'}`;
-    let caption = `${producto.nombre || 'Producto'} – ${precioTxt}`;
-    if (producto.descripcion && String(producto.descripcion).trim()) {
-      const d = String(producto.descripcion).trim().slice(0, 800);
-      caption = `${caption}\n${d}`;
-    }
-    caption = caption.slice(0, 1024);
+    const nombreProd = (producto.nombre || 'Producto').trim();
+    const shortCaption = `${nombreProd} – ${precioTxt}`.slice(0, 1020);
+    const descLarga =
+      producto.descripcion && String(producto.descripcion).trim()
+        ? String(producto.descripcion).trim().slice(0, 4000)
+        : '';
+    const contenidoHistorial = descLarga ? `${shortCaption}\n${descLarga}` : shortCaption;
+
+    const mediaPathRelativo = () => {
+      const raw = String(producto.imagen_url || '').trim();
+      if (!raw) return null;
+      if (raw.startsWith('http')) return raw;
+      return raw.startsWith('/') ? raw : `/${raw}`;
+    };
 
     const tieneImagen = producto.imagen_url && String(producto.imagen_url).trim();
-    let sent = { ok: false, error: 'Sin imagen ni texto' };
     let tipoMsg = 'text';
     let mediaPath = null;
-    let contenidoHistorial = caption;
+    let advertencia = null;
 
     if (tieneImagen) {
       const publicUrl = resolvePublicMediaUrl(producto.imagen_url);
@@ -391,19 +399,70 @@ async function enviarProductoCatalogoConversacion(req, res) {
             'No se pudo construir la URL pública de la imagen del producto. Configura PUBLIC_APP_URL o PUBLIC_API_URL en el servidor.',
         });
       }
-      sent = await enviarImagenEmpresa(req.user.empresaId, telefono, publicUrl, caption);
-      tipoMsg = 'image';
-      mediaPath = String(producto.imagen_url).trim().startsWith('http')
-        ? producto.imagen_url
-        : producto.imagen_url.startsWith('/')
-          ? producto.imagen_url
-          : `/${producto.imagen_url}`;
-    } else {
-      sent = await enviarMensajeEmpresa(req.user.empresaId, telefono, caption);
-    }
 
-    if (!sent.ok) {
-      return res.status(400).json({ message: sent.error || 'No se pudo enviar por WhatsApp' });
+      const chk = await verificarUrlImagenPublica(publicUrl);
+      if (!chk.ok) {
+        const sentTxt = await enviarMensajeEmpresa(req.user.empresaId, telefono, contenidoHistorial.slice(0, 4096));
+        if (!sentTxt.ok) {
+          return res.status(400).json({
+            message: `WhatsApp no puede usar la imagen (${chk.error}). Intentamos enviar solo texto y falló: ${sentTxt.error}`,
+          });
+        }
+        const mensaje = await crear(req.user.empresaId, conversacion.id, {
+          origen: 'agente',
+          usuarioId: req.user.id,
+          contenido: contenidoHistorial,
+          esEntrada: false,
+          message_type: 'text',
+          media_url: null,
+        });
+        await actualizarUltimoMensaje(conversacion.id);
+        if (conversacion.contacto_id) {
+          try {
+            await contactoModel.actualizarUltimoMensajeContacto(req.user.empresaId, conversacion.contacto_id, {
+              lastMessage: contenidoHistorial.slice(0, 200),
+              lastMessageAt: new Date(),
+            });
+          } catch (e) {}
+          try {
+            await conversationStateModel.setMotorState(req.user.empresaId, conversacion.contacto_id, {
+              estado_operativo: 'asesor_activo',
+              intencion_actual: 'humano',
+              paso_actual: 'asesor_envio_catalogo',
+              bloqueo_bot: true,
+              updated_by: 'agente_crm_catalogo',
+            });
+          } catch (e) {}
+        }
+        await desmarcarPideAgente(conversacion.id);
+        return res.status(201).json({
+          ok: true,
+          mensaje,
+          enviadoWhatsApp: true,
+          tipo: 'text',
+          advertencia: `La imagen no es accesible desde internet (${chk.error}). Se envió solo el texto. Revisa HTTPS, PUBLIC_APP_URL y que nginx sirva /api/uploads sin bloqueos.`,
+        });
+      }
+
+      const sentImg = await enviarImagenEmpresa(req.user.empresaId, telefono, publicUrl, shortCaption);
+      if (!sentImg.ok) {
+        return res.status(400).json({ message: sentImg.error || 'No se pudo enviar la imagen por WhatsApp' });
+      }
+
+      if (descLarga) {
+        const sentTxt = await enviarMensajeEmpresa(req.user.empresaId, telefono, descLarga);
+        if (!sentTxt.ok) {
+          advertencia = `La foto se envió; el texto largo no llegó: ${sentTxt.error}`;
+        }
+      }
+
+      tipoMsg = 'image';
+      mediaPath = mediaPathRelativo();
+    } else {
+      const sent = await enviarMensajeEmpresa(req.user.empresaId, telefono, contenidoHistorial.slice(0, 4096));
+      if (!sent.ok) {
+        return res.status(400).json({ message: sent.error || 'No se pudo enviar por WhatsApp' });
+      }
     }
 
     const mensaje = await crear(req.user.empresaId, conversacion.id, {
@@ -418,7 +477,7 @@ async function enviarProductoCatalogoConversacion(req, res) {
     if (conversacion.contacto_id) {
       try {
         await contactoModel.actualizarUltimoMensajeContacto(req.user.empresaId, conversacion.contacto_id, {
-          lastMessage: caption.slice(0, 200),
+          lastMessage: contenidoHistorial.slice(0, 200),
           lastMessageAt: new Date(),
         });
       } catch (e) {}
@@ -433,7 +492,13 @@ async function enviarProductoCatalogoConversacion(req, res) {
       } catch (e) {}
     }
     await desmarcarPideAgente(conversacion.id);
-    return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: true, tipo: tipoMsg });
+    return res.status(201).json({
+      ok: true,
+      mensaje,
+      enviadoWhatsApp: true,
+      tipo: tipoMsg,
+      ...(advertencia ? { advertencia } : {}),
+    });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
   }
