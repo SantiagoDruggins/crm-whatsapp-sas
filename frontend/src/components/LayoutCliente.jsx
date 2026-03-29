@@ -124,8 +124,14 @@ export default function LayoutCliente() {
           const prevConvMap = new Map((prev.conversaciones || []).map((c) => [c.id, c]));
           for (const c of conversaciones) {
             const p = prevConvMap.get(c.id);
-            const isNewer = !p || (c.ultimo_mensaje_at && new Date(c.ultimo_mensaje_at) > new Date(p.ultimo_mensaje_at || 0));
-            if (isNewer && c.ultimo_mensaje_at) {
+            const tCliente = c.ultimo_mensaje_cliente_at;
+            const tPrevCliente = p?.ultimo_mensaje_cliente_at;
+            if (!tCliente) continue;
+            const hayNuevoMensajeDelCliente =
+              p != null
+                ? new Date(tCliente) > new Date(tPrevCliente || 0)
+                : Date.now() - new Date(tCliente).getTime() < 180000;
+            if (hayNuevoMensajeDelCliente) {
               addToast({
                 type: 'mensaje',
                 title: 'Nuevo mensaje',

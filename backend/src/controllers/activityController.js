@@ -12,7 +12,9 @@ async function actividadReciente(req, res) {
 
     const [convRes, citasRes, pedidosRes, pideAgenteCount] = await Promise.all([
       query(
-        `SELECT c.id, c.ultimo_mensaje_at, co.nombre AS contacto_nombre, co.apellidos AS contacto_apellidos, co.telefono AS contacto_telefono
+        `SELECT c.id, c.ultimo_mensaje_at, co.nombre AS contacto_nombre, co.apellidos AS contacto_apellidos, co.telefono AS contacto_telefono,
+                (SELECT MAX(m.created_at) FROM mensajes m
+                 WHERE m.conversacion_id = c.id AND m.empresa_id = c.empresa_id AND m.es_entrada = true) AS ultimo_mensaje_cliente_at
          FROM conversaciones c
          LEFT JOIN contactos co ON co.id = c.contacto_id AND co.empresa_id = c.empresa_id
          WHERE c.empresa_id = $1 AND c.ultimo_mensaje_at IS NOT NULL
@@ -44,6 +46,7 @@ async function actividadReciente(req, res) {
     const conversaciones = (convRes.rows || []).map((r) => ({
       id: r.id,
       ultimo_mensaje_at: r.ultimo_mensaje_at,
+      ultimo_mensaje_cliente_at: r.ultimo_mensaje_cliente_at,
       contacto_nombre: [r.contacto_nombre, r.contacto_apellidos].filter(Boolean).join(' ').trim() || r.contacto_telefono || 'Contacto',
       contacto_telefono: r.contacto_telefono
     }));
