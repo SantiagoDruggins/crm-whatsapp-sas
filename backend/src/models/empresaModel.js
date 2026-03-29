@@ -140,18 +140,13 @@ async function getEmpresaByWhatsappDisplayDigits(displayPhone) {
 
 async function getIntegracionesConfig(empresaId) {
   const result = await query(
-    `SELECT dropi_token, dropi_activo, dropi_api_base_url, mastershop_token, mastershop_activo, gemini_api_key, ai_provider, ai_api_key, shopify_store_url, shopify_access_token, shopify_activo, shopify_webhook_secret FROM empresas WHERE id = $1`,
+    `SELECT gemini_api_key, ai_provider, ai_api_key, shopify_store_url, shopify_access_token, shopify_activo, shopify_webhook_secret FROM empresas WHERE id = $1`,
     [empresaId]
   );
   const row = result.rows[0];
   if (!row) return null;
   const hasCustomKey = !!(row.ai_api_key && row.ai_api_key.trim()) || !!(row.gemini_api_key && row.gemini_api_key.trim());
   return {
-    dropi_token: row.dropi_token || '',
-    dropi_activo: !!row.dropi_activo,
-    dropi_api_base_url: (row.dropi_api_base_url || '').trim() || null,
-    mastershop_token: row.mastershop_token || '',
-    mastershop_activo: !!row.mastershop_activo,
     shopify_store_url: (row.shopify_store_url || '').trim() || '',
     shopify_access_token: row.shopify_access_token ? '********' : '',
     shopify_activo: !!row.shopify_activo,
@@ -164,36 +159,10 @@ async function getIntegracionesConfig(empresaId) {
   };
 }
 
-async function updateIntegracionesConfig(empresaId, { dropi_token, dropi_activo, dropi_api_base_url, mastershop_token, mastershop_activo, gemini_api_key, ai_provider, ai_api_key, shopify_store_url, shopify_access_token, shopify_activo, shopify_webhook_secret }) {
+async function updateIntegracionesConfig(empresaId, { gemini_api_key, ai_provider, ai_api_key, shopify_store_url, shopify_access_token, shopify_activo, shopify_webhook_secret }) {
   const updates = [];
   const values = [empresaId];
   let i = 2;
-  if (dropi_token !== undefined) {
-    updates.push(`dropi_token = $${i}`);
-    values.push(dropi_token === '' ? null : dropi_token);
-    i++;
-  }
-  if (dropi_activo !== undefined) {
-    updates.push(`dropi_activo = $${i}`);
-    values.push(!!dropi_activo);
-    i++;
-  }
-  if (dropi_api_base_url !== undefined) {
-    const val = typeof dropi_api_base_url === 'string' ? dropi_api_base_url.trim() : '';
-    updates.push(`dropi_api_base_url = $${i}`);
-    values.push(val === '' ? null : val);
-    i++;
-  }
-  if (mastershop_token !== undefined) {
-    updates.push(`mastershop_token = $${i}`);
-    values.push(mastershop_token === '' ? null : mastershop_token);
-    i++;
-  }
-  if (mastershop_activo !== undefined) {
-    updates.push(`mastershop_activo = $${i}`);
-    values.push(!!mastershop_activo);
-    i++;
-  }
   if (shopify_store_url !== undefined) {
     const val = typeof shopify_store_url === 'string' ? shopify_store_url.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '') : '';
     updates.push(`shopify_store_url = $${i}`);

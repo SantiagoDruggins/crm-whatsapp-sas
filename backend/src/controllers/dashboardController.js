@@ -6,9 +6,7 @@ async function getDashboardEmpresa(req, res) {
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
     const empresaRes = await query(
       `SELECT id, nombre, estado, plan, demo_expires_at, fecha_expiracion, logo_url,
-              COALESCE(shopify_activo, false) AS shopify_activo,
-              COALESCE(dropi_activo, false) AS dropi_activo,
-              COALESCE(mastershop_activo, false) AS mastershop_activo
+              COALESCE(shopify_activo, false) AS shopify_activo
        FROM empresas
        WHERE id = $1`,
       [empresaId]
@@ -53,8 +51,6 @@ async function getDashboardEmpresa(req, res) {
     const diasDemoRestantes = empresa.demo_expires_at ? Math.max(0, Math.ceil((new Date(empresa.demo_expires_at) - new Date()) / (1000 * 60 * 60 * 24))) : null;
     const integraciones = {
       shopify_activo: !!empresa.shopify_activo,
-      dropi_activo: !!empresa.dropi_activo,
-      mastershop_activo: !!empresa.mastershop_activo,
     };
     return res.json({
       ok: true,

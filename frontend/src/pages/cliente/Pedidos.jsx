@@ -16,7 +16,6 @@ export default function Pedidos() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [modal, setModal] = useState(null);
-  const [syncing, setSyncing] = useState(null);
   const [form, setForm] = useState(initialForm());
   // Para añadir línea desde catálogo
   const [addProductId, setAddProductId] = useState('');
@@ -115,18 +114,6 @@ export default function Pedidos() {
       .catch((e) => setError(e.message));
   };
 
-  const syncTo = (id, tipo) => {
-    setSyncing(id);
-    const endpoint = tipo === 'dropi' ? `/pedidos/${id}/sync-dropi` : `/pedidos/${id}/sync-mastershop`;
-    api
-      .post(endpoint)
-      .then((r) => {
-        setPedidos((prev) => prev.map((p) => (p.id === id ? r.pedido : p)));
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setSyncing(null));
-  };
-
   if (loading) return <p className="text-[#8b9cad]">Cargando pedidos...</p>;
 
   return (
@@ -153,16 +140,15 @@ export default function Pedidos() {
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Total</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Líneas</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Estado</th>
-              <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Dropi</th>
-              <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Mastershop</th>
-              <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium w-40">Acciones</th>
+              <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Shopify</th>
+              <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium w-32">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {pedidos.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-[#8b9cad] text-center">
-                  No hay pedidos. Crea uno para enviarlo a Dropi o Mastershop si tienes la integración activa.
+                <td colSpan={6} className="px-4 py-8 text-[#8b9cad] text-center">
+                  No hay pedidos. Crea uno manualmente o conecta Shopify en Integraciones para que lleguen automáticamente.
                 </td>
               </tr>
             ) : (
@@ -193,34 +179,11 @@ export default function Pedidos() {
                     <td className="px-4 py-3">
                       <span className="px-2 py-1 rounded text-xs bg-[#232d38] text-[#8b9cad]">{p.estado}</span>
                     </td>
-                    <td className="px-4 py-3 text-[#8b9cad] text-xs">
-                      {p.dropi_enviado_at ? `✓ ${p.dropi_id || 'Enviado'}` : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-[#8b9cad] text-xs">
-                      {p.mastershop_enviado_at ? `✓ ${p.mastershop_id || 'Enviado'}` : '—'}
+                    <td className="px-4 py-3 text-[#8b9cad] text-xs font-mono">
+                      {p.shopify_order_id ? `#${p.shopify_order_id}` : '—'}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
-                        {!p.dropi_enviado_at && (
-                          <button
-                            type="button"
-                            onClick={() => syncTo(p.id, 'dropi')}
-                            disabled={!!syncing}
-                            className="text-xs rounded bg-[#00c896]/20 text-[#00c896] px-2 py-1 hover:bg-[#00c896]/30 disabled:opacity-50"
-                          >
-                            {syncing === p.id ? '...' : 'Enviar a Dropi'}
-                          </button>
-                        )}
-                        {!p.mastershop_enviado_at && (
-                          <button
-                            type="button"
-                            onClick={() => syncTo(p.id, 'mastershop')}
-                            disabled={!!syncing}
-                            className="text-xs rounded bg-[#3b82f6]/20 text-[#3b82f6] px-2 py-1 hover:bg-[#3b82f6]/30 disabled:opacity-50"
-                          >
-                            {syncing === p.id ? '...' : 'Enviar a Mastershop'}
-                          </button>
-                        )}
                         <button
                           type="button"
                           onClick={() => setDetalle(p)}
@@ -243,7 +206,7 @@ export default function Pedidos() {
           <div className="bg-[#1a2129] border border-[#2d3a47] rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-white mb-4">Nuevo pedido</h2>
             <p className="text-xs text-[#8b9cad] mb-4">
-              Añade líneas desde tu catálogo o manualmente. Si tienes Dropi/Mastershop, los ítems se enviarán al sincronizar.
+              Añade líneas desde tu catálogo o manualmente. Los pedidos desde Shopify llegan por webhook cuando está configurado.
             </p>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -443,18 +406,12 @@ export default function Pedidos() {
                 <p className="text-[#8b9cad] text-xs uppercase mb-1">Estado</p>
                 <p>{detalle.estado}</p>
               </div>
-              <div>
-                <p className="text-[#8b9cad] text-xs uppercase mb-1">Dropi</p>
+              <div className="sm:col-span-2">
+                <p className="text-[#8b9cad] text-xs uppercase mb-1">Shopify</p>
                 <p className="text-xs">
-                  {detalle.dropi_enviado_at ? `Enviado (${detalle.dropi_id || 'sin ID externo'})` : 'No enviado'}
-                </p>
-              </div>
-              <div>
-                <p className="text-[#8b9cad] text-xs uppercase mb-1">Mastershop</p>
-                <p className="text-xs">
-                  {detalle.mastershop_enviado_at
-                    ? `Enviado (${detalle.mastershop_id || 'sin ID externo'})`
-                    : 'No enviado'}
+                  {detalle.shopify_order_id
+                    ? `Pedido de tienda · ID ${detalle.shopify_order_id}`
+                    : 'Pedido manual o sin enlace a Shopify'}
                 </p>
               </div>
             </div>

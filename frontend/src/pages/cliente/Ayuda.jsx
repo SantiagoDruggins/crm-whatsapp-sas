@@ -109,7 +109,7 @@ export default function Ayuda() {
           <summary className="cursor-pointer text-[#00c896] font-medium">¿Qué es un pedido en el CRM?</summary>
           <p className="mt-2 text-[#8b9cad]">
             Es una venta registrada con el cliente, el monto y los datos de envío. Los ves en el menú
-            <strong> Pedidos</strong> y se pueden conectar a Dropi o Mastershop.
+            <strong> Pedidos</strong>. Si usas Shopify, los pedidos de la tienda pueden entrar automáticamente vía integración.
           </p>
         </details>
         <details>

@@ -69,20 +69,4 @@ async function getById(empresaId, id) {
   return result.rows[0] || null;
 }
 
-async function actualizarEnvioDropi(id, empresaId, dropiId) {
-  const result = await query(
-    `UPDATE pedidos SET dropi_id = $2, dropi_enviado_at = now(), updated_at = now() WHERE id = $1 AND empresa_id = $3 RETURNING *`,
-    [id, dropiId, empresaId]
-  );
-  return result.rows[0] || null;
-}
-
-async function actualizarEnvioMastershop(id, empresaId, mastershopId) {
-  const result = await query(
-    `UPDATE pedidos SET mastershop_id = $2, mastershop_enviado_at = now(), updated_at = now() WHERE id = $1 AND empresa_id = $3 RETURNING *`,
-    [id, mastershopId, empresaId]
-  );
-  return result.rows[0] || null;
-}
-
-module.exports = { crear, listarPorEmpresa, getRecientePorConversacionProducto, getById, getByShopifyOrderId, actualizarEnvioDropi, actualizarEnvioMastershop };
+module.exports = { crear, listarPorEmpresa, getRecientePorConversacionProducto, getById, getByShopifyOrderId };

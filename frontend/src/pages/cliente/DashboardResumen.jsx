@@ -38,7 +38,7 @@ export default function DashboardResumen() {
   if (error) return <p className="text-[#f87171]">{error}</p>;
 
   const integraciones = data?.integraciones || {};
-  const hasIntegraciones = integraciones.shopify_activo || integraciones.dropi_activo || integraciones.mastershop_activo;
+  const hasIntegraciones = !!integraciones.shopify_activo;
   const whatsappOk = data?.estadoWhatsapp === 'conectado';
   const botOk = data?.estadoBot === 'activo';
   const catalogOk = (data?.catalogoItemsActivos ?? 0) > 0;
@@ -178,7 +178,7 @@ export default function DashboardResumen() {
         <StepCard
           to="/dashboard/pedidos"
           labelText="6. Pedidos"
-          valueText="Manual + Shopify, Dropi, Mastershop"
+          valueText="Manual + Shopify (webhook)"
           ctaText="Ver pedidos →"
         />
         <StepCard
@@ -198,31 +198,19 @@ export default function DashboardResumen() {
       {/* Integraciones */}
       <h2 className="text-lg font-semibold text-white mb-3">Integraciones</h2>
       <p className="text-[#8b9cad] text-sm mb-4">
-        Conecta tu tienda o proveedores para que los pedidos lleguen solos al CRM. Cada una es opcional.
+        Conecta Shopify para que los pedidos de tu tienda lleguen al CRM por webhook. Otras apps suelen enlazarse vía Shopify.
       </p>
-      <div className="grid sm:grid-cols-3 gap-4 mb-6">
-        <div className={cardBase + ' flex flex-col'}>
+      <div className="grid sm:grid-cols-2 gap-4 mb-6 max-w-xl">
+        <div className={cardBase + ' flex flex-col sm:col-span-2'}>
           <p className={label}>Shopify</p>
           <p className={value}>{integraciones.shopify_activo ? 'Activo' : 'No configurado'}</p>
           <p className="text-[#8b9cad] text-xs mt-1">Pedidos de tu tienda por webhook.</p>
           <Link to="/dashboard/integraciones" className={cta + ' mt-auto pt-2'}>Configurar →</Link>
         </div>
-        <div className={cardBase + ' flex flex-col'}>
-          <p className={label}>Dropi</p>
-          <p className={value}>{integraciones.dropi_activo ? 'Activo' : 'No configurado'}</p>
-          <p className="text-[#8b9cad] text-xs mt-1">Dropshipping con API configurable.</p>
-          <Link to="/dashboard/integraciones" className={cta + ' mt-auto pt-2'}>Configurar →</Link>
-        </div>
-        <div className={cardBase + ' flex flex-col'}>
-          <p className={label}>Mastershop</p>
-          <p className={value}>{integraciones.mastershop_activo ? 'Activo' : 'No configurado'}</p>
-          <p className="text-[#8b9cad] text-xs mt-1">Pedidos desde Mastershop.</p>
-          <Link to="/dashboard/integraciones" className={cta + ' mt-auto pt-2'}>Configurar →</Link>
-        </div>
       </div>
       {hasIntegraciones && (
         <p className="text-[#00c896] text-sm">
-          Tienes {[integraciones.shopify_activo && 'Shopify', integraciones.dropi_activo && 'Dropi', integraciones.mastershop_activo && 'Mastershop'].filter(Boolean).join(', ')} activo(s). Los pedidos se crean automáticamente en Pedidos.
+          Tienes Shopify activo. Los pedidos nuevos pueden crearse automáticamente en Pedidos.
         </p>
       )}
 

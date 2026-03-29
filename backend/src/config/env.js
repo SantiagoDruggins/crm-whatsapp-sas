@@ -82,14 +82,6 @@ const config = {
     cloudPhoneNumberId: process.env.WHATSAPP_CLOUD_PHONE_NUMBER_ID || '',
     cloudApiBaseUrl: process.env.WHATSAPP_CLOUD_API_BASE_URL || 'https://graph.facebook.com/v19.0'
   },
-  dropi: {
-    apiBaseUrl: process.env.DROPI_API_BASE_URL || '',
-    apiKeyHeader: process.env.DROPI_API_KEY_HEADER || 'Authorization'
-  },
-  mastershop: {
-    apiBaseUrl: process.env.MASTERSHOP_API_BASE_URL || '',
-    apiKeyHeader: process.env.MASTERSHOP_API_KEY_HEADER || 'Authorization'
-  },
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: Number(process.env.SMTP_PORT) || 587,

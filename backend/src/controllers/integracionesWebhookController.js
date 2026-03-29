@@ -4,27 +4,6 @@ const pedidoModel = require('../models/pedidoModel');
 const contactoModel = require('../models/contactoModel');
 const { getEmpresaByShopifyShopDomain } = require('../models/empresaModel');
 
-async function obtenerEmpresaPorTokenDropi(token) {
-  if (!token) return null;
-  const res = await query('SELECT id FROM empresas WHERE dropi_token = $1 LIMIT 1', [token]);
-  return res.rows[0] || null;
-}
-
-async function obtenerEmpresaPorTokenMastershop(token) {
-  if (!token) return null;
-  const res = await query('SELECT id FROM empresas WHERE mastershop_token = $1 LIMIT 1', [token]);
-  return res.rows[0] || null;
-}
-
-function extraerToken(req) {
-  const fromQuery = (req.query.token || req.query.empresaToken || '').toString().trim();
-  if (fromQuery) return fromQuery;
-  const auth = (req.headers.authorization || '').toString();
-  if (!auth) return '';
-  const m = auth.match(/bearer\s+(.+)/i);
-  return (m && m[1].trim()) || auth.trim();
-}
-
 function normalizarDatosPedidoDesdeBody(body) {
   const b = body || {};
   const reference = b.reference || b.id || b.order_id || b.orderId || b.numero || null;
@@ -43,7 +22,7 @@ function normalizarDatosPedidoDesdeBody(body) {
   return { reference, total, customer, shipping, telefono, nombre, email };
 }
 
-async function crearPedidoDesdeWebhook(empresaId, origen, body) {
+async function crearPedidoDesdeWebhook(empresaId, body) {
   const { reference, total, customer, shipping, telefono, nombre, email } = normalizarDatosPedidoDesdeBody(body);
 
   let contacto = null;
@@ -70,7 +49,7 @@ async function crearPedidoDesdeWebhook(empresaId, origen, body) {
       ? estado
       : 'pagado';
 
-  const pedido = await pedidoModel.crear(empresaId, {
+  return pedidoModel.crear(empresaId, {
     contacto_id: contacto?.id || null,
     conversacion_id: null,
     estado: estadoNormalizado,
@@ -78,41 +57,6 @@ async function crearPedidoDesdeWebhook(empresaId, origen, body) {
     datos: body || {},
     direccion: shipping || {},
   });
-
-  if (origen === 'dropi' && reference) {
-    await pedidoModel.actualizarEnvioDropi(pedido.id, empresaId, String(reference));
-  }
-  if (origen === 'mastershop' && reference) {
-    await pedidoModel.actualizarEnvioMastershop(pedido.id, empresaId, String(reference));
-  }
-
-  return pedido;
-}
-
-async function webhookDropi(req, res) {
-  try {
-    const token = extraerToken(req);
-    const empresa = await obtenerEmpresaPorTokenDropi(token);
-    if (!empresa?.id) return res.status(401).json({ message: 'Empresa no encontrada para este token de Dropi' });
-    const pedido = await crearPedidoDesdeWebhook(empresa.id, 'dropi', req.body || {});
-    return res.status(200).json({ ok: true, pedido_id: pedido.id });
-  } catch (err) {
-    console.error('webhookDropi:', err);
-    return res.status(500).json({ message: err.message || 'Error procesando webhook de Dropi' });
-  }
-}
-
-async function webhookMastershop(req, res) {
-  try {
-    const token = extraerToken(req);
-    const empresa = await obtenerEmpresaPorTokenMastershop(token);
-    if (!empresa?.id) return res.status(401).json({ message: 'Empresa no encontrada para este token de Mastershop' });
-    const pedido = await crearPedidoDesdeWebhook(empresa.id, 'mastershop', req.body || {});
-    return res.status(200).json({ ok: true, pedido_id: pedido.id });
-  } catch (err) {
-    console.error('webhookMastershop:', err);
-    return res.status(500).json({ message: err.message || 'Error procesando webhook de Mastershop' });
-  }
 }
 
 /** Normaliza el payload de un order de Shopify (orders/create) al formato que usa crearPedidoDesdeWebhook. */
@@ -180,7 +124,7 @@ async function webhookShopify(req, res) {
     const normalizado = normalizarPedidoDesdeShopify(body);
     const { reference, total, customer, shipping, telefono, nombre, email, shopify_order_id } = normalizado;
     const payload = { reference, total, customer, shipping, telefono, nombre, email, status: body?.financial_status || 'paid' };
-    const pedido = await crearPedidoDesdeWebhook(empresa.id, 'shopify', payload);
+    const pedido = await crearPedidoDesdeWebhook(empresa.id, payload);
     if (shopify_order_id) {
       await query(`UPDATE pedidos SET shopify_order_id = $1 WHERE id = $2`, [shopify_order_id, pedido.id]);
     }
@@ -192,8 +136,5 @@ async function webhookShopify(req, res) {
 }
 
 module.exports = {
-  webhookDropi,
-  webhookMastershop,
   webhookShopify,
 };
-

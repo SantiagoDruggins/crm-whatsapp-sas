@@ -6,11 +6,6 @@ export default function Integraciones() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    dropi_token: '',
-    dropi_activo: false,
-    dropi_api_base_url: '',
-    mastershop_token: '',
-    mastershop_activo: false,
     shopify_store_url: '',
     shopify_access_token: '',
     shopify_activo: false,
@@ -28,11 +23,6 @@ export default function Integraciones() {
         const i = r.integraciones || {};
         const aiKeyMask = i.ai_configurado ? '********' : (i.ai_api_key || '');
         setForm({
-          dropi_token: i.dropi_token || '',
-          dropi_activo: !!i.dropi_activo,
-          dropi_api_base_url: i.dropi_api_base_url || '',
-          mastershop_token: i.mastershop_token || '',
-          mastershop_activo: !!i.mastershop_activo,
           shopify_store_url: i.shopify_store_url || '',
           shopify_access_token: i.shopify_access_token || '',
           shopify_activo: !!i.shopify_activo,
@@ -64,11 +54,6 @@ export default function Integraciones() {
       .patch('/integraciones', payload)
       .then((r) => {
         setForm({
-          dropi_token: r.integraciones?.dropi_token ?? form.dropi_token,
-          dropi_activo: !!r.integraciones?.dropi_activo,
-          dropi_api_base_url: r.integraciones?.dropi_api_base_url ?? form.dropi_api_base_url,
-          mastershop_token: r.integraciones?.mastershop_token ?? form.mastershop_token,
-          mastershop_activo: !!r.integraciones?.mastershop_activo,
           shopify_store_url: r.integraciones?.shopify_store_url ?? form.shopify_store_url,
           shopify_access_token: r.integraciones?.shopify_access_token ?? form.shopify_access_token,
           shopify_activo: !!r.integraciones?.shopify_activo,
@@ -89,73 +74,10 @@ export default function Integraciones() {
     <div>
       <h1 className="text-2xl font-bold text-white mb-2">Integraciones</h1>
       <p className="text-[#8b9cad] text-sm mb-6">
-        Conecta Shopify, Dropi o Mastershop. Cada integración es opcional: activa solo las que uses.
+        Conecta tu tienda Shopify para que los pedidos lleguen al CRM. Otras tiendas o apps suelen enlazarse vía Shopify.
       </p>
       {error && <p className="text-sm text-[#f87171] mb-4">{error}</p>}
       <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
-        <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-3">Dropi</h2>
-          <p className="text-[#8b9cad] text-sm mb-4">
-            Gestiona pedidos con Dropi usando solo tu token. Obtén el token en la configuración de tu tienda en Dropi y, si Dropi te da una URL de API, pégala abajo.
-          </p>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm text-[#8b9cad] mb-1">URL base de la API de Dropi (opcional)</label>
-              <input
-                type="url"
-                value={form.dropi_api_base_url}
-                onChange={(e) => setForm((f) => ({ ...f, dropi_api_base_url: e.target.value.trim() }))}
-                placeholder="https://api.dropi.co o la URL que te indique Dropi"
-                className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
-              />
-              <p className="text-xs text-[#6b7a8a] mt-1">Si Dropi te dio una URL de API en su panel, pégala aquí. Si no, el administrador del servidor puede configurar DROPI_API_BASE_URL.</p>
-            </div>
-            <div>
-              <label className="block text-sm text-[#8b9cad] mb-1">Token de integración</label>
-              <input
-                type="password"
-                value={form.dropi_token}
-                onChange={(e) => setForm((f) => ({ ...f, dropi_token: e.target.value }))}
-                placeholder="Token Dropi"
-                className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
-              />
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.dropi_activo}
-                onChange={(e) => setForm((f) => ({ ...f, dropi_activo: e.target.checked }))}
-                className="rounded border-[#2d3a47] bg-[#0f1419] text-[#00c896]"
-              />
-              <span className="text-sm text-[#8b9cad]">Subir nuevos pedidos automáticamente a Dropi</span>
-            </label>
-          </div>
-        </div>
-        <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-3">Mastershop</h2>
-          <p className="text-[#8b9cad] text-sm mb-4">
-            En Mastershop (app.mastershop.com) ve a Configuraciones → Integraciones y obtén tu token o API key.
-          </p>
-          <div className="space-y-3">
-            <label className="block text-sm text-[#8b9cad]">Token / API key</label>
-            <input
-              type="password"
-              value={form.mastershop_token}
-              onChange={(e) => setForm((f) => ({ ...f, mastershop_token: e.target.value }))}
-              placeholder="Token Mastershop"
-              className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
-            />
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.mastershop_activo}
-                onChange={(e) => setForm((f) => ({ ...f, mastershop_activo: e.target.checked }))}
-                className="rounded border-[#2d3a47] bg-[#0f1419] text-[#00c896]"
-              />
-              <span className="text-sm text-[#8b9cad]">Subir nuevos pedidos automáticamente a Mastershop</span>
-            </label>
-          </div>
-        </div>
         <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-6">
           <h2 className="text-lg font-semibold text-white mb-3">Shopify</h2>
           <p className="text-[#8b9cad] text-sm mb-4">

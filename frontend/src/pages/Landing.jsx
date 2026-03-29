@@ -142,7 +142,7 @@ export default function Landing() {
             <ul className="space-y-4 text-[#8b9cad]">
               <li className="flex gap-3"><span className="text-[#00c896] font-bold">1.</span><span><strong className="text-white">Chatbot con IA (Gemini)</strong> que responde consultas, califica leads y puede cerrar ventas.</span></li>
               <li className="flex gap-3"><span className="text-[#00c896] font-bold">2.</span><span><strong className="text-white">CRM integrado:</strong> contactos, catálogo, pedidos, tags, notas e historial por conversación.</span></li>
-              <li className="flex gap-3"><span className="text-[#00c896] font-bold">3.</span><span><strong className="text-white">Integraciones opcionales:</strong> Shopify, Dropi y Mastershop para que los pedidos lleguen solos al CRM.</span></li>
+              <li className="flex gap-3"><span className="text-[#00c896] font-bold">3.</span><span><strong className="text-white">Shopify:</strong> conecta tu tienda para que los pedidos lleguen solos al CRM (otras apps suelen enlazarse vía Shopify).</span></li>
               <li className="flex gap-3"><span className="text-[#00c896] font-bold">4.</span><span><strong className="text-white">Aviso cuando piden agente:</strong> el sistema te avisa y puedes tomar la conversación.</span></li>
             </ul>
             <div className="bg-[#232d38] rounded-2xl border border-[#2d3a47] p-6 text-center">
@@ -164,8 +164,8 @@ export default function Landing() {
               { title: 'WhatsApp Cloud API', desc: 'API oficial de Meta para WhatsApp Business. Conexión profesional y escalable.' },
               { title: 'IA que entiende y responde', desc: 'Bot configurable por empresa: ventas, soporte o agenda.' },
               { title: 'CRM + Contactos + Conversaciones', desc: 'Tags, notas, historial y aviso cuando piden hablar con una persona.' },
-              { title: 'Catálogo y pedidos', desc: 'Productos para el bot; pedidos manuales o automáticos por Shopify, Dropi o Mastershop.' },
-              { title: 'Integraciones opcionales', desc: 'Shopify (webhook), Dropi y Mastershop. Activa solo las que uses.' },
+              { title: 'Catálogo y pedidos', desc: 'Productos para el bot; pedidos manuales o automáticos desde Shopify por webhook.' },
+              { title: 'Shopify', desc: 'Webhook de pedidos: activa la integración cuando uses tienda Shopify u apps conectadas.' },
               { title: 'Pago con Nequi', desc: 'Subes comprobante y activamos tu plan.', nequi: true },
             ].map((item, i) => (
               <div
