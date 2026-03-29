@@ -1,6 +1,18 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { restartPanelDemoTour } from '../../components/PanelDemoTour';
 
 export default function Ayuda() {
+  const [cuentaDemo, setCuentaDemo] = useState(false);
+  useEffect(() => {
+    try {
+      const e = JSON.parse(localStorage.getItem('empresa') || '{}');
+      setCuentaDemo(e.estado === 'demo_activa');
+    } catch {
+      setCuentaDemo(false);
+    }
+  }, []);
+
   return (
     <div className="space-y-6 text-sm text-[#e9edef]">
       <header className="mb-2">
@@ -26,6 +38,22 @@ export default function Ayuda() {
             el menú <strong>Contactos</strong>.
           </p>
         </details>
+        {cuentaDemo ? (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-[#00c896] font-medium">¿Hay una guía al entrar en la demo?</summary>
+            <p className="mt-2 text-[#8b9cad]">
+              Al entrar al panel se abre un recorrido paso a paso (menú, conversaciones, avisos…). Puedes repetirlo desde el
+              pie del menú lateral — <strong>Ver guía del panel otra vez</strong> — o aquí:
+            </p>
+            <button
+              type="button"
+              onClick={() => restartPanelDemoTour()}
+              className="mt-3 rounded-lg border border-[#00c896]/40 bg-[#00c896]/10 text-[#00e0a8] text-sm font-medium px-4 py-2 hover:bg-[#00c896]/20"
+            >
+              Iniciar guía del panel
+            </button>
+          </details>
+        ) : null}
       </section>
 
       <section className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-5">

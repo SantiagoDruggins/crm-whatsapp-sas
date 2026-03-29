@@ -5,6 +5,7 @@ import { ToastContainer } from './Toast';
 import NotificationPopup from './NotificationPopup';
 import { api } from '../lib/api';
 import { contactAssetUrl, contactInitials, hueFromPhone } from '../lib/contactVisual';
+import PanelDemoTour, { restartPanelDemoTour } from './PanelDemoTour';
 
 /** Actividad reciente (campanita / toasts): más frecuente que antes para acercarse a “tiempo real”. */
 const POLL_INTERVAL_MS = 12000;
@@ -264,7 +265,7 @@ export default function LayoutCliente() {
   return (
     <div className="h-dvh max-h-dvh overflow-hidden bg-[#0f1419] flex">
       {/* Sidebar */}
-      <aside className="w-56 border-r border-[#2d3a47] bg-[#1a2129] flex flex-col shrink-0 min-h-0">
+      <aside id="tour-sidebar" className="w-56 border-r border-[#2d3a47] bg-[#1a2129] flex flex-col shrink-0 min-h-0">
         <div className="p-4 border-b border-[#2d3a47]">
           <Link to="/dashboard" className="flex items-center gap-2">
             {empresa.logo_url ? (
@@ -299,10 +300,17 @@ export default function LayoutCliente() {
             }
             const active = location.pathname === item.path || (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
             const showBadge = item.badge === 'pideAgente' && pideAgenteCount > 0;
+            const tourAttr =
+              item.path === '/dashboard/conversaciones'
+                ? 'conversaciones'
+                : item.path === '/dashboard/whatsapp'
+                  ? 'whatsapp'
+                  : undefined;
             return (
               <Link
                 key={item.path}
                 to={item.path}
+                data-panel-tour={tourAttr}
                 className={`flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                   active ? 'bg-[#00c896]/20 text-[#00c896]' : 'text-[#8b9cad] hover:text-white hover:bg-[#232d38]'
                 }`}
@@ -328,6 +336,15 @@ export default function LayoutCliente() {
           >
             Salir
           </button>
+          {(empresa?.estado === 'demo_activa') && (
+            <button
+              type="button"
+              onClick={() => restartPanelDemoTour()}
+              className="mt-3 w-full text-left text-xs text-[#00c896] hover:text-[#00e0a8]"
+            >
+              Ver guía del panel otra vez
+            </button>
+          )}
         </div>
       </aside>
 
@@ -339,6 +356,7 @@ export default function LayoutCliente() {
           </span>
           <div className="relative flex items-center" ref={bellPanelRef}>
             <button
+              id="tour-bell-btn"
               type="button"
               onClick={(e) => { e.stopPropagation(); setBellOpen((o) => !o); }}
               className="relative p-1 rounded-lg text-[#8b9cad] hover:text-white hover:bg-[#232d38] transition-colors"
@@ -408,12 +426,16 @@ export default function LayoutCliente() {
             isConversacionDetalle ? 'overflow-hidden p-3' : 'overflow-hidden p-6'
           }`}
         >
-          <div className={`flex-1 min-h-0 flex flex-col ${isConversacionDetalle ? 'overflow-hidden' : 'overflow-auto'}`}>
+          <div
+            id="tour-main-area"
+            className={`flex-1 min-h-0 flex flex-col ${isConversacionDetalle ? 'overflow-hidden' : 'overflow-auto'}`}
+          >
             <Outlet />
           </div>
         </main>
       </div>
 
+      <PanelDemoTour empresa={empresa} usuario={usuario} />
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       <NotificationPopup
         open={popup.open}
