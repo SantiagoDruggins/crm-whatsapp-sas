@@ -91,7 +91,7 @@ export default function Conversaciones() {
   }, [fetchLista]);
 
   useEffect(() => {
-    const LISTA_POLL_MS = 8000;
+    const LISTA_POLL_MS = 5000;
     const tick = () => {
       if (document.visibilityState !== 'visible') return;
       api

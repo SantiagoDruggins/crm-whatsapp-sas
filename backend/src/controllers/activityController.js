@@ -1,5 +1,5 @@
 const { query } = require('../config/db');
-const { countPideAgente } = require('../models/conversacionModel');
+const { countPideAgente, hasContactosAvatarUrlColumn } = require('../models/conversacionModel');
 
 /**
  * GET /crm/actividad-reciente
@@ -10,10 +10,13 @@ async function actividadReciente(req, res) {
     const empresaId = req.user.empresaId;
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
 
+    const hasAv = await hasContactosAvatarUrlColumn();
+    const avSel = hasAv ? 'co.avatar_url AS contacto_avatar_url' : 'NULL::text AS contacto_avatar_url';
+
     const [convRes, citasRes, pedidosRes, pideAgenteCount] = await Promise.all([
       query(
         `SELECT c.id, c.ultimo_mensaje_at, co.nombre AS contacto_nombre, co.apellidos AS contacto_apellidos, co.telefono AS contacto_telefono,
-                co.avatar_url AS contacto_avatar_url,
+                ${avSel},
                 (SELECT MAX(m.created_at) FROM mensajes m
                  WHERE m.conversacion_id = c.id AND m.empresa_id = c.empresa_id AND m.es_entrada = true) AS ultimo_mensaje_cliente_at
          FROM conversaciones c

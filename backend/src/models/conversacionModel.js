@@ -1,6 +1,25 @@
 const { query } = require('../config/db');
 
 let supportFlagsColumnsCache = null;
+let contactosAvatarUrlCache = null;
+
+/** Sin migración 014, no existe contactos.avatar_url: las queries deben usar NULL AS contacto_avatar_url. */
+async function hasContactosAvatarUrlColumn() {
+  if (contactosAvatarUrlCache !== null) return contactosAvatarUrlCache;
+  try {
+    const r = await query(
+      `SELECT EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'contactos' AND column_name = 'avatar_url'
+       ) AS ok`
+    );
+    contactosAvatarUrlCache = !!r.rows[0]?.ok;
+    return contactosAvatarUrlCache;
+  } catch {
+    contactosAvatarUrlCache = false;
+    return false;
+  }
+}
 
 async function hasSupportFlagsColumns() {
   if (supportFlagsColumnsCache !== null) return supportFlagsColumnsCache;
@@ -21,10 +40,17 @@ async function hasSupportFlagsColumns() {
   }
 }
 
+function selectContactoJoinExtras(hasAvatarUrl) {
+  const av = hasAvatarUrl ? 'c.avatar_url AS contacto_avatar_url' : 'NULL::text AS contacto_avatar_url';
+  return `${av}, c.lead_status AS contacto_lead_status, c.last_message AS contacto_last_message`;
+}
+
 async function listar(empresaId, { limit = 50, offset = 0, pideAgente = false } = {}) {
   const hasFlags = await hasSupportFlagsColumns();
+  const hasAv = await hasContactosAvatarUrlColumn();
+  const extras = selectContactoJoinExtras(hasAv);
   let sql = `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono,
-            c.avatar_url AS contacto_avatar_url, c.lead_status AS contacto_lead_status, c.last_message AS contacto_last_message
+            ${extras}
      FROM conversaciones conv
      LEFT JOIN contactos c ON c.id = conv.contacto_id AND c.empresa_id = conv.empresa_id
      WHERE conv.empresa_id = $1`;
@@ -40,10 +66,12 @@ async function listar(empresaId, { limit = 50, offset = 0, pideAgente = false } 
     const result = await query(sql, vals);
     return result.rows;
   } catch (e) {
-    // Fallback para BDs antiguas sin columnas pide_agente_* (evita lista vacía en producción).
+    console.error('conversacionModel.listar:', e.message);
+    // Fallback: sin columnas pide_agente_* ni orden especial
     try {
+      const legacyExtras = selectContactoJoinExtras(hasAv);
       let legacySql = `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono,
-            c.avatar_url AS contacto_avatar_url, c.lead_status AS contacto_lead_status, c.last_message AS contacto_last_message
+            ${legacyExtras}
          FROM conversaciones conv
          LEFT JOIN contactos c ON c.id = conv.contacto_id AND c.empresa_id = conv.empresa_id
          WHERE conv.empresa_id = $1`;
@@ -52,16 +80,19 @@ async function listar(empresaId, { limit = 50, offset = 0, pideAgente = false } 
       legacyVals.push(limit, offset);
       const legacy = await query(legacySql, legacyVals);
       return legacy.rows;
-    } catch {
+    } catch (e2) {
+      console.error('conversacionModel.listar (fallback):', e2.message);
       return [];
     }
   }
 }
 
 async function getById(empresaId, id) {
+  const hasAv = await hasContactosAvatarUrlColumn();
+  const extras = selectContactoJoinExtras(hasAv);
   const result = await query(
     `SELECT conv.*, c.nombre AS contacto_nombre, c.apellidos AS contacto_apellidos, c.telefono AS contacto_telefono,
-            c.avatar_url AS contacto_avatar_url, c.lead_status AS contacto_lead_status, c.last_message AS contacto_last_message
+            ${extras}
      FROM conversaciones conv
      LEFT JOIN contactos c ON c.id = conv.contacto_id AND c.empresa_id = conv.empresa_id
      WHERE conv.id = $1 AND conv.empresa_id = $2`,
@@ -105,4 +136,19 @@ async function countPideAgente(empresaId) {
   }
 }
 
-module.exports = { listar, getById, actualizar, actualizarUltimoMensaje, marcarPideAgente, desmarcarPideAgente, countPideAgente, getOrCreate: async (e, c, canal, opts) => { const r = await query(`SELECT * FROM conversaciones WHERE empresa_id = $1 AND contacto_id = $2 AND canal = $3 LIMIT 1`, [e, c, canal || 'whatsapp']); if (r.rows[0]) return r.rows[0]; const ins = await query(`INSERT INTO conversaciones (empresa_id, contacto_id, canal, estado) VALUES ($1, $2, $3, 'abierta') RETURNING *`, [e, c, canal || 'whatsapp']); return ins.rows[0]; } };
+module.exports = {
+  listar,
+  getById,
+  actualizar,
+  actualizarUltimoMensaje,
+  marcarPideAgente,
+  desmarcarPideAgente,
+  countPideAgente,
+  hasContactosAvatarUrlColumn,
+  getOrCreate: async (e, c, canal, opts) => {
+    const r = await query(`SELECT * FROM conversaciones WHERE empresa_id = $1 AND contacto_id = $2 AND canal = $3 LIMIT 1`, [e, c, canal || 'whatsapp']);
+    if (r.rows[0]) return r.rows[0];
+    const ins = await query(`INSERT INTO conversaciones (empresa_id, contacto_id, canal, estado) VALUES ($1, $2, $3, 'abierta') RETURNING *`, [e, c, canal || 'whatsapp']);
+    return ins.rows[0];
+  },
+};
