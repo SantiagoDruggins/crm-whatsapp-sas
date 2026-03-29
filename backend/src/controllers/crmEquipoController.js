@@ -16,7 +16,7 @@ const {
   obtenerUsuarioPorEmailGlobal,
 } = require('../models/usuarioModel');
 const { getLimitsForEmpresa } = require('../models/planModel');
-const { normalizePermisos } = require('../lib/crmPermissions');
+const { normalizePermisos, CRM_PERMISSION_KEYS } = require('../lib/crmPermissions');
 
 const SALT_ROUNDS = 10;
 
