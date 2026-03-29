@@ -9,6 +9,9 @@ const {
   historialConversacion,
   enviarMensajeConversacion,
   enviarAudioConversacion,
+  enviarImagenConversacion,
+  enviarDocumentoConversacion,
+  enviarProductoCatalogoConversacion,
   obtenerMotorConversacion,
   actualizarMotorConversacion,
 } = require('../controllers/conversacionesController');
@@ -20,7 +23,14 @@ const { listarFlows, obtenerFlow, crearFlow, actualizarFlow, eliminarFlow, subir
 const { listarWebhooks, crearWebhook, actualizarWebhook, eliminarWebhook } = require('../controllers/webhooksController');
 const { subirLogoEmpresa } = require('../controllers/empresaBrandingController');
 const { crearFeedback } = require('../controllers/feedbackController');
-const { uploadProductoImagen, uploadEmpresaLogo, uploadConversacionAudio, uploadFlowMedia } = require('../config/multer');
+const {
+  uploadProductoImagen,
+  uploadEmpresaLogo,
+  uploadConversacionAudio,
+  uploadConversacionImagen,
+  uploadConversacionDocumento,
+  uploadFlowMedia,
+} = require('../config/multer');
 const { query } = require('../config/db');
 
 const router = express.Router();
@@ -52,6 +62,9 @@ router.patch('/conversaciones/:id', asyncHandler(actualizarConversacion));
 router.get('/conversaciones/:id/historial', asyncHandler(historialConversacion));
 router.post('/conversaciones/:id/mensajes', asyncHandler(enviarMensajeConversacion));
 router.post('/conversaciones/:id/audio', uploadConversacionAudio.single('audio'), asyncHandler(enviarAudioConversacion));
+router.post('/conversaciones/:id/imagen', uploadConversacionImagen.single('imagen'), asyncHandler(enviarImagenConversacion));
+router.post('/conversaciones/:id/documento', uploadConversacionDocumento.single('documento'), asyncHandler(enviarDocumentoConversacion));
+router.post('/conversaciones/:id/enviar-producto', asyncHandler(enviarProductoCatalogoConversacion));
 router.get('/conversaciones/:id/motor', asyncHandler(obtenerMotorConversacion));
 router.patch('/conversaciones/:id/motor', asyncHandler(actualizarMotorConversacion));
 router.get('/actividad-reciente', asyncHandler(actividadReciente));

@@ -164,8 +164,23 @@ function clientePideAgenteHumano(contenido) {
   return frases.some((r) => r.test(t));
 }
 
+/**
+ * URL absoluta HTTPS para que Meta descargue imagen/documento (WhatsApp exige link público).
+ * Normaliza /uploads/... → /api/uploads/... para despliegues donde solo se proxya /api al backend.
+ */
+function resolvePublicMediaUrl(relativeOrAbsolute) {
+  const raw = String(relativeOrAbsolute || '').trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const base = (config.publicBaseUrl || config.whatsapp?.publicWebhookBaseUrl || '').replace(/\/$/, '');
+  if (!base) return null;
+  let p = raw.startsWith('/') ? raw : `/${raw}`;
+  if (p.startsWith('/uploads/') && !p.startsWith('/api/')) p = `/api${p}`;
+  return `${base}${p}`;
+}
+
 /** Parsea [IMAGEN: path] en la respuesta; limpia también marcadores [AUDIO: ...]. */
-function extraerImagenesYAudiosDeRespuesta(respuesta, baseUrl) {
+function extraerImagenesYAudiosDeRespuesta(respuesta) {
   if (!respuesta || typeof respuesta !== 'string') return { textoLimpio: respuesta, urlsImagen: [], urlsAudio: [] };
   const urlsImagen = [];
   const urlsAudio = [];
@@ -173,10 +188,10 @@ function extraerImagenesYAudiosDeRespuesta(respuesta, baseUrl) {
   const reImagen = /\[?IMAGEN:\s*([^\]\n]+)\]?/gi;
   let m;
   while ((m = reImagen.exec(respuesta)) !== null) {
-    const path = (m[1] || '').trim();
-    if (path) {
-      const url = path.startsWith('http') ? path : `${(baseUrl || '').replace(/\/$/, '')}${path.startsWith('/') ? path : '/' + path}`;
-      if (url.startsWith('http')) urlsImagen.push(url);
+    const pathRaw = (m[1] || '').trim();
+    if (pathRaw) {
+      const url = resolvePublicMediaUrl(pathRaw);
+      if (url) urlsImagen.push(url);
     }
   }
   textoLimpio = respuesta
@@ -1004,7 +1019,7 @@ async function procesarCloudWebhookBody(body) {
                     textoEnviar = await extraerYCrearPedidoSiHay(empresa.id, contacto.id, conversacion.id, textoEnviar);
                   }
                   const baseUrl = (config.publicBaseUrl || config.whatsapp?.publicWebhookBaseUrl || '').replace(/\/$/, '');
-                  const { textoLimpio, urlsImagen, urlsAudio } = extraerImagenesYAudiosDeRespuesta(textoEnviar, baseUrl);
+                  const { textoLimpio, urlsImagen, urlsAudio } = extraerImagenesYAudiosDeRespuesta(textoEnviar);
                   textoEnviar = textoLimpio || textoEnviar;
                   const sent = await enviarMensajeEmpresa(empresa.id, from, textoEnviar);
                   if (!sent.ok) {
@@ -1037,9 +1052,10 @@ async function procesarCloudWebhookBody(body) {
                       try {
                         const productos = await productoModel.listarActivos(empresa.id, { limit: 20 });
                         const conImagen = (productos || []).filter((p) => p.imagen_url && String(p.imagen_url).trim());
-                        const urlCompleta = (path) => (path.startsWith('http') ? path : `${baseUrl}${path.startsWith('/') ? path : '/' + path}`);
                         for (const p of conImagen.slice(0, 5)) {
-                          await enviarImagenEmpresa(empresa.id, from, urlCompleta(p.imagen_url), `${p.nombre} – ${Number(p.precio || 0).toLocaleString('es-CO')} ${p.moneda || 'COP'}`);
+                          const imgUrl = resolvePublicMediaUrl(p.imagen_url);
+                          if (!imgUrl) continue;
+                          await enviarImagenEmpresa(empresa.id, from, imgUrl, `${p.nombre} – ${Number(p.precio || 0).toLocaleString('es-CO')} ${p.moneda || 'COP'}`);
                           await new Promise((r) => setTimeout(r, 600));
                         }
                       } catch (eImg) {
@@ -1591,4 +1607,7 @@ module.exports = {
   enviarMensajeEmpresa,
   enviarAudioTtsEmpresa,
   enviarAudioArchivoEmpresa,
+  enviarImagenEmpresa,
+  enviarDocumentoEmpresa,
+  resolvePublicMediaUrl,
 };

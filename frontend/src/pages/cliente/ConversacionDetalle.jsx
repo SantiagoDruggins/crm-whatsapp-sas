@@ -61,6 +61,14 @@ export default function ConversacionDetalle() {
   const [motor, setMotor] = useState(null);
   const [updatingMotor, setUpdatingMotor] = useState(false);
   const [modoReactivacion, setModoReactivacion] = useState('soporte');
+  const [productos, setProductos] = useState([]);
+  const [productoCatalogoId, setProductoCatalogoId] = useState('');
+  const [enviandoImagen, setEnviandoImagen] = useState(false);
+  const [enviandoDoc, setEnviandoDoc] = useState(false);
+  const [enviandoCatalogo, setEnviandoCatalogo] = useState(false);
+  const [captionImagen, setCaptionImagen] = useState('');
+  const inputImagenRef = useRef(null);
+  const inputDocRef = useRef(null);
 
   const load = () => {
     api.get(`/crm/conversaciones/${id}/historial`).then((r) => {
@@ -80,6 +88,13 @@ export default function ConversacionDetalle() {
   useEffect(() => {
     load();
   }, [id]);
+
+  useEffect(() => {
+    api
+      .get('/crm/productos')
+      .then((r) => setProductos(Array.isArray(r.productos) ? r.productos : []))
+      .catch(() => setProductos([]));
+  }, []);
 
   const nombreContacto = useMemo(
     () =>
@@ -166,6 +181,59 @@ export default function ConversacionDetalle() {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((t) => t.stop());
       mediaStreamRef.current = null;
+    }
+  };
+
+  const enviarImagenSeleccionada = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setEnviandoImagen(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('imagen', file);
+      if (captionImagen.trim()) formData.append('caption', captionImagen.trim());
+      await api.upload(`/crm/conversaciones/${id}/imagen`, formData);
+      setCaptionImagen('');
+      load();
+    } catch (err) {
+      setError(err?.message || 'No se pudo enviar la imagen');
+    } finally {
+      setEnviandoImagen(false);
+    }
+  };
+
+  const enviarDocumentoSeleccionado = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setEnviandoDoc(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('documento', file);
+      await api.upload(`/crm/conversaciones/${id}/documento`, formData);
+      load();
+    } catch (err) {
+      setError(err?.message || 'No se pudo enviar el archivo');
+    } finally {
+      setEnviandoDoc(false);
+    }
+  };
+
+  const enviarProductoCatalogo = async () => {
+    if (!productoCatalogoId) return;
+    setEnviandoCatalogo(true);
+    setError('');
+    try {
+      await api.post(`/crm/conversaciones/${id}/enviar-producto`, { producto_id: productoCatalogoId });
+      setProductoCatalogoId('');
+      load();
+    } catch (err) {
+      setError(err?.message || 'No se pudo enviar el producto');
+    } finally {
+      setEnviandoCatalogo(false);
     }
   };
 
@@ -395,7 +463,7 @@ export default function ConversacionDetalle() {
                     esEntrada ? 'bg-[#202c33] text-[#e9edef]' : 'bg-[#005c4b] text-[#e9edef]'
                   }`}
                 >
-                  {(m.message_type === 'audio' && m.media_url) ? (
+                  {m.message_type === 'audio' && m.media_url ? (
                     <div className="space-y-2">
                       <audio
                         controls
@@ -408,6 +476,29 @@ export default function ConversacionDetalle() {
                       {m.contenido && m.contenido !== '[audio no transcrito]' && (
                         <p className="text-xs text-[#8696a0] italic">Transcripción: {m.contenido}</p>
                       )}
+                    </div>
+                  ) : m.message_type === 'image' && m.media_url ? (
+                    <div className="space-y-2">
+                      <img
+                        src={mediaSrc(m.media_url)}
+                        alt=""
+                        className="max-w-[220px] max-h-[220px] rounded-md object-cover border border-[#2d3a47]"
+                        loading="lazy"
+                      />
+                      {m.contenido && m.contenido !== '[imagen enviada]' && (
+                        <p className="whitespace-pre-wrap break-words text-sm">{m.contenido}</p>
+                      )}
+                    </div>
+                  ) : m.message_type === 'document' && m.media_url ? (
+                    <div className="space-y-1">
+                      <a
+                        href={mediaSrc(m.media_url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#53bdeb] underline text-sm break-all"
+                      >
+                        {m.contenido || 'Descargar archivo'}
+                      </a>
                     </div>
                   ) : (
                     <p className="whitespace-pre-wrap break-words">{m.contenido}</p>
@@ -422,7 +513,50 @@ export default function ConversacionDetalle() {
 
       {/* Caja de texto */}
       <form onSubmit={enviar} className="border-t border-[#202c33] bg-[#202c33] px-3 py-2">
-        <div className="mb-2 flex items-center gap-2 text-xs">
+        <input ref={inputImagenRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="hidden" onChange={enviarImagenSeleccionada} />
+        <input ref={inputDocRef} type="file" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.csv,.zip,application/pdf" className="hidden" onChange={enviarDocumentoSeleccionado} />
+        <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => inputImagenRef.current?.click()}
+            disabled={enviandoImagen || grabandoAudio || !!audioBlob}
+            className="rounded-lg border border-[#2d3a47] bg-[#1a2129] text-[#cbd5e0] px-2.5 py-1 hover:bg-[#24303b] disabled:opacity-50"
+          >
+            {enviandoImagen ? 'Enviando foto…' : 'Adjuntar foto'}
+          </button>
+          <button
+            type="button"
+            onClick={() => inputDocRef.current?.click()}
+            disabled={enviandoDoc || grabandoAudio || !!audioBlob}
+            className="rounded-lg border border-[#2d3a47] bg-[#1a2129] text-[#cbd5e0] px-2.5 py-1 hover:bg-[#24303b] disabled:opacity-50"
+          >
+            {enviandoDoc ? 'Enviando archivo…' : 'Adjuntar archivo'}
+          </button>
+          {productos.length > 0 && (
+            <span className="inline-flex items-center gap-1 flex-wrap">
+              <select
+                value={productoCatalogoId}
+                onChange={(e) => setProductoCatalogoId(e.target.value)}
+                disabled={enviandoCatalogo || grabandoAudio || !!audioBlob}
+                className="rounded-lg border border-[#2d3a47] bg-[#0f1419] text-[#cbd5e0] px-2 py-1 text-xs max-w-[160px]"
+              >
+                <option value="">Catálogo…</option>
+                {productos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={enviarProductoCatalogo}
+                disabled={!productoCatalogoId || enviandoCatalogo || grabandoAudio || !!audioBlob}
+                className="rounded-lg border border-[#00a884]/50 bg-[#00a884]/15 text-[#25d366] px-2.5 py-1 hover:bg-[#00a884]/25 disabled:opacity-50"
+              >
+                {enviandoCatalogo ? '…' : 'Enviar producto'}
+              </button>
+            </span>
+          )}
           {!grabandoAudio && !audioBlob && (
             <button
               type="button"
@@ -465,6 +599,15 @@ export default function ConversacionDetalle() {
               </button>
             </>
           )}
+        </div>
+        <div className="mb-2">
+          <input
+            type="text"
+            value={captionImagen}
+            onChange={(e) => setCaptionImagen(e.target.value)}
+            placeholder="Texto opcional que irá con la próxima foto (leyenda)"
+            className="w-full rounded-lg bg-[#2a3942] border border-transparent px-3 py-1.5 text-xs text-[#e9edef] placeholder-[#8696a0] focus:outline-none focus:border-[#00a884]"
+          />
         </div>
         <div className="flex gap-2">
         <input

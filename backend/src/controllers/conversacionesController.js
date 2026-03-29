@@ -1,8 +1,17 @@
+const path = require('path');
 const { listar, getById, actualizar, actualizarUltimoMensaje, marcarPideAgente, desmarcarPideAgente, countPideAgente } = require('../models/conversacionModel');
 const { listarPorConversacion, crear } = require('../models/mensajeModel');
 const conversationStateModel = require('../models/conversationStateModel');
-const { enviarMensajeEmpresa, enviarAudioTtsEmpresa, enviarAudioArchivoEmpresa } = require('./whatsappController');
+const {
+  enviarMensajeEmpresa,
+  enviarAudioTtsEmpresa,
+  enviarAudioArchivoEmpresa,
+  enviarImagenEmpresa,
+  enviarDocumentoEmpresa,
+  resolvePublicMediaUrl,
+} = require('./whatsappController');
 const contactoModel = require('../models/contactoModel');
+const productoModel = require('../models/productoModel');
 
 async function listarConversaciones(req, res) {
   try {
@@ -224,6 +233,212 @@ async function enviarAudioConversacion(req, res) {
   }
 }
 
+async function enviarImagenConversacion(req, res) {
+  try {
+    if (!req.file?.filename) return res.status(400).json({ message: 'imagen es requerida' });
+    const conversacion = await getById(req.user.empresaId, req.params.id);
+    if (!conversacion) return res.status(404).json({ message: 'Conversación no encontrada' });
+    let telefono = conversacion.contacto_telefono;
+    if (!telefono && conversacion.contacto_id) {
+      const contacto = await contactoModel.getById(req.user.empresaId, conversacion.contacto_id);
+      telefono = contacto?.telefono;
+    }
+    if (!telefono) return res.status(400).json({ message: 'No hay teléfono del contacto' });
+
+    const rutaPublica = `/api/uploads/conversaciones/${req.file.filename}`;
+    const publicUrl = resolvePublicMediaUrl(rutaPublica);
+    if (!publicUrl) {
+      return res.status(400).json({
+        message:
+          'El servidor no tiene PUBLIC_APP_URL o PUBLIC_API_URL configurada. Sin una URL pública HTTPS, WhatsApp no puede descargar la imagen.',
+      });
+    }
+    const caption = (req.body?.caption && String(req.body.caption).trim()) ? String(req.body.caption).trim().slice(0, 1024) : '';
+    const sent = await enviarImagenEmpresa(req.user.empresaId, telefono, publicUrl, caption);
+    if (!sent.ok) {
+      return res.status(400).json({ message: sent.error || 'No se pudo enviar la imagen por WhatsApp' });
+    }
+
+    const preview = caption || '[imagen enviada]';
+    const mensaje = await crear(req.user.empresaId, conversacion.id, {
+      origen: 'agente',
+      usuarioId: req.user.id,
+      contenido: preview,
+      esEntrada: false,
+      message_type: 'image',
+      media_url: rutaPublica,
+    });
+    await actualizarUltimoMensaje(conversacion.id);
+    if (conversacion.contacto_id) {
+      try {
+        await contactoModel.actualizarUltimoMensajeContacto(req.user.empresaId, conversacion.contacto_id, {
+          lastMessage: preview,
+          lastMessageAt: new Date(),
+        });
+      } catch (e) {}
+      try {
+        await conversationStateModel.setMotorState(req.user.empresaId, conversacion.contacto_id, {
+          estado_operativo: 'asesor_activo',
+          intencion_actual: 'humano',
+          paso_actual: 'asesor_envio_imagen',
+          bloqueo_bot: true,
+          updated_by: 'agente_crm_imagen',
+        });
+      } catch (e) {}
+    }
+    await desmarcarPideAgente(conversacion.id);
+    return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: true, tipo: 'image' });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
+async function enviarDocumentoConversacion(req, res) {
+  try {
+    if (!req.file?.filename) return res.status(400).json({ message: 'documento es requerido' });
+    const conversacion = await getById(req.user.empresaId, req.params.id);
+    if (!conversacion) return res.status(404).json({ message: 'Conversación no encontrada' });
+    let telefono = conversacion.contacto_telefono;
+    if (!telefono && conversacion.contacto_id) {
+      const contacto = await contactoModel.getById(req.user.empresaId, conversacion.contacto_id);
+      telefono = contacto?.telefono;
+    }
+    if (!telefono) return res.status(400).json({ message: 'No hay teléfono del contacto' });
+
+    const rutaPublica = `/api/uploads/conversaciones/${req.file.filename}`;
+    const publicUrl = resolvePublicMediaUrl(rutaPublica);
+    if (!publicUrl) {
+      return res.status(400).json({
+        message:
+          'El servidor no tiene PUBLIC_APP_URL o PUBLIC_API_URL configurada. Sin URL pública HTTPS, WhatsApp no puede descargar el archivo.',
+      });
+    }
+    const nombreArchivo = path.basename(req.file.originalname || 'documento').replace(/[^\w.\-()\s\u00C0-\u024F]/gi, '_').slice(0, 200) || 'documento';
+    const sent = await enviarDocumentoEmpresa(req.user.empresaId, telefono, publicUrl, nombreArchivo);
+    if (!sent.ok) {
+      return res.status(400).json({ message: sent.error || 'No se pudo enviar el documento por WhatsApp' });
+    }
+
+    const preview = `[archivo: ${nombreArchivo}]`;
+    const mensaje = await crear(req.user.empresaId, conversacion.id, {
+      origen: 'agente',
+      usuarioId: req.user.id,
+      contenido: preview,
+      esEntrada: false,
+      message_type: 'document',
+      media_url: rutaPublica,
+    });
+    await actualizarUltimoMensaje(conversacion.id);
+    if (conversacion.contacto_id) {
+      try {
+        await contactoModel.actualizarUltimoMensajeContacto(req.user.empresaId, conversacion.contacto_id, {
+          lastMessage: preview,
+          lastMessageAt: new Date(),
+        });
+      } catch (e) {}
+      try {
+        await conversationStateModel.setMotorState(req.user.empresaId, conversacion.contacto_id, {
+          estado_operativo: 'asesor_activo',
+          intencion_actual: 'humano',
+          paso_actual: 'asesor_envio_documento',
+          bloqueo_bot: true,
+          updated_by: 'agente_crm_documento',
+        });
+      } catch (e) {}
+    }
+    await desmarcarPideAgente(conversacion.id);
+    return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: true, tipo: 'document' });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
+async function enviarProductoCatalogoConversacion(req, res) {
+  try {
+    const productoId = req.body?.producto_id ?? req.body?.productoId;
+    if (!productoId) return res.status(400).json({ message: 'producto_id es requerido' });
+    const conversacion = await getById(req.user.empresaId, req.params.id);
+    if (!conversacion) return res.status(404).json({ message: 'Conversación no encontrada' });
+    let telefono = conversacion.contacto_telefono;
+    if (!telefono && conversacion.contacto_id) {
+      const contacto = await contactoModel.getById(req.user.empresaId, conversacion.contacto_id);
+      telefono = contacto?.telefono;
+    }
+    if (!telefono) return res.status(400).json({ message: 'No hay teléfono del contacto' });
+
+    const producto = await productoModel.obtener(req.user.empresaId, productoId);
+    if (!producto) return res.status(404).json({ message: 'Producto no encontrado' });
+
+    const precioTxt = `${Number(producto.precio || 0).toLocaleString('es-CO')} ${producto.moneda || 'COP'}`;
+    let caption = `${producto.nombre || 'Producto'} – ${precioTxt}`;
+    if (producto.descripcion && String(producto.descripcion).trim()) {
+      const d = String(producto.descripcion).trim().slice(0, 800);
+      caption = `${caption}\n${d}`;
+    }
+    caption = caption.slice(0, 1024);
+
+    const tieneImagen = producto.imagen_url && String(producto.imagen_url).trim();
+    let sent = { ok: false, error: 'Sin imagen ni texto' };
+    let tipoMsg = 'text';
+    let mediaPath = null;
+    let contenidoHistorial = caption;
+
+    if (tieneImagen) {
+      const publicUrl = resolvePublicMediaUrl(producto.imagen_url);
+      if (!publicUrl) {
+        return res.status(400).json({
+          message:
+            'No se pudo construir la URL pública de la imagen del producto. Configura PUBLIC_APP_URL o PUBLIC_API_URL en el servidor.',
+        });
+      }
+      sent = await enviarImagenEmpresa(req.user.empresaId, telefono, publicUrl, caption);
+      tipoMsg = 'image';
+      mediaPath = String(producto.imagen_url).trim().startsWith('http')
+        ? producto.imagen_url
+        : producto.imagen_url.startsWith('/')
+          ? producto.imagen_url
+          : `/${producto.imagen_url}`;
+    } else {
+      sent = await enviarMensajeEmpresa(req.user.empresaId, telefono, caption);
+    }
+
+    if (!sent.ok) {
+      return res.status(400).json({ message: sent.error || 'No se pudo enviar por WhatsApp' });
+    }
+
+    const mensaje = await crear(req.user.empresaId, conversacion.id, {
+      origen: 'agente',
+      usuarioId: req.user.id,
+      contenido: contenidoHistorial,
+      esEntrada: false,
+      message_type: tipoMsg,
+      media_url: mediaPath,
+    });
+    await actualizarUltimoMensaje(conversacion.id);
+    if (conversacion.contacto_id) {
+      try {
+        await contactoModel.actualizarUltimoMensajeContacto(req.user.empresaId, conversacion.contacto_id, {
+          lastMessage: caption.slice(0, 200),
+          lastMessageAt: new Date(),
+        });
+      } catch (e) {}
+      try {
+        await conversationStateModel.setMotorState(req.user.empresaId, conversacion.contacto_id, {
+          estado_operativo: 'asesor_activo',
+          intencion_actual: 'humano',
+          paso_actual: 'asesor_envio_catalogo',
+          bloqueo_bot: true,
+          updated_by: 'agente_crm_catalogo',
+        });
+      } catch (e) {}
+    }
+    await desmarcarPideAgente(conversacion.id);
+    return res.status(201).json({ ok: true, mensaje, enviadoWhatsApp: true, tipo: tipoMsg });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
 module.exports = {
   listarConversaciones,
   obtenerConversacion,
@@ -231,6 +446,9 @@ module.exports = {
   historialConversacion,
   enviarMensajeConversacion,
   enviarAudioConversacion,
+  enviarImagenConversacion,
+  enviarDocumentoConversacion,
+  enviarProductoCatalogoConversacion,
   obtenerMotorConversacion,
   actualizarMotorConversacion,
 };

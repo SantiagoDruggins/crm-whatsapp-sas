@@ -8,11 +8,13 @@ const dirBotConocimiento = path.join(process.cwd(), 'uploads', 'bot-conocimiento
 const dirProductos = path.join(process.cwd(), 'uploads', 'productos');
 const dirEmpresas = path.join(process.cwd(), 'uploads', 'empresas');
 const dirFlowsMedia = path.join(process.cwd(), 'uploads', 'flows-media');
+const dirConversaciones = path.join(process.cwd(), 'uploads', 'conversaciones');
 try { fs.mkdirSync(dirComprobantes, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirBotConocimiento, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirProductos, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirEmpresas, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirFlowsMedia, { recursive: true }); } catch (e) {}
+try { fs.mkdirSync(dirConversaciones, { recursive: true }); } catch (e) {}
 
 const storageComprobantes = multer.diskStorage({
   destination(req, file, cb) { cb(null, dirComprobantes); },
@@ -113,6 +115,23 @@ const storageFlowMedia = multer.diskStorage({
   }
 });
 
+const storageConversacionImagen = multer.diskStorage({
+  destination(req, file, cb) { cb(null, dirConversaciones); },
+  filename(req, file, cb) {
+    const ext = (path.extname(file.originalname) || '.jpg').toLowerCase();
+    const safe = /\.(jpe?g|png|gif|webp)$/i.test(ext) ? ext : '.jpg';
+    cb(null, uuidv4() + safe);
+  }
+});
+
+const storageConversacionDocumento = multer.diskStorage({
+  destination(req, file, cb) { cb(null, dirConversaciones); },
+  filename(req, file, cb) {
+    const ext = (path.extname(file.originalname) || '').toLowerCase().slice(0, 12);
+    cb(null, `${uuidv4()}${ext || '.pdf'}`);
+  }
+});
+
 const uploadFlowMedia = multer({
   storage: storageFlowMedia,
   limits: { fileSize: 25 * 1024 * 1024 },
@@ -127,17 +146,43 @@ const uploadFlowMedia = multer({
   }
 });
 
+const uploadConversacionImagen = multer({
+  storage: storageConversacionImagen,
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    const ok = /\.(jpe?g|png|gif|webp)$/i.test(file.originalname) || (file.mimetype && file.mimetype.startsWith('image/'));
+    if (ok) cb(null, true);
+    else cb(new Error('Solo imágenes (jpg, png, gif, webp)'));
+  }
+});
+
+const uploadConversacionDocumento = multer({
+  storage: storageConversacionDocumento,
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    const mime = (file.mimetype || '').toLowerCase();
+    const name = (file.originalname || '').toLowerCase();
+    const isDoc = /\.(pdf|doc|docx|txt|xls|xlsx|ppt|pptx|csv|zip)$/i.test(name) ||
+      /(application\/pdf|application\/msword|application\/vnd\.openxmlformats|text\/plain|text\/csv|application\/vnd\.ms-excel|application\/zip)/i.test(mime);
+    if (isDoc) cb(null, true);
+    else cb(new Error('Solo documentos (pdf, office, txt, csv, zip)'));
+  }
+});
+
 module.exports = {
   uploadComprobante,
   uploadBotConocimiento,
   uploadProductoImagen,
   uploadEmpresaLogo,
   uploadConversacionAudio,
+  uploadConversacionImagen,
+  uploadConversacionDocumento,
   uploadFlowMedia,
   dirComprobantes,
   dirBotConocimiento,
   dirProductos,
   dirEmpresas,
   dirFlowsMedia,
+  dirConversaciones,
 };
 
