@@ -138,6 +138,13 @@ export default function LayoutCliente() {
       return {};
     }
   });
+  const [usuarioState, setUsuarioState] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('usuario') || '{}');
+    } catch {
+      return {};
+    }
+  });
   const usuario = usuarioState;
   const visibleNav = buildVisibleNav(usuario);
 

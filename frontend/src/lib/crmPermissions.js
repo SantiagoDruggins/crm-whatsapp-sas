@@ -39,6 +39,8 @@ export function canAccess(usuario, key) {
   if (!usuario) return false;
   if (usuario.rol === 'super_admin') return true;
   if (usuario.es_admin_crm) return true;
+  // Sesiones antiguas: admin sin objeto permisos del API (evita menú vacío / bloqueos)
+  if (usuario.rol === 'admin' && (!usuario.permisos || typeof usuario.permisos !== 'object')) return true;
   if (!key) return true;
   return !!(usuario.permisos && usuario.permisos[key]);
 }
