@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import ModalNequi from '../components/ModalNequi';
 import FloatingWhatsappHelp from '../components/FloatingWhatsappHelp';
-import { NEQUI_PAGO, formatearNequiTelefono } from '../lib/nequi';
 import {
   LANDING_PLANES,
   extrasPlanPorCodigo,
@@ -17,8 +15,42 @@ const styles = {
   h3: 'text-xl font-semibold text-white mb-2',
   p: 'text-[#8b9cad] text-lg max-w-2xl',
   cta: 'inline-flex items-center justify-center gap-2 rounded-xl bg-[#00c896] text-[#0f1419] font-semibold px-8 py-4 hover:bg-[#00e0a8] transition-colors',
-  ctaOutline: 'inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#00c896] text-[#00c896] font-semibold px-8 py-4 hover:bg-[#00c896]/10 transition-colors',
+  ctaOutline:
+    'inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#00c896] text-[#00c896] font-semibold px-8 py-4 hover:bg-[#00c896]/10 transition-colors',
 };
+
+function Reveal({ children, className = '', delay = 0 }) {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.08, rootMargin: '0px 0px -40px 0px' }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      style={{ transitionDelay: `${delay}ms` }}
+      className={`transition-all duration-700 ease-out ${
+        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      } ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
 
 function HeroTypingTitle() {
   const TEXT = 'Atiende a tus clientes 24/7 y no pierdas ninguna venta por WhatsApp';
@@ -50,8 +82,56 @@ function HeroTypingTitle() {
   );
 }
 
+const FAQ_ITEMS = [
+  {
+    q: '¿Dónde ingreso los datos de mi tarjeta?',
+    a: 'En el checkout oficial de Wompi (ventana segura). Nosotros no almacenamos el número de tarjeta en nuestros servidores.',
+  },
+  {
+    q: '¿Puedo pagar la suscripción de forma recurrente?',
+    a: 'Sí. Una vez autorizado el medio de pago con Wompi, los cobros mensuales se gestionan de forma automática según tu plan.',
+  },
+  {
+    q: '¿Qué es Wompi?',
+    a: 'Wompi es la pasarela de pagos que usamos en Colombia para procesar tarjetas y otros medios de forma segura y cumpliendo estándares del sector.',
+  },
+];
+
+function FaqAccordion() {
+  const [open, setOpen] = useState(0);
+  return (
+    <div className="max-w-2xl mx-auto space-y-2 text-left">
+      {FAQ_ITEMS.map((item, i) => {
+        const isOpen = open === i;
+        return (
+          <div key={item.q} className="rounded-xl border border-[#2d3a47] bg-[#232d38] overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setOpen(isOpen ? -1 : i)}
+              className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left text-white font-medium hover:bg-[#2a3540] transition-colors"
+              aria-expanded={isOpen}
+            >
+              <span>{item.q}</span>
+              <span className={`text-[#00c896] text-xl shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}>▾</span>
+            </button>
+            <div
+              className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+                isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+              }`}
+            >
+              <div className="overflow-hidden">
+                <p className="px-5 pb-4 text-[#8b9cad] text-sm leading-relaxed border-t border-[#2d3a47]/80 pt-3">{item.a}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Landing() {
-  const [modalNequi, setModalNequi] = useState(false);
+  const [mobileNav, setMobileNav] = useState(false);
   const trackDemo = () => {
     try {
       if (typeof window !== 'undefined' && typeof window.fbq === 'function') window.fbq('trackCustom', 'ClickDemo');
@@ -60,297 +140,474 @@ export default function Landing() {
   const scrollToDemo = () => {
     trackDemo();
     document.getElementById('cta-demo')?.scrollIntoView({ behavior: 'smooth' });
+    setMobileNav(false);
   };
+
+  const navLink = (href, label) => (
+    <a
+      href={href}
+      className="text-[#8b9cad] hover:text-white text-sm font-medium py-2 md:py-0"
+      onClick={() => setMobileNav(false)}
+    >
+      {label}
+    </a>
+  );
 
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-50 border-b border-[#2d3a47] bg-[#0f1419]/95 backdrop-blur" role="banner">
         <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <img
               src="/logo-dsg.png"
               alt="DSG Chatbot - CRM con IA para WhatsApp"
-              className="h-10 w-auto object-contain"
+              className="h-10 w-auto object-contain shrink-0"
               width="120"
               height="40"
             />
-            <div>
-              <span className="font-bold text-xl text-white block leading-tight">DELTHASEG</span>
+            <div className="min-w-0">
+              <span className="font-bold text-xl text-white block leading-tight truncate">DELTHASEG</span>
               <span className="text-xs text-[#8b9cad] tracking-wide">SYSTEMS GROUP</span>
             </div>
           </div>
-          <nav className="flex items-center gap-6" aria-label="Navegación principal">
-            <a href="#problema" className="text-[#8b9cad] hover:text-white text-sm font-medium">Problema</a>
-            <a href="#solucion" className="text-[#8b9cad] hover:text-white text-sm font-medium">Solución</a>
-            <a href="#beneficios" className="text-[#8b9cad] hover:text-white text-sm font-medium">Beneficios</a>
-            <a href="#planes" className="text-[#8b9cad] hover:text-white text-sm font-medium">Planes</a>
-            <a href="#marca-blanca" className="text-[#8b9cad] hover:text-white text-sm font-medium">Marca blanca</a>
-            <button onClick={scrollToDemo} className={styles.cta + ' text-sm'}>Crear demo gratis</button>
+          <button
+            type="button"
+            className="md:hidden rounded-lg border border-[#2d3a47] p-2 text-white"
+            aria-expanded={mobileNav}
+            aria-label={mobileNav ? 'Cerrar menú' : 'Abrir menú'}
+            onClick={() => setMobileNav((v) => !v)}
+          >
+            <span className="sr-only">Menú</span>
+            {mobileNav ? '✕' : '☰'}
+          </button>
+          <nav
+            className={`${
+              mobileNav ? 'flex' : 'hidden'
+            } md:flex absolute md:relative top-full md:top-auto left-0 right-0 md:left-auto flex-col md:flex-row md:items-center gap-4 md:gap-6 bg-[#0f1419] md:bg-transparent border-b md:border-b-0 border-[#2d3a47] px-4 py-4 md:p-0 z-40`}
+            aria-label="Navegación principal"
+          >
+            {navLink('#problema', 'Problema')}
+            {navLink('#solucion', 'Solución')}
+            {navLink('#beneficios', 'Beneficios')}
+            {navLink('#pagos-seguros', 'Pagos')}
+            {navLink('#planes', 'Planes')}
+            {navLink('#marca-blanca', 'Marca blanca')}
+            <button onClick={scrollToDemo} className={styles.cta + ' text-sm w-full md:w-auto'}>
+              Crear demo gratis
+            </button>
           </nav>
         </div>
       </header>
 
       <main id="contenido-principal">
-      <section className={styles.section + ' pt-12 md:pt-20'} aria-labelledby="hero-heading">
-        <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16 max-w-6xl mx-auto">
-          <div className="flex-1 max-w-3xl">
-            <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-4">CRM con chatbot IA para WhatsApp</p>
-            <HeroTypingTitle />
-            <p className={styles.p + ' mb-8'}>
-              Conecta tu negocio a WhatsApp, automatiza respuestas con IA y gestiona todas las conversaciones desde un solo lugar. Prueba 3 días gratis, sin tarjeta.
-            </p>
-            <div id="cta-demo" className="flex flex-wrap gap-4">
-              <Link to="/registro" onClick={trackDemo} className={styles.cta}>Crear mi demo gratis (3 días)</Link>
-              <a href="#como-funciona" className={styles.ctaOutline}>Cómo funciona</a>
-            </div>
-          </div>
-          <div className="flex-shrink-0 w-full lg:w-auto lg:max-w-lg">
-            <div className="rounded-2xl border border-[#2d3a47] bg-[#0f1419] p-3 sm:p-4 shadow-xl shadow-black/30 ring-1 ring-white/5 flex items-center justify-center">
-              <img
-                src="/logo-dsg.png"
-                alt="DSG Chatbot - CRM con IA para WhatsApp"
-                className="w-full h-auto max-h-72 object-contain"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="problema" className={styles.sectionAlt}>
-        <div className="max-w-6xl mx-auto">
-          <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Paso 1</p>
-          <h2 className={styles.h2}>¿Pierdes ventas porque no respondes a tiempo en WhatsApp?</h2>
-          <p className={styles.p + ' mb-10'}>Los clientes esperan respuestas rápidas. Si no estás disponible, se van a la competencia.</p>
-          <ul className="grid md:grid-cols-3 gap-4 text-[#8b9cad]">
-            <li className="bg-[#232d38] rounded-xl p-5 border border-[#2d3a47]">
-              <span className="text-white font-semibold block mb-1">Horarios limitados</span>
-              No puedes estar 24/7 detrás del celular.
-            </li>
-            <li className="bg-[#232d38] rounded-xl p-5 border border-[#2d3a47]">
-              <span className="text-white font-semibold block mb-1">Conversaciones desordenadas</span>
-              Se mezclan clientes, pedidos y dudas en un solo chat.
-            </li>
-            <li className="bg-[#232d38] rounded-xl p-5 border border-[#2d3a47]">
-              <span className="text-white font-semibold block mb-1">Sin historial claro</span>
-              No sabes qué se le ofreció a cada cliente ni el contexto.
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section id="solucion" className={styles.section}>
-        <div className="max-w-6xl mx-auto">
-          <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Paso 2</p>
-          <h2 className={styles.h2}>Un CRM pensado para WhatsApp con IA que responde por ti</h2>
-          <p className={styles.p + ' mb-10'}>
-            Conectas tu número, configuras el asistente en minutos y todas las conversaciones se organizan solas. Tú decides cuándo intervenir.
-          </p>
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            <ul className="space-y-4 text-[#8b9cad]">
-              <li className="flex gap-3"><span className="text-[#00c896] font-bold">1.</span><span><strong className="text-white">Chatbot con IA (Gemini)</strong> que responde consultas, califica leads y puede cerrar ventas.</span></li>
-              <li className="flex gap-3"><span className="text-[#00c896] font-bold">2.</span><span><strong className="text-white">CRM integrado:</strong> contactos, catálogo, pedidos, tags, notas e historial por conversación.</span></li>
-              <li className="flex gap-3"><span className="text-[#00c896] font-bold">3.</span><span><strong className="text-white">Shopify:</strong> conecta tu tienda para que los pedidos lleguen solos al CRM (otras apps suelen enlazarse vía Shopify).</span></li>
-              <li className="flex gap-3"><span className="text-[#00c896] font-bold">4.</span><span><strong className="text-white">Aviso cuando piden agente:</strong> el sistema te avisa y puedes tomar la conversación.</span></li>
-            </ul>
-            <div className="bg-[#232d38] rounded-2xl border border-[#2d3a47] p-6 text-center">
-              <p className="text-white font-semibold mb-2">Demo 3 días gratis</p>
-              <p className="text-[#8b9cad] text-sm mb-4">Sin tarjeta. Acceso completo al CRM y al bot.</p>
-              <Link to="/registro" onClick={trackDemo} className={styles.cta}>Crear mi demo</Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="beneficios" className={styles.sectionAlt}>
-        <div className="max-w-6xl mx-auto">
-          <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Paso 3</p>
-          <h2 className={styles.h2}>Todo lo que necesitas para vender más por WhatsApp</h2>
-          <p className={styles.p + ' mb-12'}>Diseñado para equipos pequeños y medianos. Escalable a miles de empresas.</p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { title: 'WhatsApp Cloud API', desc: 'API oficial de Meta para WhatsApp Business. Conexión profesional y escalable.' },
-              { title: 'IA que entiende y responde', desc: 'Bot configurable por empresa: ventas, soporte o agenda.' },
-              { title: 'CRM + Contactos + Conversaciones', desc: 'Tags, notas, historial y aviso cuando piden hablar con una persona.' },
-              { title: 'Catálogo y pedidos', desc: 'Productos para el bot; pedidos manuales o automáticos desde Shopify por webhook.' },
-              { title: 'Shopify', desc: 'Webhook de pedidos: activa la integración cuando uses tienda Shopify u apps conectadas.' },
-              { title: 'Pago con Nequi', desc: 'Subes comprobante y activamos tu plan.', nequi: true },
-            ].map((item, i) => (
-              <div
-                key={i}
-                className={`bg-[#232d38] rounded-xl p-5 border border-[#2d3a47] ${item.nequi ? 'cursor-pointer hover:border-[#00c896]/50' : ''}`}
-                onClick={item.nequi ? () => setModalNequi(true) : undefined}
-                onKeyDown={item.nequi ? (e) => e.key === 'Enter' && setModalNequi(true) : undefined}
-                role={item.nequi ? 'button' : undefined}
-                tabIndex={item.nequi ? 0 : undefined}
-              >
-                <h3 className={styles.h3}>{item.title}</h3>
-                <p className="text-[#8b9cad] text-sm">{item.desc}</p>
-                {item.nequi && <p className="text-[#00c896] text-xs mt-2">Ver número y nombre →</p>}
+        <section className={styles.section + ' pt-12 md:pt-20'} aria-labelledby="hero-heading">
+          <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16 max-w-6xl mx-auto">
+            <div className="flex-1 max-w-3xl">
+              <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-4">CRM con chatbot IA para WhatsApp</p>
+              <HeroTypingTitle />
+              <p className={styles.p + ' mb-8'}>
+                Conecta tu negocio a WhatsApp, automatiza respuestas con IA y gestiona todas las conversaciones desde un solo lugar. Prueba 3 días gratis, sin tarjeta.
+              </p>
+              <div id="cta-demo" className="flex flex-wrap gap-4">
+                <Link to="/registro" onClick={trackDemo} className={styles.cta}>
+                  Crear mi demo gratis (3 días)
+                </Link>
+                <a href="#como-funciona" className={styles.ctaOutline}>
+                  Cómo funciona
+                </a>
               </div>
-            ))}
+            </div>
+            <Reveal className="flex-shrink-0 w-full lg:w-auto lg:max-w-lg">
+              <div className="group rounded-2xl border border-[#2d3a47] bg-gradient-to-br from-[#0f1419] to-[#1a2129] p-3 sm:p-4 shadow-xl shadow-black/30 ring-1 ring-white/5 flex items-center justify-center transition-transform duration-500 hover:scale-[1.02] hover:ring-[#00c896]/20">
+                <img
+                  src="/logo-dsg.png"
+                  alt="DSG Chatbot - CRM con IA para WhatsApp"
+                  className="w-full h-auto max-h-72 object-contain transition-transform duration-500 group-hover:scale-105"
+                />
+              </div>
+            </Reveal>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section id="planes" className={styles.sectionAlt}>
-        <div className="max-w-6xl mx-auto">
-          <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Precios en Colombia</p>
-          <h2 className={styles.h2}>Planes y precios (COP)</h2>
-          <p className={styles.p + ' mb-2'}>
-            La demo incluye hasta 50 contactos por 3 días. Cada plan suma cupos claros de usuarios y contactos para que elijas con tranquilidad. Pago por Nequi; subes el comprobante y activamos en 24 h.
-          </p>
-          <p className="text-white font-medium mb-2">Nequi: {formatearNequiTelefono()} — {NEQUI_PAGO.nombre}</p>
-          <button type="button" onClick={() => setModalNequi(true)} className="text-[#00c896] text-sm hover:underline mb-10">Ver datos de pago Nequi</button>
-          <div className="grid md:grid-cols-3 gap-6">
-            {LANDING_PLANES.map((plan) => {
-              const ex = extrasPlanPorCodigo(plan.codigo);
-              const dia = precioAproxPorDia(plan.precio);
-              return (
-                <div
-                  key={plan.codigo}
-                  className={`relative flex flex-col rounded-2xl border p-6 pt-8 ${
-                    ex.destacado
-                      ? 'border-[#00c896] bg-[#00c896]/5 shadow-[0_0_40px_-12px_rgba(0,200,150,0.35)]'
-                      : 'border-[#2d3a47] bg-[#232d38]'
-                  }`}
-                >
-                  {ex.destacado ? (
-                    <span className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#00c896] px-3 py-1 text-xs font-bold text-[#0f1419]">
-                      Más elegido
-                    </span>
-                  ) : ex.badge ? (
-                    <span className="mb-2 inline-flex w-fit rounded-full border border-[#3d4f63] bg-[#1a2129] px-2.5 py-0.5 text-xs font-medium text-[#b8c5d6]">
-                      {ex.badge}
-                    </span>
-                  ) : null}
-                  <h3 className="text-xl font-bold text-white">{plan.nombre}</h3>
-                  {ex.tagline ? <p className="mt-1 text-sm text-[#8b9cad]">{ex.tagline}</p> : null}
-                  <p className="mt-4 text-2xl font-bold text-[#00c896]">
-                    ${plan.precio.toLocaleString('es-CO', { minimumFractionDigits: 0 })} COP{' '}
-                    <span className="text-sm font-normal text-[#8b9cad]">/ mes</span>
-                  </p>
-                  {dia ? (
-                    <p className="text-xs text-[#6b7a8a]">Equivale aprox. a ${dia} COP al día</p>
-                  ) : null}
-                  <ul className="mb-6 mt-4 flex flex-1 flex-col gap-2.5 text-sm text-[#c5d0dc]">
-                    {ex.features.map((f) => (
-                      <li key={f} className="flex gap-2">
-                        <span className="mt-0.5 shrink-0 text-[#00c896]" aria-hidden>
-                          ✓
-                        </span>
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    to="/registro"
-                    onClick={trackDemo}
-                    className={
-                      (plan.ctaDestacado ? styles.cta : styles.ctaOutline) + ' mt-auto w-full justify-center text-center'
-                    }
+        <section id="problema" className={styles.sectionAlt}>
+          <Reveal>
+            <div className="max-w-6xl mx-auto">
+              <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Paso 1</p>
+              <h2 className={styles.h2}>¿Pierdes ventas porque no respondes a tiempo en WhatsApp?</h2>
+              <p className={styles.p + ' mb-10'}>Los clientes esperan respuestas rápidas. Si no estás disponible, se van a la competencia.</p>
+              <ul className="grid md:grid-cols-3 gap-4 text-[#8b9cad]">
+                {[
+                  { t: 'Horarios limitados', d: 'No puedes estar 24/7 detrás del celular.' },
+                  { t: 'Conversaciones desordenadas', d: 'Se mezclan clientes, pedidos y dudas en un solo chat.' },
+                  { t: 'Sin historial claro', d: 'No sabes qué se le ofreció a cada cliente ni el contexto.' },
+                ].map((item, i) => (
+                  <li
+                    key={item.t}
+                    className="bg-[#232d38] rounded-xl p-5 border border-[#2d3a47] transition-all duration-300 hover:border-[#00c896]/40 hover:-translate-y-0.5"
+                    style={{ transitionDelay: `${i * 50}ms` }}
                   >
-                    {plan.cta}
+                    <span className="text-white font-semibold block mb-1">{item.t}</span>
+                    {item.d}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
+        </section>
+
+        <section id="solucion" className={styles.section}>
+          <Reveal>
+            <div className="max-w-6xl mx-auto">
+              <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Paso 2</p>
+              <h2 className={styles.h2}>Un CRM pensado para WhatsApp con IA que responde por ti</h2>
+              <p className={styles.p + ' mb-10'}>
+                Conectas tu número, configuras el asistente en minutos y todas las conversaciones se organizan solas. Tú decides cuándo intervenir.
+              </p>
+              <div className="grid md:grid-cols-2 gap-8 items-center">
+                <ul className="space-y-4 text-[#8b9cad]">
+                  <li className="flex gap-3">
+                    <span className="text-[#00c896] font-bold">1.</span>
+                    <span>
+                      <strong className="text-white">Chatbot con IA (Gemini)</strong> que responde consultas, califica leads y puede cerrar ventas.
+                    </span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-[#00c896] font-bold">2.</span>
+                    <span>
+                      <strong className="text-white">CRM integrado:</strong> contactos, catálogo, pedidos, tags, notas e historial por conversación.
+                    </span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-[#00c896] font-bold">3.</span>
+                    <span>
+                      <strong className="text-white">Shopify:</strong> conecta tu tienda para que los pedidos lleguen solos al CRM (otras apps suelen enlazarse vía Shopify).
+                    </span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-[#00c896] font-bold">4.</span>
+                    <span>
+                      <strong className="text-white">Aviso cuando piden agente:</strong> el sistema te avisa y puedes tomar la conversación.
+                    </span>
+                  </li>
+                </ul>
+                <div className="bg-[#232d38] rounded-2xl border border-[#2d3a47] p-6 text-center transition-shadow hover:shadow-lg hover:shadow-[#00c896]/5">
+                  <p className="text-white font-semibold mb-2">Demo 3 días gratis</p>
+                  <p className="text-[#8b9cad] text-sm mb-4">Sin tarjeta. Acceso completo al CRM y al bot.</p>
+                  <Link to="/registro" onClick={trackDemo} className={styles.cta}>
+                    Crear mi demo
                   </Link>
                 </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-14 overflow-x-auto rounded-2xl border border-[#2d3a47] bg-[#232d38]/80">
-            <p className="border-b border-[#2d3a47] px-4 py-3 text-sm font-semibold text-white">Comparativa en un vistazo</p>
-            <table className="w-full min-w-[520px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-[#2d3a47] text-[#8b9cad]">
-                  <th className="px-4 py-3 font-medium" scope="col">
-                    Incluye
-                  </th>
-                  <th className="px-4 py-3 font-medium" scope="col">
-                    Básico
-                  </th>
-                  <th className="px-4 py-3 font-medium text-[#00c896]" scope="col">
-                    Profesional
-                  </th>
-                  <th className="px-4 py-3 font-medium" scope="col">
-                    Empresarial
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="text-[#e9edef]">
-                {filasComparativaConCeldas().map((row) => (
-                  <tr key={row.label} className="border-b border-[#2d3a47]/80 last:border-0">
-                    <th className="px-4 py-2.5 font-normal text-[#8b9cad]" scope="row">
-                      {row.label}
-                    </th>
-                    <td className="px-4 py-2.5">{row.basico}</td>
-                    <td className="px-4 py-2.5 font-medium text-white">{row.pro}</td>
-                    <td className="px-4 py-2.5">{row.empresarial}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div id="marca-blanca" className="mt-16 pt-16 border-t border-[#2d3a47]">
-            <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Para empresas y agencias</p>
-            <h2 className={styles.h2}>¿Quieres tu propio ecosistema en marca blanca?</h2>
-            <p className={styles.p + ' mb-8'}>
-              Te entregamos el CRM con WhatsApp e IA bajo tu marca: dominio, logo, colores y panel totalmente personalizado. Ideal para agencias, franquicias o empresas que quieren ofrecer el servicio a sus clientes como propio.
-            </p>
-            <div className="rounded-2xl border-2 border-[#00c896] bg-[#00c896]/10 p-8 max-w-2xl">
-              <div className="flex flex-wrap items-baseline gap-3 mb-4">
-                <span className="text-[#00c896] font-bold text-3xl md:text-4xl">500 USD</span>
-                <span className="text-[#8b9cad]">pago único — ecosistema completo en tu marca</span>
               </div>
-              <ul className="space-y-2 text-[#e9edef] mb-6">
-                <li className="flex items-center gap-2"><span className="text-[#00c896]">✓</span> Panel y landing con tu logo, nombre y dominio</li>
-                <li className="flex items-center gap-2"><span className="text-[#00c896]">✓</span> CRM + Bot IA + WhatsApp Cloud listo para usar</li>
-                <li className="flex items-center gap-2"><span className="text-[#00c896]">✓</span> Soporte técnico y acompañamiento en la puesta en marcha</li>
-                <li className="flex items-center gap-2"><span className="text-[#00c896]">✓</span> Todo lo necesario para que lo vendas o lo uses como tuyo</li>
-              </ul>
-              <Link to="/registro" className={styles.cta + ' text-lg px-8 py-3'}>
-                Solicitar marca blanca
+            </div>
+          </Reveal>
+        </section>
+
+        <section id="beneficios" className={styles.sectionAlt}>
+          <Reveal>
+            <div className="max-w-6xl mx-auto">
+              <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Paso 3</p>
+              <h2 className={styles.h2}>Todo lo que necesitas para vender más por WhatsApp</h2>
+              <p className={styles.p + ' mb-12'}>Diseñado para equipos pequeños y medianos. Escalable a miles de empresas.</p>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  {
+                    title: 'WhatsApp Cloud API',
+                    desc: 'API oficial de Meta para WhatsApp Business. Conexión profesional y escalable.',
+                  },
+                  { title: 'IA que entiende y responde', desc: 'Bot configurable por empresa: ventas, soporte o agenda.' },
+                  {
+                    title: 'CRM + Contactos + Conversaciones',
+                    desc: 'Tags, notas, historial y aviso cuando piden hablar con una persona.',
+                  },
+                  { title: 'Catálogo y pedidos', desc: 'Productos para el bot; pedidos manuales o automáticos desde Shopify por webhook.' },
+                  { title: 'Shopify', desc: 'Webhook de pedidos: activa la integración cuando uses tienda Shopify u apps conectadas.' },
+                  {
+                    title: 'Pagos con Wompi',
+                    desc: 'Al activar tu plan, pagas en el checkout seguro de Wompi. Sin datos de tarjeta en nuestro sitio.',
+                    highlight: true,
+                  },
+                ].map((item, i) => (
+                  <div
+                    key={item.title}
+                    className={`rounded-xl p-5 border transition-all duration-300 hover:-translate-y-1 ${
+                      item.highlight
+                        ? 'bg-[#00c896]/10 border-[#00c896]/40 ring-1 ring-[#00c896]/20'
+                        : 'bg-[#232d38] border-[#2d3a47] hover:border-[#00c896]/30'
+                    }`}
+                    style={{ animationDelay: `${i * 40}ms` }}
+                  >
+                    <h3 className={styles.h3}>{item.title}</h3>
+                    <p className="text-[#8b9cad] text-sm">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        </section>
+
+        <section id="pagos-seguros" className={styles.section}>
+          <Reveal>
+            <div className="max-w-6xl mx-auto">
+              <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Cobros en Colombia</p>
+              <h2 className={styles.h2}>Pagos seguros con Wompi</h2>
+              <p className={styles.p + ' mb-8'}>
+                Cuando pasas de la demo al plan de pago, el cobro lo procesa <strong className="text-white">Wompi</strong>, pasarela de
+                pagos reconocida en el país. Tú completas el pago en su ventana oficial: nosotros no pedimos ni guardamos el número
+                completo de tu tarjeta en el CRM.
+              </p>
+
+              <div className="mb-10 flex flex-col sm:flex-row sm:items-center gap-6 rounded-2xl border border-[#2d3a47] bg-white px-6 py-5 md:px-8 md:py-6 shadow-lg shadow-black/20">
+                <img
+                  src="/Wompi_LogoPrincipal.svg"
+                  alt="Wompi — pasarela de pagos"
+                  className="h-11 sm:h-12 md:h-14 w-auto max-w-[min(100%,220px)] object-contain object-left shrink-0"
+                  width="220"
+                  height="56"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <p className="text-[#1e293b] text-sm md:text-base leading-relaxed sm:border-l sm:border-slate-200 sm:pl-6">
+                  Tus cobros de suscripción se procesan con la pasarela oficial. El logo y la ventana de pago son de Wompi; nosotros no
+                  almacenamos los datos sensibles de la tarjeta.
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6 mb-12">
+                <div className="rounded-2xl border border-[#2d3a47] bg-[#1a2129] p-6 md:p-8">
+                  <ul className="space-y-4 text-[#c5d0dc] text-sm">
+                    <li className="flex gap-3">
+                      <span className="text-[#00c896] text-lg shrink-0" aria-hidden>
+                        ✓
+                      </span>
+                      <span>
+                        <strong className="text-white">Checkout oficial:</strong> se abre el widget de Wompi sobre el panel; misma
+                        experiencia que en miles de comercios en línea.
+                      </span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="text-[#00c896] text-lg shrink-0" aria-hidden>
+                        ✓
+                      </span>
+                      <span>
+                        <strong className="text-white">Suscripción y renovación:</strong> según tu plan, los cobros recurrentes se
+                        gestionan con los mismos estándares de seguridad de Wompi.
+                      </span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="text-[#00c896] text-lg shrink-0" aria-hidden>
+                        ✓
+                      </span>
+                      <span>
+                        <strong className="text-white">Historial en el panel:</strong> ves tus movimientos y el estado de cada
+                        transacción sin depender de comprobantes manuales.
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="rounded-2xl border border-[#00c896]/25 bg-gradient-to-br from-[#00c896]/10 to-transparent p-6 md:p-8 flex flex-col justify-center">
+                  <p className="text-white font-semibold mb-2">¿Listo para activar tu plan?</p>
+                  <p className="text-[#8b9cad] text-sm mb-6">
+                    Regístrate o inicia sesión, elige tu plan en <strong className="text-[#cbd5e0">Pagos</strong> y completa el pago
+                    con Wompi en segundos.
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <Link to="/registro" onClick={trackDemo} className={styles.cta}>
+                      Crear cuenta
+                    </Link>
+                    <Link to="/login" className={styles.ctaOutline}>
+                      Ya tengo cuenta
+                    </Link>
+                  </div>
+                </div>
+              </div>
+              <div className="text-center mb-4">
+                <h3 className="text-lg font-semibold text-white mb-6">Preguntas frecuentes sobre el pago</h3>
+              </div>
+              <FaqAccordion />
+            </div>
+          </Reveal>
+        </section>
+
+        <section id="planes" className={styles.sectionAlt}>
+          <Reveal>
+            <div className="max-w-6xl mx-auto">
+              <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Precios en Colombia</p>
+              <h2 className={styles.h2}>Planes y precios (COP)</h2>
+              <p className={styles.p + ' mb-2'}>
+                La demo incluye hasta 50 contactos por 3 días. Cada plan suma cupos claros de usuarios y contactos. Al suscribirte, el
+                pago lo procesamos de forma segura con <strong className="text-white">Wompi</strong> desde tu panel (sección Pagos).
+              </p>
+              <p className="text-[#8b9cad] text-sm mb-10">
+                Tras iniciar sesión: <strong className="text-[#cbd5e0]">Pagos</strong> → elige plan → ventana de pago Wompi → listo.
+              </p>
+              <div className="grid md:grid-cols-3 gap-6">
+                {LANDING_PLANES.map((plan) => {
+                  const ex = extrasPlanPorCodigo(plan.codigo);
+                  const dia = precioAproxPorDia(plan.precio);
+                  return (
+                    <div
+                      key={plan.codigo}
+                      className={`relative flex flex-col rounded-2xl border p-6 pt-8 transition-all duration-300 hover:-translate-y-1 ${
+                        ex.destacado
+                          ? 'border-[#00c896] bg-[#00c896]/5 shadow-[0_0_40px_-12px_rgba(0,200,150,0.35)] hover:shadow-[0_0_48px_-8px_rgba(0,200,150,0.45)]'
+                          : 'border-[#2d3a47] bg-[#232d38] hover:border-[#00c896]/40'
+                      }`}
+                    >
+                      {ex.destacado ? (
+                        <span className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#00c896] px-3 py-1 text-xs font-bold text-[#0f1419]">
+                          Más elegido
+                        </span>
+                      ) : ex.badge ? (
+                        <span className="mb-2 inline-flex w-fit rounded-full border border-[#3d4f63] bg-[#1a2129] px-2.5 py-0.5 text-xs font-medium text-[#b8c5d6]">
+                          {ex.badge}
+                        </span>
+                      ) : null}
+                      <h3 className="text-xl font-bold text-white">{plan.nombre}</h3>
+                      {ex.tagline ? <p className="mt-1 text-sm text-[#8b9cad]">{ex.tagline}</p> : null}
+                      <p className="mt-4 text-2xl font-bold text-[#00c896]">
+                        ${plan.precio.toLocaleString('es-CO', { minimumFractionDigits: 0 })} COP{' '}
+                        <span className="text-sm font-normal text-[#8b9cad]">/ mes</span>
+                      </p>
+                      {dia ? <p className="text-xs text-[#6b7a8a]">Equivale aprox. a ${dia} COP al día</p> : null}
+                      <ul className="mb-6 mt-4 flex flex-1 flex-col gap-2.5 text-sm text-[#c5d0dc]">
+                        {ex.features.map((f) => (
+                          <li key={f} className="flex gap-2">
+                            <span className="mt-0.5 shrink-0 text-[#00c896]" aria-hidden>
+                              ✓
+                            </span>
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <Link
+                        to="/registro"
+                        onClick={trackDemo}
+                        className={
+                          (plan.ctaDestacado ? styles.cta : styles.ctaOutline) + ' mt-auto w-full justify-center text-center'
+                        }
+                      >
+                        {plan.cta}
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-14 overflow-x-auto rounded-2xl border border-[#2d3a47] bg-[#232d38]/80">
+                <p className="border-b border-[#2d3a47] px-4 py-3 text-sm font-semibold text-white">Comparativa en un vistazo</p>
+                <table className="w-full min-w-[520px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-[#2d3a47] text-[#8b9cad]">
+                      <th className="px-4 py-3 font-medium" scope="col">
+                        Incluye
+                      </th>
+                      <th className="px-4 py-3 font-medium" scope="col">
+                        Básico
+                      </th>
+                      <th className="px-4 py-3 font-medium text-[#00c896]" scope="col">
+                        Profesional
+                      </th>
+                      <th className="px-4 py-3 font-medium" scope="col">
+                        Empresarial
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-[#e9edef]">
+                    {filasComparativaConCeldas().map((row) => (
+                      <tr key={row.label} className="border-b border-[#2d3a47]/80 last:border-0 hover:bg-[#1a2129]/50 transition-colors">
+                        <th className="px-4 py-2.5 font-normal text-[#8b9cad]" scope="row">
+                          {row.label}
+                        </th>
+                        <td className="px-4 py-2.5">{row.basico}</td>
+                        <td className="px-4 py-2.5 font-medium text-white">{row.pro}</td>
+                        <td className="px-4 py-2.5">{row.empresarial}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div id="marca-blanca" className="mt-16 pt-16 border-t border-[#2d3a47]">
+                <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Para empresas y agencias</p>
+                <h2 className={styles.h2}>¿Quieres tu propio ecosistema en marca blanca?</h2>
+                <p className={styles.p + ' mb-8'}>
+                  Te entregamos el CRM con WhatsApp e IA bajo tu marca: dominio, logo, colores y panel totalmente personalizado. Ideal
+                  para agencias, franquicias o empresas que quieren ofrecer el servicio a sus clientes como propio.
+                </p>
+                <div className="rounded-2xl border-2 border-[#00c896] bg-[#00c896]/10 p-8 max-w-2xl">
+                  <div className="flex flex-wrap items-baseline gap-3 mb-4">
+                    <span className="text-[#00c896] font-bold text-3xl md:text-4xl">500 USD</span>
+                    <span className="text-[#8b9cad]">pago único — ecosistema completo en tu marca</span>
+                  </div>
+                  <ul className="space-y-2 text-[#e9edef] mb-6">
+                    <li className="flex items-center gap-2">
+                      <span className="text-[#00c896]">✓</span> Panel y landing con tu logo, nombre y dominio
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-[#00c896]">✓</span> CRM + Bot IA + WhatsApp Cloud listo para usar
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-[#00c896]">✓</span> Soporte técnico y acompañamiento en la puesta en marcha
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-[#00c896]">✓</span> Todo lo necesario para que lo vendas o lo uses como tuyo
+                    </li>
+                  </ul>
+                  <Link to="/registro" className={styles.cta + ' text-lg px-8 py-3'}>
+                    Solicitar marca blanca
+                  </Link>
+                  <p className="text-[#8b9cad] text-sm mt-3">
+                    Regístrate y en el mensaje indica que te interesa la opción marca blanca. Te contactamos con los detalles.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </section>
+
+        <section id="como-funciona" className={styles.section}>
+          <Reveal>
+            <div className="max-w-6xl mx-auto text-center">
+              <h2 className={styles.h2 + ' mb-4'}>En 3 pasos estás vendiendo con IA</h2>
+              <p className={styles.p + ' mx-auto mb-12'}>Regístrate, conecta WhatsApp y configura tu asistente. Sin instalaciones complicadas.</p>
+              <div className="grid md:grid-cols-3 gap-8 mb-12">
+                {[
+                  { n: '1', t: 'Crear demo gratis', d: 'Nombre de empresa, email y listo. 3 días de prueba.' },
+                  { n: '2', t: 'Conectar WhatsApp', d: 'Vincula tu número de WhatsApp Business con la API de Meta al CRM.' },
+                  { n: '3', t: 'Activar el bot IA', d: 'Defines el tono y las respuestas. El bot trabaja por ti.' },
+                ].map((step) => (
+                  <div
+                    key={step.n}
+                    className="rounded-xl border border-transparent p-4 transition-all hover:border-[#2d3a47] hover:bg-[#1a2129]/50"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-[#00c896]/20 text-[#00c896] font-bold flex items-center justify-center mx-auto mb-4">
+                      {step.n}
+                    </div>
+                    <h3 className={styles.h3}>{step.t}</h3>
+                    <p className="text-[#8b9cad] text-sm">{step.d}</p>
+                  </div>
+                ))}
+              </div>
+              <Link to="/registro" onClick={trackDemo} className={styles.cta}>
+                Crear mi demo gratis (3 días)
               </Link>
-              <p className="text-[#8b9cad] text-sm mt-3">Regístrate y en el mensaje indica que te interesa la opción marca blanca. Te contactamos con los detalles.</p>
             </div>
-          </div>
-        </div>
-      </section>
+          </Reveal>
+        </section>
 
-      <section id="como-funciona" className={styles.section}>
-        <div className="max-w-6xl mx-auto text-center">
-          <h2 className={styles.h2 + ' mb-4'}>En 3 pasos estás vendiendo con IA</h2>
-          <p className={styles.p + ' mx-auto mb-12'}>Regístrate, conecta WhatsApp y configura tu asistente. Sin instalaciones complicadas.</p>
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
-            <div>
-              <div className="w-12 h-12 rounded-full bg-[#00c896]/20 text-[#00c896] font-bold flex items-center justify-center mx-auto mb-4">1</div>
-              <h3 className={styles.h3}>Crear demo gratis</h3>
-              <p className="text-[#8b9cad] text-sm">Nombre de empresa, email y listo. 3 días de prueba.</p>
+        <section className={styles.sectionAlt}>
+          <Reveal>
+            <div className="max-w-2xl mx-auto text-center">
+              <h2 className={styles.h2 + ' mb-4'}>Prueba sin compromiso</h2>
+              <p className={styles.p + ' mb-8'}>
+                3 días de acceso completo. Sin tarjeta. Cuando quieras activar tu plan, pagas de forma segura con Wompi desde el panel.
+              </p>
+              <Link to="/registro" onClick={trackDemo} className={styles.cta + ' text-lg px-10 py-4'}>
+                Crear demo ahora
+              </Link>
             </div>
-            <div>
-              <div className="w-12 h-12 rounded-full bg-[#00c896]/20 text-[#00c896] font-bold flex items-center justify-center mx-auto mb-4">2</div>
-              <h3 className={styles.h3}>Conectar WhatsApp</h3>
-              <p className="text-[#8b9cad] text-sm">Vincula tu número de WhatsApp Business con la API de Meta al CRM.</p>
-            </div>
-            <div>
-              <div className="w-12 h-12 rounded-full bg-[#00c896]/20 text-[#00c896] font-bold flex items-center justify-center mx-auto mb-4">3</div>
-              <h3 className={styles.h3}>Activar el bot IA</h3>
-              <p className="text-[#8b9cad] text-sm">Defines el tono y las respuestas. El bot trabaja por ti.</p>
-            </div>
-          </div>
-          <Link to="/registro" onClick={trackDemo} className={styles.cta}>Crear mi demo gratis (3 días)</Link>
-        </div>
-      </section>
-
-      <section className={styles.sectionAlt}>
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className={styles.h2 + ' mb-4'}>Prueba sin compromiso</h2>
-          <p className={styles.p + ' mb-8'}>3 días de acceso completo. Sin tarjeta. Si te convence, activas tu plan con un pago por Nequi.</p>
-          <Link to="/registro" onClick={trackDemo} className={styles.cta + ' text-lg px-10 py-4'}>Crear demo ahora</Link>
-        </div>
-      </section>
-
-      <ModalNequi open={modalNequi} onClose={() => setModalNequi(false)} titulo="Pago por Nequi" />
-
+          </Reveal>
+        </section>
       </main>
 
       <footer className="border-t border-[#2d3a47] py-8 px-4" role="contentinfo">
@@ -362,11 +619,24 @@ export default function Landing() {
               <span>· SYSTEMS GROUP</span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-6">
-              <a href="#planes" className="hover:text-white">Planes</a>
-              <a href="#marca-blanca" className="hover:text-white">Marca blanca</a>
-              <Link to="/registro" className="hover:text-white">Registro</Link>
-              <Link to="/login" className="hover:text-white">Iniciar sesión</Link>
-              <Link to="/politica-de-privacidad" className="hover:text-white">Política de privacidad</Link>
+              <a href="#pagos-seguros" className="hover:text-white">
+                Pagos Wompi
+              </a>
+              <a href="#planes" className="hover:text-white">
+                Planes
+              </a>
+              <a href="#marca-blanca" className="hover:text-white">
+                Marca blanca
+              </a>
+              <Link to="/registro" className="hover:text-white">
+                Registro
+              </Link>
+              <Link to="/login" className="hover:text-white">
+                Iniciar sesión
+              </Link>
+              <Link to="/politica-de-privacidad" className="hover:text-white">
+                Política de privacidad
+              </Link>
             </div>
           </div>
           <p className="text-center sm:text-left text-[#6b7a8a] text-xs">
