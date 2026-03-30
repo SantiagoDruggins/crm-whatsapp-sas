@@ -1,5 +1,6 @@
 const { listarEmpresas, obtenerEmpresaPorId, actualizarEstadoEmpresa, getAiModels, updateAiModels } = require('../models/empresaModel');
 const { query } = require('../config/db');
+const { listAllForAdmin } = require('../models/wompiTransactionModel');
 
 async function listarEmpresasAdmin(req, res) {
   try {
@@ -21,6 +22,15 @@ async function metricasAdmin(req, res) {
     const totalEmpresas = empresasRes.rows.reduce((s, r) => s + Number(r.total), 0);
     const pagosPendientes = Number(pagosRes.rows[0]?.total || 0);
     return res.status(200).json({ ok: true, metricas: { totalEmpresas, porEstado, pagosPendientes } });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
+async function listWompiTransactionsAdmin(req, res) {
+  try {
+    const rows = await listAllForAdmin(Number(req.query.limit) || 100, Number(req.query.offset) || 0);
+    return res.status(200).json({ ok: true, transactions: rows });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
   }
@@ -110,4 +120,12 @@ async function updateAiModelsEmpresaAdmin(req, res) {
   }
 }
 
-module.exports = { listarEmpresasAdmin, metricasAdmin, actualizarEstadoEmpresaAdmin, actualizarPlanEmpresaAdmin, getAiModelsEmpresaAdmin, updateAiModelsEmpresaAdmin };
+module.exports = {
+  listarEmpresasAdmin,
+  metricasAdmin,
+  listWompiTransactionsAdmin,
+  actualizarEstadoEmpresaAdmin,
+  actualizarPlanEmpresaAdmin,
+  getAiModelsEmpresaAdmin,
+  updateAiModelsEmpresaAdmin,
+};

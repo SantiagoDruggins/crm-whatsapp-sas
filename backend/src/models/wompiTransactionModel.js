@@ -40,5 +40,33 @@ async function updateStatusByWompiId(wompiTransactionId, status) {
   return r.rows[0] || null;
 }
 
-module.exports = { createIfNotExists, updateStatusByWompiId };
+async function listByEmpresaId(empresaId, limit = 50) {
+  const lim = Math.min(200, Math.max(1, Number(limit) || 50));
+  const r = await query(
+    `SELECT id, empresa_id, subscription_id, plan_codigo, wompi_transaction_id, amount_cents, currency, status, reference, created_at
+     FROM wompi_transactions
+     WHERE empresa_id = $1
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [empresaId, lim]
+  );
+  return r.rows || [];
+}
+
+async function listAllForAdmin(limit = 100, offset = 0) {
+  const lim = Math.min(500, Math.max(1, Number(limit) || 100));
+  const off = Math.max(0, Number(offset) || 0);
+  const r = await query(
+    `SELECT t.id, t.empresa_id, t.plan_codigo, t.wompi_transaction_id, t.amount_cents, t.currency, t.status, t.reference, t.created_at,
+            e.nombre AS empresa_nombre, e.email AS empresa_email
+     FROM wompi_transactions t
+     LEFT JOIN empresas e ON e.id = t.empresa_id
+     ORDER BY t.created_at DESC
+     LIMIT $1 OFFSET $2`,
+    [lim, off]
+  );
+  return r.rows || [];
+}
+
+module.exports = { createIfNotExists, updateStatusByWompiId, listByEmpresaId, listAllForAdmin };
 

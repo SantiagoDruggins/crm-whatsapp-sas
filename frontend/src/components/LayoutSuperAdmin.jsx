@@ -4,7 +4,7 @@ import FloatingWhatsappHelp from './FloatingWhatsappHelp';
 const nav = [
   { path: '/admin', label: 'Métricas' },
   { path: '/admin/empresas', label: 'Empresas' },
-  { path: '/admin/pagos', label: 'Pagos pendientes' },
+  { path: '/admin/pagos', label: 'Pagos y cobros' },
   { path: '/admin/feedback', label: 'Feedback' },
 ];
 

@@ -236,6 +236,17 @@ async function subscriptionStatus(req, res) {
   }
 }
 
+async function listMyTransactions(req, res) {
+  try {
+    const empresaId = req.user?.empresaId;
+    if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
+    const rows = await txModel.listByEmpresaId(empresaId, Number(req.query.limit) || 50);
+    return res.status(200).json({ ok: true, transactions: rows });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
 async function cancelSubscription(req, res) {
   try {
     const empresaId = req.user?.empresaId;
@@ -381,6 +392,7 @@ module.exports = {
   getWidgetCheckoutParams,
   startSubscription,
   subscriptionStatus,
+  listMyTransactions,
   cancelSubscription,
   wompiWebhook,
 };
