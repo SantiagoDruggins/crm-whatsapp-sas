@@ -3,6 +3,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const empresaEstadoMiddleware = require('../middleware/empresaEstadoMiddleware');
 const {
   getPublicConfig,
+  getWidgetCheckoutParams,
   startSubscription,
   subscriptionStatus,
   cancelSubscription,
@@ -14,6 +15,7 @@ const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, ne
 
 router.get('/config', authMiddleware, asyncHandler(getPublicConfig));
 router.get('/subscription/status', authMiddleware, empresaEstadoMiddleware, asyncHandler(subscriptionStatus));
+router.post('/subscription/widget-checkout', authMiddleware, asyncHandler(getWidgetCheckoutParams));
 router.post('/subscription/start', authMiddleware, asyncHandler(startSubscription));
 router.post('/subscription/cancel', authMiddleware, empresaEstadoMiddleware, asyncHandler(cancelSubscription));
 

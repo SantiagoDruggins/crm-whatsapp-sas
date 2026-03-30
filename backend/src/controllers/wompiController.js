@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const config = require('../config/env');
 const planModel = require('../models/planModel');
 const { query } = require('../config/db');
@@ -16,6 +17,23 @@ function toCentsCop(precioMensual) {
   if (Number.isNaN(n) || n < 0) return 0;
   // Wompi usa amount_in_cents. Para COP: pesos * 100.
   return Math.round(n * 100);
+}
+
+/** Firma SHA256 para Widget / Web Checkout (docs Wompi: referencia + monto + moneda + secreto). */
+function buildWidgetIntegritySignature({ reference, amountInCents, currency, expirationTime, integritySecret }) {
+  let cadena = `${reference}${amountInCents}${currency || 'COP'}`;
+  if (expirationTime) cadena += expirationTime;
+  cadena += integritySecret;
+  return crypto.createHash('sha256').update(cadena).digest('hex');
+}
+
+function publicAppBaseUrl(req) {
+  const fromEnv = (config.publicBaseUrl || '').replace(/\/$/, '');
+  if (fromEnv) return fromEnv;
+  const host = req.get('x-forwarded-host') || req.get('host');
+  if (!host) return '';
+  const proto = (req.get('x-forwarded-proto') || req.protocol || 'https').replace(/:$/, '');
+  return `${proto}://${host}`;
 }
 
 async function activarORenovarEmpresa({ empresaId, planCodigo }) {
@@ -40,7 +58,76 @@ async function getPublicConfig(req, res) {
     const env = config.wompi?.env || 'production';
     if (!pk) return res.status(503).json({ message: 'Wompi no configurado en el servidor.' });
     const tokens = await getAcceptanceTokens();
-    return res.status(200).json({ ok: true, env, publicKey: pk, ...tokens });
+    const widgetCheckoutEnabled = !!(config.wompi?.integritySecret && pk);
+    return res.status(200).json({ ok: true, env, publicKey: pk, widgetCheckoutEnabled, ...tokens });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
+/**
+ * POST /api/wompi/subscription/widget-checkout
+ * Prepara datos firmados para WidgetCheckout (modal oficial). Registra plan en suscripción como pending_checkout.
+ */
+async function getWidgetCheckoutParams(req, res) {
+  try {
+    const empresaId = req.user?.empresaId;
+    if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
+
+    const pk = config.wompi?.publicKey || '';
+    const integritySecret = config.wompi?.integritySecret || '';
+    if (!pk || !integritySecret) {
+      return res.status(503).json({
+        message:
+          'Falta WOMPI_INTEGRITY_SECRET (Dashboard → Desarrolladores → Secreto de integridad) o llave pública.',
+      });
+    }
+
+    const planCodigo = String(req.body?.plan_codigo || '').trim();
+    if (!planCodigo) return res.status(400).json({ message: 'plan_codigo es requerido' });
+
+    const plan = await planModel.getByCodigo(planCodigo);
+    if (!plan) return res.status(404).json({ message: 'Plan no encontrado' });
+
+    const customerEmail = String(req.body?.customer_email || req.user?.email || '').trim();
+    if (!customerEmail) return res.status(400).json({ message: 'Se requiere email del pagador (customer_email o usuario con email).' });
+
+    const reference = `sub_${empresaId}_${Date.now()}`;
+    const amountInCents = toCentsCop(plan.precio_mensual);
+    const currency = 'COP';
+    const signatureIntegrity = buildWidgetIntegritySignature({
+      reference,
+      amountInCents,
+      currency,
+      expirationTime: null,
+      integritySecret,
+    });
+
+    await subModel.upsertForEmpresa(empresaId, {
+      plan_codigo: planCodigo,
+      status: 'pending_checkout',
+      customer_email: customerEmail,
+      next_charge_at: null,
+      last_error: null,
+    });
+
+    const base = publicAppBaseUrl(req);
+    const redirectUrl = base ? `${base}/dashboard/pagos` : undefined;
+
+    return res.status(200).json({
+      ok: true,
+      widget: {
+        publicKey: pk,
+        currency,
+        amountInCents,
+        reference,
+        signature: { integrity: signatureIntegrity },
+        redirectUrl: redirectUrl || null,
+        customerData: {
+          email: customerEmail,
+        },
+      },
+    });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
   }
@@ -194,12 +281,14 @@ async function wompiWebhook(req, res) {
 
     if (!txId) return;
 
-    // Extraer empresaId del reference si es nuestro formato sub_<uuid>_...
+    // Extraer empresaId del reference: sub_<UUID>_<timestamp>
     let empresaId = null;
     let planCodigo = null;
-    const match = reference.match(/^sub_([0-9a-fA-F-]{36})_(\d+)/);
-    if (match) {
-      empresaId = match[1];
+    const matchUuid = reference.match(
+      /^sub_([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})_(\d+)$/
+    );
+    if (matchUuid) {
+      empresaId = matchUuid[1];
     }
 
     if (!empresaId) {
@@ -228,9 +317,14 @@ async function wompiWebhook(req, res) {
       await txModel.updateStatusByWompiId(txId, status);
     }
 
+    let subStatus = sub?.status || 'pending_checkout';
+    if (status === 'APPROVED') subStatus = 'active';
+    else if (status === 'DECLINED') subStatus = 'past_due';
+    // PENDING / otros: conservar pending_checkout o estado previo (no forzar "active").
+
     await subModel.upsertForEmpresa(empresaId, {
       plan_codigo: planCodigo || 'BASICO_MENSUAL',
-      status: status === 'APPROVED' ? 'active' : (status === 'DECLINED' ? 'past_due' : 'active'),
+      status: subStatus,
       customer_email: customerEmail || sub?.customer_email || null,
       last_transaction_id: txId,
       last_transaction_status: status,
@@ -241,6 +335,26 @@ async function wompiWebhook(req, res) {
       const finalPlan = planCodigo || 'BASICO_MENSUAL';
       const { duracionDias, fechaFin } = await activarORenovarEmpresa({ empresaId, planCodigo: finalPlan });
       const nextChargeAt = new Date(fechaFin.getTime());
+      let paymentSourceId =
+        tx.payment_source_id != null
+          ? Number(tx.payment_source_id)
+          : tx.payment_source?.id != null
+            ? Number(tx.payment_source.id)
+            : null;
+      if (!paymentSourceId && txId) {
+        try {
+          const full = await getTransaction(txId);
+          const ps =
+            full?.payment_source_id != null
+              ? Number(full.payment_source_id)
+              : full?.payment_source?.id != null
+                ? Number(full.payment_source.id)
+                : null;
+          if (Number.isFinite(ps)) paymentSourceId = ps;
+        } catch (_) {
+          /* ignore */
+        }
+      }
       await subModel.upsertForEmpresa(empresaId, {
         plan_codigo: finalPlan,
         status: 'active',
@@ -248,6 +362,7 @@ async function wompiWebhook(req, res) {
         last_transaction_id: txId,
         last_transaction_status: status,
         last_error: null,
+        ...(paymentSourceId && Number.isFinite(paymentSourceId) ? { wompi_payment_source_id: paymentSourceId } : {}),
       });
       console.log('[Wompi webhook] Pago aprobado. Empresa renovada', { empresaId, plan: finalPlan, duracionDias });
     }
@@ -263,6 +378,7 @@ async function wompiWebhook(req, res) {
 
 module.exports = {
   getPublicConfig,
+  getWidgetCheckoutParams,
   startSubscription,
   subscriptionStatus,
   cancelSubscription,

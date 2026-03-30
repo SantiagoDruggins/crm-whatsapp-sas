@@ -88,6 +88,8 @@ const config = {
     privateKey: (process.env.WOMPI_PRIVATE_KEY || '').trim(),
     /** Secreto para verificar webhooks (si lo configuras en Wompi). */
     eventsSecret: (process.env.WOMPI_EVENTS_SECRET || '').trim(),
+    /** Secreto de integridad (Dashboard → Desarrolladores) para Widget / Web Checkout. No es la llave privada. */
+    integritySecret: (process.env.WOMPI_INTEGRITY_SECRET || '').trim(),
   },
   smtp: {
     host: process.env.SMTP_HOST || '',
