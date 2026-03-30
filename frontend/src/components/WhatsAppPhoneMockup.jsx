@@ -1,22 +1,37 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const SCRIPT = [
+  { role: 'typing', ms: 1100 },
+  { role: 'user', text: '¿Tienen envío a Medellín y cuánto demora?' },
   { role: 'typing', ms: 1400 },
+  { role: 'bot', text: '¡Hola! Sí, enviamos a Medellín en 2–3 días hábiles. ¿Te paso el catálogo y precios?' },
+  { role: 'typing', ms: 900 },
+  { role: 'user', text: 'Sí, mándamelo por favor' },
+  { role: 'typing', ms: 1500 },
   {
-    role: 'user',
-    text: '¿Tienen envío a Medellín y cuánto demora?',
+    role: 'bot',
+    text: 'Listo: tenemos catálogo A, B y C. El más pedido es el kit Básico desde $129.000 COP.',
   },
+  { role: 'typing', ms: 1000 },
+  { role: 'user', text: '¿Puedo pagar contra entrega?' },
   { role: 'typing', ms: 1600 },
   {
     role: 'bot',
-    text: '¡Hola! Sí, enviamos a Medellín en 2–3 días hábiles. ¿Te paso el catálogo y precios?',
+    text: 'En Medellín sí aceptamos contra entrega. También transferencia, Nequi o tarjeta en línea.',
+  },
+  { role: 'typing', ms: 1100 },
+  { role: 'user', text: 'Genial, lo pido entonces 👍' },
+  { role: 'typing', ms: 1400 },
+  {
+    role: 'bot',
+    text: '¡Perfecto! Te dejo el pedido en borrador. ¿Confirmamos dirección y horario de entrega?',
   },
   { role: 'typing', ms: 1200 },
   {
     role: 'bot',
-    text: '🤖 Respuesta automática con IA · puedes pedir agente humano cuando quieras.',
+    text: '🤖 Respuestas con IA · escribe “agente” si quieres hablar con una persona.',
   },
 ];
 
@@ -26,7 +41,8 @@ const SCRIPT = [
 export default function WhatsAppPhoneMockup({ className = '' }) {
   const [visible, setVisible] = useState([]);
   const [typing, setTyping] = useState(false);
-  const bottomRef = useRef(null);
+  /** Solo el área del chat (overflow); NUNCA scrollIntoView: sube toda la landing. */
+  const chatScrollRef = useRef(null);
   const runId = useRef(0);
   const msgId = useRef(0);
 
@@ -52,10 +68,10 @@ export default function WhatsAppPhoneMockup({ className = '' }) {
           }
           const key = ++msgId.current;
           setVisible((v) => [...v, { role: step.role, text: step.text, key }]);
-          await sleep(450);
+          await sleep(380);
         }
 
-        await sleep(5200);
+        await sleep(4800);
       }
     }
 
@@ -66,8 +82,10 @@ export default function WhatsAppPhoneMockup({ className = '' }) {
     };
   }, []);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  useLayoutEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
   }, [visible, typing]);
 
   return (
@@ -89,7 +107,10 @@ export default function WhatsAppPhoneMockup({ className = '' }) {
             </div>
           </div>
 
-          <div className="relative h-[min(52vh,380px)] min-h-[280px] overflow-y-auto px-2 py-3 space-y-2 bg-[#0b141a] wa-mock-chat-bg">
+          <div
+            ref={chatScrollRef}
+            className="relative h-[min(56vh,440px)] min-h-[300px] overflow-y-auto overflow-x-hidden px-2 py-3 space-y-2 bg-[#0b141a] wa-mock-chat-bg overscroll-contain"
+          >
             {visible.map((m) =>
               m.role === 'user' ? (
                 <div key={m.key} className="flex justify-end wa-mock-msg-in">
@@ -117,7 +138,6 @@ export default function WhatsAppPhoneMockup({ className = '' }) {
                 </div>
               </div>
             )}
-            <div ref={bottomRef} />
           </div>
 
           <div className="flex items-center gap-2 bg-[#202c33] px-2 py-2 border-t border-black/20">

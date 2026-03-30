@@ -70,7 +70,10 @@ function HeroTypingTitle() {
   const finished = index > TEXT.length;
 
   return (
-    <h1 id="hero-heading" className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 text-white">
+    <h1
+      id="hero-heading"
+      className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 text-white text-center lg:text-left"
+    >
       <span className="relative">
         {displayed}
         <span
@@ -157,8 +160,8 @@ export default function Landing() {
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-50 border-b border-[#2d3a47] bg-[#0f1419]/95 backdrop-blur" role="banner">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 shrink-0">
             <img
               src="/logo-dsg.png"
               alt="DSG Chatbot - CRM con IA para WhatsApp"
@@ -166,25 +169,14 @@ export default function Landing() {
               width="120"
               height="40"
             />
-            <div className="min-w-0">
+            <div className="min-w-0 hidden sm:block">
               <span className="font-bold text-xl text-white block leading-tight truncate">DELTHASEG</span>
               <span className="text-xs text-[#8b9cad] tracking-wide">SYSTEMS GROUP</span>
             </div>
           </div>
-          <button
-            type="button"
-            className="md:hidden rounded-lg border border-[#2d3a47] p-2 text-white"
-            aria-expanded={mobileNav}
-            aria-label={mobileNav ? 'Cerrar menú' : 'Abrir menú'}
-            onClick={() => setMobileNav((v) => !v)}
-          >
-            <span className="sr-only">Menú</span>
-            {mobileNav ? '✕' : '☰'}
-          </button>
+
           <nav
-            className={`${
-              mobileNav ? 'flex' : 'hidden'
-            } md:flex absolute md:relative top-full md:top-auto left-0 right-0 md:left-auto flex-col md:flex-row md:items-center gap-4 md:gap-6 bg-[#0f1419] md:bg-transparent border-b md:border-b-0 border-[#2d3a47] px-4 py-4 md:p-0 z-40`}
+            className="hidden md:flex flex-1 justify-center items-center gap-4 lg:gap-7 min-w-0 px-2"
             aria-label="Navegación principal"
           >
             {navLink('#problema', 'Problema')}
@@ -193,23 +185,57 @@ export default function Landing() {
             {navLink('#pagos-seguros', 'Pagos')}
             {navLink('#planes', 'Planes')}
             {navLink('#marca-blanca', 'Marca blanca')}
-            <button onClick={scrollToDemo} className={styles.cta + ' text-sm w-full md:w-auto'}>
+          </nav>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button type="button" onClick={scrollToDemo} className={styles.cta + ' text-sm px-5 py-2.5 hidden md:inline-flex'}>
               Crear demo gratis
             </button>
-          </nav>
+            <button
+              type="button"
+              className="md:hidden rounded-lg border border-[#2d3a47] p-2 text-white"
+              aria-expanded={mobileNav}
+              aria-label={mobileNav ? 'Cerrar menú' : 'Abrir menú'}
+              onClick={() => setMobileNav((v) => !v)}
+            >
+              <span className="sr-only">Menú</span>
+              {mobileNav ? '✕' : '☰'}
+            </button>
+          </div>
         </div>
+
+        <nav
+          className={`${
+            mobileNav ? 'flex' : 'hidden'
+          } md:hidden flex-col border-b border-[#2d3a47] bg-[#0f1419] px-4 py-4 gap-3 z-40`}
+          aria-label="Navegación móvil"
+        >
+          {navLink('#problema', 'Problema')}
+          {navLink('#solucion', 'Solución')}
+          {navLink('#beneficios', 'Beneficios')}
+          {navLink('#pagos-seguros', 'Pagos')}
+          {navLink('#planes', 'Planes')}
+          {navLink('#marca-blanca', 'Marca blanca')}
+          <button onClick={scrollToDemo} className={styles.cta + ' text-sm w-full justify-center mt-1'}>
+            Crear demo gratis
+          </button>
+        </nav>
       </header>
 
       <main id="contenido-principal">
         <section className={styles.section + ' pt-12 md:pt-20'} aria-labelledby="hero-heading">
-          <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16 max-w-6xl mx-auto">
-            <div className="flex-1 max-w-3xl">
-              <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-4">CRM con chatbot IA para WhatsApp</p>
-              <HeroTypingTitle />
-              <p className={styles.p + ' mb-8'}>
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-10 lg:gap-10 xl:gap-14 max-w-6xl mx-auto w-full">
+            <div className="flex-1 min-w-0 max-w-2xl mx-auto lg:mx-0 text-center lg:text-left flex flex-col items-center lg:items-start">
+              <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-4">
+                CRM con chatbot IA para WhatsApp
+              </p>
+              <div className="w-full max-w-3xl mx-auto lg:mx-0">
+                <HeroTypingTitle />
+              </div>
+              <p className={styles.p + ' mb-8 mx-auto lg:mx-0'}>
                 Conecta tu negocio a WhatsApp, automatiza respuestas con IA y gestiona todas las conversaciones desde un solo lugar. Prueba 3 días gratis, sin tarjeta.
               </p>
-              <div id="cta-demo" className="flex flex-wrap gap-4">
+              <div id="cta-demo" className="flex flex-wrap gap-4 justify-center lg:justify-start w-full">
                 <Link to="/registro" onClick={trackDemo} className={styles.cta}>
                   Crear mi demo gratis (3 días)
                 </Link>
@@ -218,7 +244,7 @@ export default function Landing() {
                 </a>
               </div>
             </div>
-            <Reveal className="flex-shrink-0 w-full lg:w-auto lg:max-w-[320px] flex flex-col items-center">
+            <Reveal className="flex-shrink-0 w-full max-w-[320px] mx-auto lg:mx-0 lg:max-w-[300px] flex flex-col items-center">
               <WhatsAppPhoneMockup className="transition-transform duration-500 hover:scale-[1.02]" />
               <p className="mt-4 text-center text-xs text-[#6b7a8a] max-w-[260px] leading-relaxed">
                 Ejemplo ilustrativo: el bot responde con IA en tu WhatsApp Business.
