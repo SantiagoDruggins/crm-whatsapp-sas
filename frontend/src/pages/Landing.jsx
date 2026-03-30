@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import FloatingWhatsappHelp from '../components/FloatingWhatsappHelp';
+import WhatsAppPhoneMockup from '../components/WhatsAppPhoneMockup';
 import {
   LANDING_PLANES,
   extrasPlanPorCodigo,
@@ -217,13 +218,27 @@ export default function Landing() {
                 </a>
               </div>
             </div>
-            <Reveal className="flex-shrink-0 w-full lg:w-auto lg:max-w-lg">
-              <div className="group rounded-2xl border border-[#2d3a47] bg-gradient-to-br from-[#0f1419] to-[#1a2129] p-3 sm:p-4 shadow-xl shadow-black/30 ring-1 ring-white/5 flex items-center justify-center transition-transform duration-500 hover:scale-[1.02] hover:ring-[#00c896]/20">
+            <Reveal className="flex-shrink-0 w-full lg:w-auto lg:max-w-[320px] flex flex-col items-center">
+              <WhatsAppPhoneMockup className="transition-transform duration-500 hover:scale-[1.02]" />
+              <p className="mt-4 text-center text-xs text-[#6b7a8a] max-w-[260px] leading-relaxed">
+                Ejemplo ilustrativo: el bot responde con IA en tu WhatsApp Business.
+              </p>
+              <div className="mt-6 w-full max-w-[280px] rounded-2xl border border-[#2d3a47] bg-gradient-to-b from-[#0f1419] to-[#151c24] px-5 py-4 flex flex-col items-center gap-2 shadow-lg shadow-black/20 ring-1 ring-white/5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5c6b7a]">
+                  Plataforma
+                </span>
                 <img
                   src="/logo-dsg.png"
-                  alt="DSG Chatbot - CRM con IA para WhatsApp"
-                  className="w-full h-auto max-h-72 object-contain transition-transform duration-500 group-hover:scale-105"
+                  alt="DELTHASEG — CRM con IA para WhatsApp"
+                  className="h-11 sm:h-12 w-auto max-w-[200px] object-contain opacity-[0.98]"
+                  width="200"
+                  height="48"
+                  loading="lazy"
                 />
+                <p className="text-center text-[11px] text-[#8b9cad] leading-snug">
+                  <span className="text-white font-semibold">DELTHASEG</span>
+                  <span className="text-[#6b7a8a]"> · Systems Group</span>
+                </p>
               </div>
             </Reveal>
           </div>
