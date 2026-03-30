@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const config = require('./config/env');
 const { iniciarCronSuscripciones } = require('./jobs/subscriptionCron');
 const { iniciarCronReporteSemanal } = require('./jobs/weeklyReportCron');
+const { iniciarCronWompiRenewals } = require('./jobs/wompiRenewalCron');
 
 const authRoutes = require('./routes/authRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
@@ -18,6 +19,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const integracionesRoutes = require('./routes/integracionesRoutes');
 const pedidosRoutes = require('./routes/pedidosRoutes');
 const integracionesWebhookRoutes = require('./routes/integracionesWebhookRoutes');
+const wompiRoutes = require('./routes/wompiRoutes');
 
 const app = express();
 
@@ -28,7 +30,13 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({
+  limit: '5mb',
+  verify: (req, res, buf) => {
+    // Permite verificar firmas de webhooks (Wompi, etc.) sin romper el resto de la app.
+    req.rawBody = buf && buf.length ? buf.toString('utf8') : '';
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
@@ -46,6 +54,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/integraciones', integracionesRoutes);
 app.use('/api/pedidos', pedidosRoutes);
 app.use('/api/integraciones-webhook', integracionesWebhookRoutes);
+app.use('/api/wompi', wompiRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok', env: config.env }));
 
@@ -67,4 +76,5 @@ app.use((err, req, res, next) => {
 
 iniciarCronSuscripciones();
 iniciarCronReporteSemanal();
+iniciarCronWompiRenewals();
 module.exports = app;

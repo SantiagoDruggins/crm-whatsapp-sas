@@ -82,6 +82,13 @@ const config = {
     cloudPhoneNumberId: process.env.WHATSAPP_CLOUD_PHONE_NUMBER_ID || '',
     cloudApiBaseUrl: process.env.WHATSAPP_CLOUD_API_BASE_URL || 'https://graph.facebook.com/v19.0'
   },
+  wompi: {
+    env: (process.env.WOMPI_ENV || 'production').toLowerCase(), // production | sandbox
+    publicKey: (process.env.WOMPI_PUBLIC_KEY || '').trim(),
+    privateKey: (process.env.WOMPI_PRIVATE_KEY || '').trim(),
+    /** Secreto para verificar webhooks (si lo configuras en Wompi). */
+    eventsSecret: (process.env.WOMPI_EVENTS_SECRET || '').trim(),
+  },
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: Number(process.env.SMTP_PORT) || 587,

@@ -33,6 +33,11 @@ async function postFormData(endpoint, formData) {
 export default function Pagos() {
   const [planes, setPlanes] = useState([]);
   const [pagos, setPagos] = useState([]);
+  const [wompiCfg, setWompiCfg] = useState(null);
+  const [wompiSub, setWompiSub] = useState(null);
+  const [wompiLoading, setWompiLoading] = useState(false);
+  const [wompiMsg, setWompiMsg] = useState('');
+  const [cardForm, setCardForm] = useState({ email: '', number: '', exp_month: '', exp_year: '', cvc: '', card_holder: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [subiendo, setSubiendo] = useState(false);
@@ -45,6 +50,8 @@ export default function Pagos() {
     Promise.all([
       api.get('/pagos/planes').then((r) => setPlanes(r.planes || [])),
       api.get('/pagos').then((r) => setPagos(r.pagos || [])),
+      api.get('/wompi/config').then((r) => setWompiCfg(r)).catch(() => setWompiCfg(null)),
+      api.get('/wompi/subscription/status').then((r) => setWompiSub(r.subscription || null)).catch(() => setWompiSub(null)),
     ]).catch((e) => setError(e.message)).finally(() => setLoading(false));
   };
 
@@ -73,10 +80,123 @@ export default function Pagos() {
 
   const planExSeleccionado = planSeleccionado ? extrasPlanPorCodigo(planSeleccionado.codigo) : null;
 
+  const planWompi = planSeleccionado && planSeleccionado.codigo !== 'demo' ? planSeleccionado : null;
+
+  const ensureWompiJs = async (publicKey) => {
+    if (typeof window === 'undefined') return '';
+    if (window.$wompi && typeof window.$wompi.initialize === 'function') {
+      return new Promise((resolve) => {
+        window.$wompi.initialize((data, err) => resolve(err ? '' : (data?.sessionId || '')));
+      });
+    }
+    const existing = document.querySelector('script[data-wompi-js="v1"]');
+    if (existing) {
+      return new Promise((resolve) => {
+        const check = () => {
+          if (window.$wompi && typeof window.$wompi.initialize === 'function') {
+            window.$wompi.initialize((data, err) => resolve(err ? '' : (data?.sessionId || '')));
+          } else {
+            setTimeout(check, 200);
+          }
+        };
+        check();
+      });
+    }
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.wompi.co/libs/js/v1.js';
+      s.async = true;
+      s.dataset.publicKey = publicKey;
+      s.dataset.wompiJs = 'v1';
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    }).catch(() => {});
+    if (window.$wompi && typeof window.$wompi.initialize === 'function') {
+      return new Promise((resolve) => {
+        window.$wompi.initialize((data, err) => resolve(err ? '' : (data?.sessionId || '')));
+      });
+    }
+    return '';
+  };
+
+  const tokenizarTarjeta = async ({ publicKey, env }, card) => {
+    const base = env === 'sandbox' ? 'https://sandbox.wompi.co' : 'https://production.wompi.co';
+    const res = await fetch(`${base}/v1/tokens/cards`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${publicKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        number: String(card.number || '').replace(/\s+/g, ''),
+        exp_month: String(card.exp_month || '').trim(),
+        exp_year: String(card.exp_year || '').trim(),
+        cvc: String(card.cvc || '').trim(),
+        card_holder: String(card.card_holder || '').trim(),
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data?.error?.reason || data?.error?.messages?.[0] || data?.error?.message || 'Error tokenizando tarjeta';
+      throw new Error(msg);
+    }
+    const token = data?.data?.id;
+    const status = data?.data?.status;
+    if (!token || status !== 'CREATED') throw new Error('No se pudo tokenizar la tarjeta (estado inválido).');
+    return token;
+  };
+
+  const handleWompiSubscribe = async () => {
+    if (!planWompi?.codigo) return setError('Elige un plan primero.');
+    if (!wompiCfg?.publicKey) return setError('Wompi no está configurado en el servidor.');
+    setWompiLoading(true);
+    setWompiMsg('');
+    setError('');
+    try {
+      const sessionId = await ensureWompiJs(wompiCfg.publicKey);
+      const token = await tokenizarTarjeta(
+        { publicKey: wompiCfg.publicKey, env: wompiCfg.env },
+        cardForm
+      );
+      const r = await api.post('/wompi/subscription/start', {
+        plan_codigo: planWompi.codigo,
+        payment_method_type: 'CARD',
+        payment_method_token: token,
+        customer_email: (cardForm.email || '').trim() || undefined,
+        session_id: sessionId || undefined,
+      });
+      setWompiMsg(r.message || 'Listo. Esperando confirmación de pago.');
+      const st = await api.get('/wompi/subscription/status').catch(() => ({}));
+      setWompiSub(st.subscription || null);
+    } catch (e) {
+      setError(e.message || 'Error');
+    } finally {
+      setWompiLoading(false);
+    }
+  };
+
+  const handleWompiCancel = async () => {
+    setWompiLoading(true);
+    setWompiMsg('');
+    setError('');
+    try {
+      const r = await api.post('/wompi/subscription/cancel', {});
+      setWompiMsg(r.message || 'Cancelada.');
+      const st = await api.get('/wompi/subscription/status').catch(() => ({}));
+      setWompiSub(st.subscription || null);
+    } catch (e) {
+      setError(e.message || 'Error');
+    } finally {
+      setWompiLoading(false);
+    }
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-white mb-6">Pagos</h1>
       {error && <p className="text-sm text-[#f87171] mb-4">{error}</p>}
+      {wompiMsg && <p className="text-sm text-[#00c896] mb-4">{wompiMsg}</p>}
 
       <div className="mb-8">
         <h2 className="text-lg font-semibold text-white mb-1">Planes disponibles</h2>
@@ -154,6 +274,101 @@ export default function Pagos() {
       </div>
 
       <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl p-6 mb-8 max-w-lg">
+        <h2 className="text-lg font-semibold text-white mb-2">Suscripción automática (Wompi)</h2>
+        <p className="text-[#8b9cad] text-sm mb-3">
+          Guarda tu tarjeta una sola vez y el plan se renueva automáticamente. El plan se activa cuando Wompi confirme el pago.
+        </p>
+
+        {planWompi ? (
+          <div className="mb-3 text-sm text-[#cbd5e0]">
+            Plan seleccionado: <span className="font-mono">{planWompi.codigo}</span> —{' '}
+            <span className="text-white font-semibold">{planWompi.nombre}</span>
+          </div>
+        ) : (
+          <p className="text-xs text-[#6b7a8a] mb-3">Primero elige un plan arriba para suscribirte.</p>
+        )}
+
+        {wompiSub ? (
+          <div className="mb-4 rounded-xl border border-[#2d3a47] bg-[#0f1419] p-4 text-sm">
+            <p className="text-[#8b9cad]">
+              Estado: <span className="text-white font-mono">{wompiSub.status}</span>
+            </p>
+            <p className="text-[#8b9cad]">
+              Próximo cobro: <span className="text-white font-mono">{wompiSub.next_charge_at ? new Date(wompiSub.next_charge_at).toLocaleString() : '—'}</span>
+            </p>
+            <p className="text-[#8b9cad]">
+              Última transacción: <span className="text-white font-mono">{wompiSub.last_transaction_status || '—'}</span>
+            </p>
+            {wompiSub.last_error ? <p className="text-[#f87171] text-xs mt-2">{wompiSub.last_error}</p> : null}
+            <button
+              type="button"
+              onClick={handleWompiCancel}
+              disabled={wompiLoading}
+              className="mt-3 rounded-lg bg-[#2d3a47] text-[#cbd5e0] px-3 py-2 text-sm hover:bg-[#3d4a57] disabled:opacity-50"
+            >
+              {wompiLoading ? 'Procesando...' : 'Cancelar suscripción'}
+            </button>
+          </div>
+        ) : null}
+
+        <div className="space-y-3">
+          <input
+            type="email"
+            placeholder="Email del pagador (opcional)"
+            value={cardForm.email}
+            onChange={(e) => setCardForm((f) => ({ ...f, email: e.target.value }))}
+            className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
+          />
+          <input
+            type="text"
+            placeholder="Número de tarjeta"
+            value={cardForm.number}
+            onChange={(e) => setCardForm((f) => ({ ...f, number: e.target.value }))}
+            className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
+          />
+          <div className="grid grid-cols-3 gap-3">
+            <input
+              type="text"
+              placeholder="MM"
+              value={cardForm.exp_month}
+              onChange={(e) => setCardForm((f) => ({ ...f, exp_month: e.target.value }))}
+              className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
+            />
+            <input
+              type="text"
+              placeholder="YY"
+              value={cardForm.exp_year}
+              onChange={(e) => setCardForm((f) => ({ ...f, exp_year: e.target.value }))}
+              className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
+            />
+            <input
+              type="password"
+              placeholder="CVC"
+              value={cardForm.cvc}
+              onChange={(e) => setCardForm((f) => ({ ...f, cvc: e.target.value }))}
+              className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
+            />
+          </div>
+          <input
+            type="text"
+            placeholder="Titular (como aparece en la tarjeta)"
+            value={cardForm.card_holder}
+            onChange={(e) => setCardForm((f) => ({ ...f, card_holder: e.target.value }))}
+            className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white placeholder-[#6b7a8a]"
+          />
+          <button
+            type="button"
+            onClick={handleWompiSubscribe}
+            disabled={wompiLoading || !planWompi}
+            className="rounded-xl bg-[#00c896] text-[#0f1419] font-semibold px-4 py-2 hover:bg-[#00e0a8] disabled:opacity-50"
+          >
+            {wompiLoading ? 'Creando suscripción…' : 'Suscribirme con tarjeta (Wompi)'}
+          </button>
+          <p className="text-xs text-[#6b7a8a]">
+            Importante: este formulario tokeniza tu tarjeta con Wompi (no se guarda en el CRM). En producción se recomienda usar el flujo más moderno de Wompi JS.
+          </p>
+        </div>
+
         <h2 className="text-lg font-semibold text-white mb-2">Subir comprobante (Nequi)</h2>
         <p className="text-[#8b9cad] text-sm mb-3">
           Paga a Nequi {formatearNequiTelefono()} — {NEQUI_PAGO.nombre}. Luego sube aquí la captura.
