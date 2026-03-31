@@ -308,25 +308,62 @@ export default function Landing() {
         <section id="problema" className={styles.sectionAlt}>
           <Reveal>
             <div className="max-w-6xl mx-auto">
-              <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Paso 1</p>
-              <h2 className={styles.h2}>¿Pierdes ventas porque no respondes a tiempo en WhatsApp?</h2>
-              <p className={styles.p + ' mb-10'}>Los clientes esperan respuestas rápidas. Si no estás disponible, se van a la competencia.</p>
-              <ul className="grid md:grid-cols-3 gap-4 text-[#8b9cad]">
-                {[
-                  { t: 'Horarios limitados', d: 'No puedes estar 24/7 detrás del celular.' },
-                  { t: 'Conversaciones desordenadas', d: 'Se mezclan clientes, pedidos y dudas en un solo chat.' },
-                  { t: 'Sin historial claro', d: 'No sabes qué se le ofreció a cada cliente ni el contexto.' },
-                ].map((item, i) => (
-                  <li
-                    key={item.t}
-                    className="bg-[#232d38] rounded-xl p-5 border border-[#2d3a47] transition-all duration-300 hover:border-[#00c896]/40 hover:-translate-y-0.5"
-                    style={{ transitionDelay: `${i * 50}ms` }}
-                  >
-                    <span className="text-white font-semibold block mb-1">{item.t}</span>
-                    {item.d}
-                  </li>
-                ))}
-              </ul>
+              <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-center">
+                <div>
+                  <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Paso 1</p>
+                  <h2 className={styles.h2}>¿Pierdes ventas porque no respondes a tiempo en WhatsApp?</h2>
+                  <p className={styles.p + ' mb-10'}>
+                    Los clientes esperan respuestas rápidas. Si no estás disponible, se van a la competencia.
+                  </p>
+                  <ul className="grid md:grid-cols-3 lg:grid-cols-1 gap-4 text-[#8b9cad]">
+                    {[
+                      { t: 'Horarios limitados', d: 'No puedes estar 24/7 detrás del celular.' },
+                      { t: 'Conversaciones desordenadas', d: 'Se mezclan clientes, pedidos y dudas en un solo chat.' },
+                      { t: 'Sin historial claro', d: 'No sabes qué se le ofreció a cada cliente ni el contexto.' },
+                    ].map((item, i) => (
+                      <li
+                        key={item.t}
+                        className="bg-[#232d38] rounded-xl p-5 border border-[#2d3a47] transition-all duration-300 hover:border-[#00c896]/40 hover:-translate-y-0.5"
+                        style={{ transitionDelay: `${i * 50}ms` }}
+                      >
+                        <span className="text-white font-semibold block mb-1">{item.t}</span>
+                        {item.d}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="relative w-full max-w-[520px] mx-auto">
+                  <div
+                    className="absolute -inset-6 rounded-[2.5rem] bg-gradient-to-b from-[#00c896]/10 via-transparent to-transparent blur-2xl"
+                    aria-hidden
+                  />
+                  <div className="relative rounded-[2.5rem] border border-[#2d3a47] bg-[#0f1419]/50 p-4 sm:p-6 overflow-hidden">
+                    <img
+                      src="/dolor-manual.png"
+                      alt="Responder manualmente en WhatsApp agota y te hace perder ventas"
+                      className="w-full h-auto max-h-[440px] object-contain"
+                      loading="lazy"
+                      decoding="async"
+                    />
+
+                    <div className="pointer-events-none absolute top-6 left-6 right-6 flex flex-col gap-2">
+                      <div className="w-fit max-w-full rounded-xl border border-[#2d3a47] bg-[#151d26]/85 px-3 py-2 backdrop-blur shadow-lg shadow-black/30">
+                        <p className="text-[10px] uppercase tracking-wide text-[#8b9cad]">Respondiendo manual…</p>
+                        <p className="text-xs text-white font-semibold">Se acumulan mensajes</p>
+                      </div>
+                      <div className="ml-auto w-fit max-w-full rounded-xl border border-[#f87171]/30 bg-[#2a1214]/70 px-3 py-2 backdrop-blur">
+                        <p className="text-[10px] uppercase tracking-wide text-[#fca5a5]">Cliente esperando</p>
+                        <p className="text-xs text-white">“¿Me confirmas el precio?”</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-center text-xs text-[#6b7a8a]">
+                    Sin automatización, el celular se vuelve cuello de botella.
+                  </p>
+                </div>
+              </div>
             </div>
           </Reveal>
         </section>
