@@ -49,6 +49,10 @@ async function cobrarSuscripcionesVencidas() {
         await subModel.updateById(s.id, { status: 'past_due', last_error: 'Plan no encontrado para cobro.' });
         continue;
       }
+      if (plan.es_pago_unico) {
+        await subModel.updateById(s.id, { next_charge_at: null, last_error: null });
+        continue;
+      }
 
       const reference = `sub_${empresaId}_${Date.now()}`;
       const amountCents = toCentsCop(plan.precio_mensual);

@@ -186,7 +186,9 @@ async function startSubscription(req, res) {
     });
     if (!tx?.id) return res.status(502).json({ message: 'No se pudo crear transacción en Wompi' });
 
-    const nextChargeAt = new Date(Date.now() + (Number(plan.duracion_dias || 30) * 24 * 60 * 60 * 1000));
+    const nextChargeAt = plan.es_pago_unico
+      ? null
+      : new Date(Date.now() + (Number(plan.duracion_dias || 30) * 24 * 60 * 60 * 1000));
     const subscription = await subModel.upsertForEmpresa(empresaId, {
       plan_codigo: planCodigo,
       status: 'active',
@@ -344,8 +346,9 @@ async function wompiWebhook(req, res) {
 
     if (status === 'APPROVED') {
       const finalPlan = planCodigo || 'BASICO_MENSUAL';
+      const planDef = await planModel.getByCodigo(finalPlan);
       const { duracionDias, fechaFin } = await activarORenovarEmpresa({ empresaId, planCodigo: finalPlan });
-      const nextChargeAt = new Date(fechaFin.getTime());
+      const nextChargeAt = planDef?.es_pago_unico ? null : new Date(fechaFin.getTime());
       let paymentSourceId =
         tx.payment_source_id != null
           ? Number(tx.payment_source_id)
@@ -375,6 +378,11 @@ async function wompiWebhook(req, res) {
         last_error: null,
         ...(paymentSourceId && Number.isFinite(paymentSourceId) ? { wompi_payment_source_id: paymentSourceId } : {}),
       });
+      if (planDef?.es_pago_unico) {
+        await query(`UPDATE empresas SET marca_blanca = true, marca_blanca_pagado_at = now(), updated_at = now() WHERE id = $1`, [
+          empresaId,
+        ]);
+      }
       console.log('[Wompi webhook] Pago aprobado. Empresa renovada', { empresaId, plan: finalPlan, duracionDias });
     }
 

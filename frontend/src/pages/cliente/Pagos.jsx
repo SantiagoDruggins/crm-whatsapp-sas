@@ -226,9 +226,15 @@ export default function Pagos() {
           ) : (
             planes
               .filter((p) => p.codigo !== 'demo')
+              .sort((a, b) => {
+                const ua = !!a.es_pago_unico;
+                const ub = !!b.es_pago_unico;
+                if (ua !== ub) return ua ? 1 : -1;
+                return Number(a.precio_mensual || 0) - Number(b.precio_mensual || 0);
+              })
               .map((p) => {
                 const ex = extrasPlanPorCodigo(p.codigo);
-                const dia = precioAproxPorDia(p.precio_mensual);
+                const dia = p.es_pago_unico ? null : precioAproxPorDia(p.precio_mensual);
                 const resaltado = planResaltado?.id === p.id;
                 return (
                   <div
@@ -261,16 +267,21 @@ export default function Pagos() {
                     </ul>
                     <p className="mt-3 text-lg font-bold text-[#00c896]">
                       ${Number(p.precio_mensual || 0).toLocaleString('es-CO', { minimumFractionDigits: 0 })}{' '}
-                      <span className="text-xs font-normal text-[#8b9cad]">COP / mes</span>
+                      <span className="text-xs font-normal text-[#8b9cad]">
+                        COP {p.es_pago_unico ? '(pago único)' : '/ mes'}
+                      </span>
                     </p>
                     {dia ? <p className="text-[11px] text-[#6b7a8a]">~ ${dia} COP / día</p> : null}
+                    {p.es_pago_unico ? (
+                      <p className="text-[11px] text-[#6b7a8a] mt-1">Sin cobro recurrente automático tras la compra.</p>
+                    ) : null}
                     <button
                       type="button"
                       disabled={wompiLoading || !wompiListo}
                       onClick={() => void abrirCheckoutWompi(p)}
                       className="mt-4 w-full rounded-xl bg-[#00c896] text-[#0f1419] font-semibold px-4 py-3 text-sm hover:bg-[#00e0a8] disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      {wompiLoading ? 'Abriendo pago…' : 'Pagar con Wompi'}
+                      {wompiLoading ? 'Abriendo pago…' : p.es_pago_unico ? 'Pagar con Wompi (único)' : 'Pagar con Wompi'}
                     </button>
                     {!wompiListo ? (
                       <p className="text-[10px] text-[#6b7a8a] mt-2 text-center">Configuración Wompi incompleta</p>
@@ -294,7 +305,11 @@ export default function Pagos() {
           <p className="text-[#8b9cad] text-sm">
             Próximo cobro:{' '}
             <span className="text-white font-mono">
-              {wompiSub.next_charge_at ? new Date(wompiSub.next_charge_at).toLocaleString() : '—'}
+              {wompiSub.next_charge_at
+                ? new Date(wompiSub.next_charge_at).toLocaleString()
+                : wompiSub.plan_codigo === 'MARCA_BLANCA_USD'
+                  ? 'No aplica (plan de pago único)'
+                  : '—'}
             </span>
           </p>
           <p className="text-[#8b9cad] text-sm mt-1">

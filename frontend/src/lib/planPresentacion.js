@@ -42,6 +42,18 @@ export function extrasPlanPorCodigo(codigo) {
         'La opción cuando el chat es canal principal de ventas',
       ],
     },
+    MARCA_BLANCA_USD: {
+      badge: 'Pago único',
+      tagline: 'Ecosistema completo bajo tu marca (licencia)',
+      destacado: false,
+      features: [
+        'CRM + bot IA + WhatsApp Cloud API (mismo núcleo que la plataforma)',
+        'Branding en panel (logo) y roadmap hacia dominio propio según acuerdo',
+        'Cobro único en COP vía Wompi (referencia ~500 USD; ajusta TRM en BD si hace falta)',
+        'Sin cargo recurrente automático en este plan',
+        'Tras el pago aprobado: equipo te contacta para alcance de dominio y entrega',
+      ],
+    },
   };
   return map[c] || { badge: null, tagline: '', destacado: false, features: [] };
 }

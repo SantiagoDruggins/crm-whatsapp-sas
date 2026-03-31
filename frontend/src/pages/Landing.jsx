@@ -627,6 +627,11 @@ export default function Landing() {
                     <span className="text-[#00c896] font-bold text-3xl md:text-4xl">500 USD</span>
                     <span className="text-[#8b9cad]">pago único — ecosistema completo en tu marca</span>
                   </div>
+                  <p className="text-[#8b9cad] text-sm mb-4">
+                    El cobro se hace en <strong className="text-[#cbd5e0]">pesos colombianos (COP)</strong> por el checkout seguro de{' '}
+                    <strong className="text-white">Wompi</strong>, con monto equivalente de referencia. Tras el pago aprobado activamos tu
+                    licencia y coordinamos dominio y entrega.
+                  </p>
                   <ul className="space-y-2 text-[#e9edef] mb-6">
                     <li className="flex items-center gap-2">
                       <span className="text-[#00c896]">✓</span> Panel y landing con tu logo, nombre y dominio
@@ -641,11 +646,18 @@ export default function Landing() {
                       <span className="text-[#00c896]">✓</span> Todo lo necesario para que lo vendas o lo uses como tuyo
                     </li>
                   </ul>
-                  <Link to="/registro" className={styles.cta + ' text-lg px-8 py-3'}>
-                    Solicitar marca blanca
-                  </Link>
+                  <div className="flex flex-wrap gap-3">
+                    <Link to="/registro" className={styles.cta + ' text-lg px-8 py-3'}>
+                      Crear cuenta y pagar con Wompi
+                    </Link>
+                    <Link to="/login" className={styles.ctaOutline + ' text-lg px-8 py-3'}>
+                      Ya tengo cuenta
+                    </Link>
+                  </div>
                   <p className="text-[#8b9cad] text-sm mt-3">
-                    Regístrate y en el mensaje indica que te interesa la opción marca blanca. Te contactamos con los detalles.
+                    Regístrate o inicia sesión, entra a <strong className="text-[#cbd5e0]">Pagos</strong> y elige el plan{' '}
+                    <strong className="text-white">Marca blanca (pago único)</strong>. Sin comprobantes manuales: todo queda registrado en
+                    tu historial Wompi.
                   </p>
                 </div>
               </div>
