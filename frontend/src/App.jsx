@@ -29,6 +29,7 @@ import Sugerencias from './pages/cliente/Sugerencias';
 import MiCuenta from './pages/cliente/MiCuenta';
 import AdminMetricas from './pages/admin/AdminMetricas';
 import AdminEmpresas from './pages/admin/AdminEmpresas';
+import AdminEmpresaDetalle from './pages/admin/AdminEmpresaDetalle';
 import AdminPagos from './pages/admin/AdminPagos';
 import AdminFeedback from './pages/admin/AdminFeedback';
 
@@ -65,6 +66,7 @@ function App() {
       <Route path="/admin" element={<LayoutSuperAdmin />}>
         <Route index element={<AdminMetricas />} />
         <Route path="empresas" element={<AdminEmpresas />} />
+        <Route path="empresas/:id" element={<AdminEmpresaDetalle />} />
         <Route path="pagos" element={<AdminPagos />} />
         <Route path="feedback" element={<AdminFeedback />} />
       </Route>

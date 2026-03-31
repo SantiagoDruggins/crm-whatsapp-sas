@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 
 const ESTADOS = ['activa', 'suspendida', 'vencida', 'demo_activa', 'pago_en_revision'];
@@ -195,6 +196,12 @@ export default function AdminEmpresas() {
                       >
                         Marca blanca
                       </button>
+                      <Link
+                        to={`/admin/empresas/${e.id}`}
+                        className="rounded bg-[#1a2129] border border-[#2d3a47] text-[#00c896] px-2 py-1 text-xs font-medium hover:bg-[#232d38]"
+                      >
+                        Ver detalle
+                      </Link>
                     </div>
                   </td>
                 </tr>

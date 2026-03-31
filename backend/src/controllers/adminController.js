@@ -2,14 +2,18 @@ const path = require('path');
 const {
   listarEmpresas,
   obtenerEmpresaPorId,
+  obtenerEmpresaPublicaPorId,
   actualizarEstadoEmpresa,
+  actualizarAdminNotasInternas,
   getAiModels,
   updateAiModels,
   actualizarMarcaBlancaPorAdmin,
   actualizarBranding,
 } = require('../models/empresaModel');
 const { query } = require('../config/db');
-const { listAllForAdmin } = require('../models/wompiTransactionModel');
+const { listAllForAdmin, listByEmpresaId: listWompiTxByEmpresa } = require('../models/wompiTransactionModel');
+const subModel = require('../models/wompiSubscriptionModel');
+const pagoModel = require('../models/pagoModel');
 
 async function listarEmpresasAdmin(req, res) {
   try {
@@ -17,6 +21,64 @@ async function listarEmpresasAdmin(req, res) {
     const estado = req.query.estado;
     const filtered = estado ? empresas.filter((e) => e.estado === estado) : empresas;
     return res.status(200).json({ ok: true, empresas: filtered });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
+async function obtenerEmpresaDetalleAdmin(req, res) {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'Falta id de empresa' });
+    const empresa = await obtenerEmpresaPublicaPorId(id);
+    if (!empresa) return res.status(404).json({ message: 'Empresa no encontrada' });
+
+    const empresaId = id;
+    const [contactos, usuarios, conv7, pedidos7] = await Promise.all([
+      query(`SELECT COUNT(*)::int AS n FROM contactos WHERE empresa_id = $1`, [empresaId]),
+      query(`SELECT COUNT(*)::int AS n FROM usuarios WHERE empresa_id = $1 AND is_active = true`, [empresaId]),
+      query(
+        `SELECT COUNT(*)::int AS n FROM conversaciones WHERE empresa_id = $1 AND updated_at >= now() - interval '7 days'`,
+        [empresaId]
+      ),
+      query(
+        `SELECT COUNT(*)::int AS n FROM pedidos WHERE empresa_id = $1 AND created_at >= now() - interval '7 days'`,
+        [empresaId]
+      ),
+    ]);
+
+    const wompiTx = await listWompiTxByEmpresa(empresaId, 30);
+    const pagosManual = await pagoModel.listarPorEmpresa(empresaId, { limit: 30, offset: 0 });
+    const wompiSubscription = await subModel.getByEmpresaId(empresaId);
+
+    return res.status(200).json({
+      ok: true,
+      empresa,
+      metricas: {
+        contactos: contactos.rows[0]?.n ?? 0,
+        usuarios_activos: usuarios.rows[0]?.n ?? 0,
+        conversaciones_7d: conv7.rows[0]?.n ?? 0,
+        pedidos_7d: pedidos7.rows[0]?.n ?? 0,
+      },
+      wompi_subscription: wompiSubscription || null,
+      wompi_transactions: wompiTx,
+      pagos_manuales: pagosManual,
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
+async function actualizarNotasInternasAdmin(req, res) {
+  try {
+    const { id } = req.params;
+    const { admin_notas_internas } = req.body || {};
+    if (!id) return res.status(400).json({ message: 'Falta id de empresa' });
+    const empresa = await obtenerEmpresaPorId(id);
+    if (!empresa) return res.status(404).json({ message: 'Empresa no encontrada' });
+    await actualizarAdminNotasInternas(id, admin_notas_internas);
+    const empresaOut = await obtenerEmpresaPublicaPorId(id);
+    return res.status(200).json({ ok: true, empresa: empresaOut });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
   }
@@ -188,6 +250,8 @@ async function updateAiModelsEmpresaAdmin(req, res) {
 
 module.exports = {
   listarEmpresasAdmin,
+  obtenerEmpresaDetalleAdmin,
+  actualizarNotasInternasAdmin,
   metricasAdmin,
   listWompiTransactionsAdmin,
   actualizarEstadoEmpresaAdmin,

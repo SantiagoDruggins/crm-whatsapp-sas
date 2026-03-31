@@ -28,6 +28,31 @@ async function obtenerEmpresaPorId(id) {
   return result.rows[0] || null;
 }
 
+/** Super admin: sin password_hash */
+async function obtenerEmpresaPublicaPorId(id) {
+  const result = await query(
+    `SELECT id, nombre, email, estado, plan, demo_expires_at, fecha_expiracion, logo_url,
+            COALESCE(marca_blanca, false) AS marca_blanca, marca_blanca_pagado_at,
+            marca_blanca_dominio, marca_blanca_nombre_publico, admin_notas_internas,
+            whatsapp_cloud_phone_number_id, whatsapp_waba_id,
+            shopify_activo, shopify_store_url,
+            created_at, updated_at,
+            (whatsapp_cloud_access_token IS NOT NULL AND TRIM(COALESCE(whatsapp_cloud_access_token, '')) != '') AS whatsapp_token_configurado
+     FROM empresas WHERE id = $1`,
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+async function actualizarAdminNotasInternas(empresaId, texto) {
+  const v = texto === null || texto === undefined ? null : String(texto);
+  const result = await query(
+    `UPDATE empresas SET admin_notas_internas = $2, updated_at = now() WHERE id = $1 RETURNING id, admin_notas_internas`,
+    [empresaId, v]
+  );
+  return result.rows[0] || null;
+}
+
 async function listarEmpresas({ limit = 50, offset = 0 }) {
   const result = await query(`SELECT * FROM empresas ORDER BY created_at DESC LIMIT $1 OFFSET $2`, [limit, offset]);
   return result.rows;
@@ -303,6 +328,8 @@ module.exports = {
   obtenerEmpresaPorEmail,
   actualizarEstadoEmpresa,
   obtenerEmpresaPorId,
+  obtenerEmpresaPublicaPorId,
+  actualizarAdminNotasInternas,
   listarEmpresas,
   getWhatsappConfig,
   updateWhatsappConfig,

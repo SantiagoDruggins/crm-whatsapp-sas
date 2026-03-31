@@ -37,7 +37,10 @@ export default function LayoutSuperAdmin() {
         </div>
         <nav className="p-2 flex-1">
           {nav.map((item) => {
-            const active = location.pathname === item.path;
+            const active =
+              item.path === '/admin/empresas'
+                ? location.pathname === '/admin/empresas' || location.pathname.startsWith('/admin/empresas/')
+                : location.pathname === item.path;
             return (
               <Link
                 key={item.path}
@@ -62,7 +65,9 @@ export default function LayoutSuperAdmin() {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-14 border-b border-[#2d3a47] bg-[#1a2129]/80 backdrop-blur flex items-center px-6 shrink-0">
           <span className="text-[#8b9cad] text-sm">
-            {nav.find((n) => location.pathname === n.path)?.label || 'Admin'}
+            {location.pathname.startsWith('/admin/empresas/') && location.pathname !== '/admin/empresas'
+              ? 'Empresa · detalle'
+              : nav.find((n) => location.pathname === n.path)?.label || 'Admin'}
           </span>
         </header>
         <main className="flex-1 overflow-auto p-6">

@@ -3,6 +3,8 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
 const {
   listarEmpresasAdmin,
+  obtenerEmpresaDetalleAdmin,
+  actualizarNotasInternasAdmin,
   metricasAdmin,
   listWompiTransactionsAdmin,
   actualizarEstadoEmpresaAdmin,
@@ -22,6 +24,8 @@ router.use(authMiddleware);
 router.use(requireRole('super_admin'));
 
 router.get('/empresas', asyncHandler(listarEmpresasAdmin));
+router.get('/empresas/:id', asyncHandler(obtenerEmpresaDetalleAdmin));
+router.patch('/empresas/:id/notas', asyncHandler(actualizarNotasInternasAdmin));
 router.get('/metricas', asyncHandler(metricasAdmin));
 router.get('/wompi-transactions', asyncHandler(listWompiTransactionsAdmin));
 router.get('/feedback', asyncHandler(listarFeedbackAdmin));
