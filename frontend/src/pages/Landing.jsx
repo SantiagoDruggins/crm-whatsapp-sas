@@ -366,12 +366,24 @@ export default function Landing() {
                     </span>
                   </li>
                 </ul>
-                <div className="bg-[#232d38] rounded-2xl border border-[#2d3a47] p-6 text-center transition-shadow hover:shadow-lg hover:shadow-[#00c896]/5">
-                  <p className="text-white font-semibold mb-2">Demo 3 días gratis</p>
-                  <p className="text-[#8b9cad] text-sm mb-4">Sin tarjeta. Acceso completo al CRM y al bot.</p>
-                  <Link to="/registro" onClick={trackDemo} className={styles.cta}>
-                    Crear mi demo
-                  </Link>
+                <div className="flex flex-col items-center">
+                  <div className="relative w-full max-w-[330px]">
+                    <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-b from-[#00c896]/20 to-transparent blur-xl" aria-hidden />
+                    <div className="relative rounded-[2rem] border border-[#2d3a47] bg-[#151e27]/70 p-3">
+                      <WhatsAppPhoneMockup
+                        variant="crm"
+                        className="mx-auto transition-transform duration-500 hover:scale-[1.02]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-5 w-full max-w-[370px] bg-[#232d38] rounded-2xl border border-[#2d3a47] p-6 text-center transition-shadow hover:shadow-lg hover:shadow-[#00c896]/5">
+                    <p className="text-white font-semibold mb-2">Demo 3 días gratis</p>
+                    <p className="text-[#8b9cad] text-sm mb-4">Sin tarjeta. Acceso completo al CRM y al bot.</p>
+                    <Link to="/registro" onClick={trackDemo} className={styles.cta}>
+                      Crear mi demo
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>
