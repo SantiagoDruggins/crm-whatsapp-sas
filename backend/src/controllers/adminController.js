@@ -1,4 +1,13 @@
-const { listarEmpresas, obtenerEmpresaPorId, actualizarEstadoEmpresa, getAiModels, updateAiModels } = require('../models/empresaModel');
+const path = require('path');
+const {
+  listarEmpresas,
+  obtenerEmpresaPorId,
+  actualizarEstadoEmpresa,
+  getAiModels,
+  updateAiModels,
+  actualizarMarcaBlancaPorAdmin,
+  actualizarBranding,
+} = require('../models/empresaModel');
 const { query } = require('../config/db');
 const { listAllForAdmin } = require('../models/wompiTransactionModel');
 
@@ -106,6 +115,63 @@ async function getAiModelsEmpresaAdmin(req, res) {
   }
 }
 
+function normalizeMarcaBlancaDominioInput(raw) {
+  if (raw === undefined) return undefined;
+  if (raw === null || String(raw).trim() === '') return null;
+  let s = String(raw).trim().toLowerCase();
+  s = s.replace(/^https?:\/\//, '').split('/')[0].split(':')[0];
+  if (!s) return null;
+  if (s.length > 255) s = s.slice(0, 255);
+  return s;
+}
+
+async function actualizarMarcaBlancaEmpresaAdmin(req, res) {
+  try {
+    const { id } = req.params;
+    const body = req.body || {};
+    if (!id) return res.status(400).json({ message: 'Falta id de empresa' });
+    const empresa = await obtenerEmpresaPorId(id);
+    if (!empresa) return res.status(404).json({ message: 'Empresa no encontrada' });
+
+    const patch = {};
+    if (body.marca_blanca !== undefined) patch.marca_blanca = !!body.marca_blanca;
+    if (body.marca_blanca_dominio !== undefined) {
+      patch.marca_blanca_dominio = normalizeMarcaBlancaDominioInput(body.marca_blanca_dominio);
+    }
+    if (body.marca_blanca_nombre_publico !== undefined) {
+      patch.marca_blanca_nombre_publico =
+        body.marca_blanca_nombre_publico === null || body.marca_blanca_nombre_publico === ''
+          ? null
+          : String(body.marca_blanca_nombre_publico).trim().slice(0, 255);
+    }
+    if (body.logo_url !== undefined) {
+      patch.logo_url = body.logo_url === null || body.logo_url === '' ? null : String(body.logo_url).trim();
+    }
+
+    const actualizada = await actualizarMarcaBlancaPorAdmin(id, patch);
+    return res.status(200).json({ ok: true, empresa: actualizada });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
+async function subirLogoEmpresaAdmin(req, res) {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'Falta id de empresa' });
+    const empresa = await obtenerEmpresaPorId(id);
+    if (!empresa) return res.status(404).json({ message: 'Empresa no encontrada' });
+    const file = req.file;
+    if (!file?.path) return res.status(400).json({ message: 'Debes subir una imagen de logo' });
+    const logoUrl = '/uploads/empresas/' + path.basename(file.path);
+    await actualizarBranding(id, { logoUrl });
+    const actualizada = await obtenerEmpresaPorId(id);
+    return res.status(200).json({ ok: true, logo_url: logoUrl, empresa: actualizada });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error al subir logo' });
+  }
+}
+
 async function updateAiModelsEmpresaAdmin(req, res) {
   try {
     const { id } = req.params;
@@ -126,6 +192,8 @@ module.exports = {
   listWompiTransactionsAdmin,
   actualizarEstadoEmpresaAdmin,
   actualizarPlanEmpresaAdmin,
+  actualizarMarcaBlancaEmpresaAdmin,
+  subirLogoEmpresaAdmin,
   getAiModelsEmpresaAdmin,
   updateAiModelsEmpresaAdmin,
 };

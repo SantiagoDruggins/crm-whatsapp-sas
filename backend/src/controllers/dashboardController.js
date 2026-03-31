@@ -6,6 +6,8 @@ async function getDashboardEmpresa(req, res) {
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
     const empresaRes = await query(
       `SELECT id, nombre, estado, plan, demo_expires_at, fecha_expiracion, logo_url,
+              COALESCE(marca_blanca, false) AS marca_blanca,
+              marca_blanca_dominio, marca_blanca_nombre_publico,
               COALESCE(shopify_activo, false) AS shopify_activo
        FROM empresas
        WHERE id = $1`,

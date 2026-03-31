@@ -351,7 +351,7 @@ export default function LayoutCliente() {
             )}
             <div className="min-w-0">
               <p className="font-bold text-sm text-white truncate max-w-[9rem]">
-                {empresa.nombre || 'ChatProBusiness'}
+                {empresa.marca_blanca_nombre_publico || empresa.nombre || 'ChatProBusiness'}
               </p>
               <p className="text-[11px] text-[#6b7a8a] truncate max-w-[9rem]">
                 Panel de WhatsApp + IA

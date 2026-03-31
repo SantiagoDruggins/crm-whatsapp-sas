@@ -237,6 +237,40 @@ async function actualizarBranding(empresaId, { logoUrl }) {
   return result.rows[0] || null;
 }
 
+/**
+ * Super admin: activar/editar marca blanca, dominio deseado, nombre público, logo (URL).
+ */
+async function actualizarMarcaBlancaPorAdmin(empresaId, patch = {}) {
+  const fields = [];
+  const values = [empresaId];
+  let i = 2;
+  if (patch.marca_blanca !== undefined) {
+    fields.push(`marca_blanca = $${i}`);
+    values.push(!!patch.marca_blanca);
+    i += 1;
+  }
+  if (patch.marca_blanca_dominio !== undefined) {
+    fields.push(`marca_blanca_dominio = $${i}`);
+    values.push(patch.marca_blanca_dominio);
+    i += 1;
+  }
+  if (patch.marca_blanca_nombre_publico !== undefined) {
+    fields.push(`marca_blanca_nombre_publico = $${i}`);
+    const v = patch.marca_blanca_nombre_publico;
+    values.push(v === null || v === '' ? null : String(v).trim().slice(0, 255));
+    i += 1;
+  }
+  if (patch.logo_url !== undefined) {
+    fields.push(`logo_url = $${i}`);
+    values.push(patch.logo_url || null);
+    i += 1;
+  }
+  if (!fields.length) return obtenerEmpresaPorId(empresaId);
+  fields.push('updated_at = now()');
+  await query(`UPDATE empresas SET ${fields.join(', ')} WHERE id = $1`, values);
+  return obtenerEmpresaPorId(empresaId);
+}
+
 async function getAiModels(empresaId) {
   const result = await query(
     `SELECT ai_model_router, ai_model_support, ai_model_pedidos, ai_model_agenda, ai_model_transcribe, ai_model_tts
@@ -279,6 +313,7 @@ module.exports = {
   updateIntegracionesConfig,
   getEmpresaByShopifyShopDomain,
   actualizarBranding,
+  actualizarMarcaBlancaPorAdmin,
   getAiModels,
   updateAiModels,
 };

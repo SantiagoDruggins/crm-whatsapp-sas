@@ -7,9 +7,12 @@ const {
   listWompiTransactionsAdmin,
   actualizarEstadoEmpresaAdmin,
   actualizarPlanEmpresaAdmin,
+  actualizarMarcaBlancaEmpresaAdmin,
+  subirLogoEmpresaAdmin,
   getAiModelsEmpresaAdmin,
   updateAiModelsEmpresaAdmin,
 } = require('../controllers/adminController');
+const { uploadEmpresaLogo } = require('../config/multer');
 const { listarFeedbackAdmin } = require('../controllers/feedbackController');
 
 const router = express.Router();
@@ -24,6 +27,8 @@ router.get('/wompi-transactions', asyncHandler(listWompiTransactionsAdmin));
 router.get('/feedback', asyncHandler(listarFeedbackAdmin));
 router.patch('/empresas/:id/estado', asyncHandler(actualizarEstadoEmpresaAdmin));
 router.patch('/empresas/:id/plan', asyncHandler(actualizarPlanEmpresaAdmin));
+router.patch('/empresas/:id/marca-blanca', asyncHandler(actualizarMarcaBlancaEmpresaAdmin));
+router.post('/empresas/:id/logo', uploadEmpresaLogo.single('logo'), asyncHandler(subirLogoEmpresaAdmin));
 router.get('/empresas/:id/ia-models', asyncHandler(getAiModelsEmpresaAdmin));
 router.patch('/empresas/:id/ia-models', asyncHandler(updateAiModelsEmpresaAdmin));
 
