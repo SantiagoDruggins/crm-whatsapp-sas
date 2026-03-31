@@ -224,7 +224,7 @@ export default function Landing() {
 
       <main id="contenido-principal">
         <section className={styles.section + ' pt-12 md:pt-20'} aria-labelledby="hero-heading">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-10 lg:gap-10 xl:gap-14 max-w-6xl mx-auto w-full">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-10 lg:gap-10 xl:gap-14 max-w-6xl mx-auto w-full">
             <div className="flex-1 min-w-0 max-w-2xl mx-auto lg:mx-0 text-center lg:text-left flex flex-col items-center lg:items-start">
               <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-4">
                 CRM con chatbot IA para WhatsApp
