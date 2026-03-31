@@ -243,12 +243,47 @@ export default function Landing() {
                   Cómo funciona
                 </a>
               </div>
+              <div className="mt-7 grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-3xl">
+                {[
+                  { t: 'Respuesta inmediata', d: 'Atiende incluso fuera de horario.' },
+                  { t: 'Sin tarjeta en demo', d: 'Empiezas hoy con 3 días gratis.' },
+                  { t: 'Todo en un solo panel', d: 'Chats, contactos y pedidos ordenados.' },
+                ].map((item) => (
+                  <div key={item.t} className="rounded-xl border border-[#2d3a47] bg-[#1a2129]/70 px-4 py-3 text-left">
+                    <p className="text-white text-sm font-semibold leading-snug">{item.t}</p>
+                    <p className="text-[#8b9cad] text-xs mt-1 leading-relaxed">{item.d}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <Reveal className="flex-shrink-0 w-full max-w-[320px] mx-auto lg:mx-0 lg:max-w-[300px] flex flex-col items-center">
-              <WhatsAppPhoneMockup className="transition-transform duration-500 hover:scale-[1.02]" />
+            <Reveal className="relative flex-shrink-0 w-full max-w-[340px] mx-auto lg:mx-0 lg:max-w-[320px] flex flex-col items-center">
+              <div className="absolute -top-3 -left-4 sm:-left-6 z-10 motion-safe:animate-pulse rounded-xl border border-[#2d3a47] bg-[#151d26]/95 px-3 py-2 shadow-lg shadow-black/30 backdrop-blur">
+                <p className="text-[10px] uppercase tracking-wide text-[#8b9cad]">Lead detectado</p>
+                <p className="text-xs text-white font-semibold">Cliente listo para comprar</p>
+              </div>
+              <div className="absolute top-24 -right-4 sm:-right-8 z-10 motion-safe:animate-pulse rounded-xl border border-[#00c896]/30 bg-[#0f1f1b]/95 px-3 py-2 shadow-lg shadow-black/30 backdrop-blur">
+                <p className="text-[10px] uppercase tracking-wide text-[#89f4d7]">Auto respuesta IA</p>
+                <p className="text-xs text-white">"Te comparto el catalogo ahora"</p>
+              </div>
+
+              <WhatsAppPhoneMockup className="relative z-[2] transition-transform duration-500 hover:scale-[1.02]" />
               <p className="mt-4 text-center text-xs text-[#6b7a8a] max-w-[260px] leading-relaxed">
                 Ejemplo ilustrativo: el bot responde con IA en tu WhatsApp Business.
               </p>
+              <div className="mt-4 w-full max-w-[280px] rounded-xl border border-[#2d3a47] bg-[#111922] px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#1f7cff] via-[#6d5cff] to-[#00c896] text-white text-[10px] font-bold">
+                    M
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-white font-semibold leading-tight truncate">Meta Cloud API</p>
+                    <p className="text-[10px] text-[#8b9cad] leading-tight">Integracion activa</p>
+                  </div>
+                </div>
+                <span className="rounded-full bg-[#00c896]/20 text-[#8ff3d8] text-[10px] px-2 py-1 border border-[#00c896]/30">
+                  Partner Ready
+                </span>
+              </div>
               <div className="mt-6 w-full max-w-[280px] rounded-2xl border border-[#2d3a47] bg-gradient-to-b from-[#0f1419] to-[#151c24] px-5 py-4 flex flex-col items-center gap-2 shadow-lg shadow-black/20 ring-1 ring-white/5">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5c6b7a]">
                   Plataforma
