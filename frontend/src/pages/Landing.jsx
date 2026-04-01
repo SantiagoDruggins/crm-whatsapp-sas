@@ -317,17 +317,26 @@ export default function Landing() {
                   </p>
                   <ul className="grid md:grid-cols-3 lg:grid-cols-1 gap-4 text-[#8b9cad]">
                     {[
-                      { t: 'Horarios limitados', d: 'No puedes estar 24/7 detrás del celular.' },
-                      { t: 'Conversaciones desordenadas', d: 'Se mezclan clientes, pedidos y dudas en un solo chat.' },
-                      { t: 'Sin historial claro', d: 'No sabes qué se le ofreció a cada cliente ni el contexto.' },
+                      { t: 'Horarios limitados', d: 'No puedes estar 24/7 detrás del celular.', icon: '⏰', kpi: 'Fuera de horario' },
+                      { t: 'Conversaciones desordenadas', d: 'Se mezclan clientes, pedidos y dudas en un solo chat.', icon: '💬', kpi: 'Saturación de chats' },
+                      { t: 'Sin historial claro', d: 'No sabes qué se le ofreció a cada cliente ni el contexto.', icon: '📉', kpi: 'Pérdida de contexto' },
                     ].map((item, i) => (
                       <li
                         key={item.t}
-                        className="bg-[#232d38] rounded-xl p-5 border border-[#2d3a47] transition-all duration-300 hover:border-[#00c896]/40 hover:-translate-y-0.5"
+                        className="relative overflow-hidden bg-gradient-to-br from-[#232d38] to-[#1c2630] rounded-xl p-5 border border-[#2d3a47] transition-all duration-500 ease-out hover:border-[#00c896]/40 hover:-translate-y-0.5 hover:shadow-[0_0_0_1px_rgba(0,200,150,0.2)] motion-safe:animate-[fadeUp_700ms_ease-out_both]"
                         style={{ transitionDelay: `${i * 50}ms` }}
                       >
-                        <span className="text-white font-semibold block mb-1">{item.t}</span>
-                        {item.d}
+                        <span className="absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-[#00c896] to-transparent opacity-70" aria-hidden />
+                        <div className="flex items-start gap-3 pl-1">
+                          <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[#00c896]/15 text-sm">
+                            {item.icon}
+                          </span>
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-[#7be6c8] mb-1">{item.kpi}</p>
+                            <span className="text-white font-semibold block mb-1 leading-snug">{item.t}</span>
+                            <p className="text-[#9aabbb] text-sm leading-relaxed">{item.d}</p>
+                          </div>
+                        </div>
                       </li>
                     ))}
                   </ul>

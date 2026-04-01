@@ -6,6 +6,28 @@ function getWompiBaseUrl() {
   return config.wompi?.env === 'sandbox' ? 'https://sandbox.wompi.co' : 'https://production.wompi.co';
 }
 
+let fxUsdCopCache = { rate: null, expiresAt: 0 };
+
+async function getUsdCopRate() {
+  const now = Date.now();
+  if (fxUsdCopCache.rate && fxUsdCopCache.expiresAt > now) return fxUsdCopCache.rate;
+  try {
+    const { data } = await axios.get('https://api.exchangerate.host/latest?base=USD&symbols=COP', {
+      timeout: 12000,
+    });
+    const rate = Number(data?.rates?.COP);
+    if (Number.isFinite(rate) && rate > 0) {
+      const ttlMs = Math.max(60, Number(config.fx?.cacheSeconds || 3600)) * 1000;
+      fxUsdCopCache = { rate, expiresAt: now + ttlMs };
+      return rate;
+    }
+  } catch (_) {
+    // fallback abajo
+  }
+  const fallback = Number(config.fx?.usdCopFallback || 4000);
+  return Number.isFinite(fallback) && fallback > 0 ? fallback : 4000;
+}
+
 function requireWompiKeys() {
   const pk = config.wompi?.publicKey;
   const sk = config.wompi?.privateKey;
@@ -97,5 +119,6 @@ module.exports = {
   getTransaction,
   verifyWebhookSignature,
   getWompiBaseUrl,
+  getUsdCopRate,
 };
 

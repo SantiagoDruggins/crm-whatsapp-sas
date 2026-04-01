@@ -22,6 +22,7 @@ function getWidgetCheckoutClass() {
 
 export default function Pagos() {
   const [planes, setPlanes] = useState([]);
+  const [fxQuotesUsd, setFxQuotesUsd] = useState({});
   const [pagosManual, setPagosManual] = useState([]);
   const [wompiTx, setWompiTx] = useState([]);
   const [wompiCfg, setWompiCfg] = useState(null);
@@ -49,6 +50,30 @@ export default function Pagos() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const candidatos = (planes || []).filter((p) => p.codigo && p.codigo !== 'demo');
+    if (!candidatos.length) return;
+    Promise.all(
+      candidatos.map((p) =>
+        api
+          .get(`/wompi/fx-quote?plan_codigo=${encodeURIComponent(p.codigo)}&currency=USD`)
+          .then((r) => [p.codigo, r.quote || null])
+          .catch(() => [p.codigo, null])
+      )
+    ).then((pairs) => {
+      if (cancelled) return;
+      const map = {};
+      pairs.forEach(([codigo, q]) => {
+        if (q) map[codigo] = q;
+      });
+      setFxQuotesUsd(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [planes]);
 
   const historialUnificado = useMemo(() => {
     const manual = (pagosManual || []).map((p) => ({
@@ -272,6 +297,12 @@ export default function Pagos() {
                       </span>
                     </p>
                     {dia ? <p className="text-[11px] text-[#6b7a8a]">~ ${dia} COP / día</p> : null}
+                    {fxQuotesUsd[p.codigo]?.approx_amount_usd ? (
+                      <p className="text-[11px] text-[#8bb7ff] mt-1">
+                        Aprox. ${Number(fxQuotesUsd[p.codigo].approx_amount_usd).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        {' '}USD (ref. {Number(fxQuotesUsd[p.codigo].fx_rate_usd_cop).toLocaleString('es-CO', { maximumFractionDigits: 2 })} COP/USD)
+                      </p>
+                    ) : null}
                     {p.es_pago_unico ? (
                       <p className="text-[11px] text-[#6b7a8a] mt-1">Sin cobro recurrente automático tras la compra.</p>
                     ) : null}
@@ -285,6 +316,9 @@ export default function Pagos() {
                     </button>
                     {!wompiListo ? (
                       <p className="text-[10px] text-[#6b7a8a] mt-2 text-center">Configuración Wompi incompleta</p>
+                    ) : null}
+                    {fxQuotesUsd[p.codigo]?.disclaimer ? (
+                      <p className="text-[10px] text-[#6b7a8a] mt-2 leading-relaxed">{fxQuotesUsd[p.codigo].disclaimer}</p>
                     ) : null}
                   </div>
                 );

@@ -4,6 +4,7 @@ const empresaEstadoMiddleware = require('../middleware/empresaEstadoMiddleware')
 const { requireCrmPermission } = require('../middleware/crmPermissionMiddleware');
 const {
   getPublicConfig,
+  getFxQuote,
   getWidgetCheckoutParams,
   startSubscription,
   subscriptionStatus,
@@ -17,6 +18,7 @@ const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, ne
 
 // Sin empresaEstadoMiddleware en config / pagos Wompi: una empresa en "pago_en_revision" debe poder abrir checkout y ver historial.
 router.get('/config', authMiddleware, requireCrmPermission('pagos'), asyncHandler(getPublicConfig));
+router.get('/fx-quote', authMiddleware, requireCrmPermission('pagos'), asyncHandler(getFxQuote));
 router.get('/subscription/status', authMiddleware, requireCrmPermission('pagos'), asyncHandler(subscriptionStatus));
 router.get('/transactions', authMiddleware, requireCrmPermission('pagos'), asyncHandler(listMyTransactions));
 router.post('/subscription/widget-checkout', authMiddleware, requireCrmPermission('pagos'), asyncHandler(getWidgetCheckoutParams));

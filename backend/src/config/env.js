@@ -91,6 +91,10 @@ const config = {
     /** Secreto de integridad (Dashboard → Desarrolladores) para Widget / Web Checkout. No es la llave privada. */
     integritySecret: (process.env.WOMPI_INTEGRITY_SECRET || '').trim(),
   },
+  fx: {
+    usdCopFallback: Number(process.env.FX_USD_COP_FALLBACK || 4000),
+    cacheSeconds: Number(process.env.FX_CACHE_SECONDS || 3600),
+  },
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: Number(process.env.SMTP_PORT) || 587,

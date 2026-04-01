@@ -10,6 +10,7 @@ const {
   createTransaction,
   getTransaction,
   verifyWebhookSignature,
+  getUsdCopRate,
 } = require('../services/wompiService');
 
 function toCentsCop(precioMensual) {
@@ -60,6 +61,39 @@ async function getPublicConfig(req, res) {
     const tokens = await getAcceptanceTokens();
     const widgetCheckoutEnabled = !!(config.wompi?.integritySecret && pk);
     return res.status(200).json({ ok: true, env, publicKey: pk, widgetCheckoutEnabled, ...tokens });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
+/**
+ * GET /api/wompi/fx-quote?plan_codigo=...&currency=USD
+ * Devuelve referencia internacional para explicar cobro COP en Wompi.
+ */
+async function getFxQuote(req, res) {
+  try {
+    const planCodigo = String(req.query?.plan_codigo || '').trim();
+    const currency = String(req.query?.currency || 'USD').trim().toUpperCase();
+    if (!planCodigo) return res.status(400).json({ message: 'plan_codigo es requerido' });
+    if (currency !== 'USD') return res.status(400).json({ message: 'currency soportada por ahora: USD' });
+    const plan = await planModel.getByCodigo(planCodigo);
+    if (!plan) return res.status(404).json({ message: 'Plan no encontrado' });
+    const amountCop = Number(plan.precio_mensual || 0);
+    const rate = await getUsdCopRate();
+    const approxUsd = rate > 0 ? amountCop / rate : 0;
+    return res.status(200).json({
+      ok: true,
+      quote: {
+        plan_codigo: planCodigo,
+        base_currency: 'COP',
+        display_currency: 'USD',
+        amount_cop: Math.round(amountCop),
+        fx_rate_usd_cop: rate,
+        approx_amount_usd: Number(approxUsd.toFixed(2)),
+        disclaimer:
+          'Cobro procesado en COP por Wompi. El banco del cliente puede aplicar una tasa/costo diferente al momento del cargo.',
+      },
+    });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Error' });
   }
@@ -397,6 +431,7 @@ async function wompiWebhook(req, res) {
 
 module.exports = {
   getPublicConfig,
+  getFxQuote,
   getWidgetCheckoutParams,
   startSubscription,
   subscriptionStatus,
