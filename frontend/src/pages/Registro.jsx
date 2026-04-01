@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import FloatingWhatsappHelp from '../components/FloatingWhatsappHelp';
 
 export default function Registro() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
@@ -13,6 +14,11 @@ export default function Registro() {
     password: '',
     password_confirm: '',
   });
+  const referralCode = String(searchParams.get('ref') || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]/g, '')
+    .slice(0, 40);
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -40,6 +46,7 @@ export default function Registro() {
         nombre_empresa: form.nombre_empresa.trim(),
         email_empresa: form.email_empresa.trim().toLowerCase(),
         password: form.password,
+        codigo_referido: referralCode || undefined,
       });
       localStorage.setItem('token', data.token);
       localStorage.setItem('usuario', JSON.stringify(data.usuario));
@@ -102,6 +109,17 @@ export default function Registro() {
                 autoComplete="new-password"
               />
             </div>
+            {!!referralCode && (
+              <div>
+                <label className="block text-sm font-medium text-[#8b9cad] mb-1">Código de referido</label>
+                <input
+                  type="text"
+                  value={referralCode}
+                  readOnly
+                  className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-3 text-[#7be6c8] font-semibold tracking-wide"
+                />
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-[#8b9cad] mb-1">Confirmar contraseña</label>
               <input

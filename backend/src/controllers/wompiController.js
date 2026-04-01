@@ -12,6 +12,7 @@ const {
   verifyWebhookSignature,
   getUsdCopRate,
 } = require('../services/wompiService');
+const { applyRewardForPaidReferral } = require('../models/affiliateModel');
 
 function toCentsCop(precioMensual) {
   const n = Number(precioMensual || 0);
@@ -416,6 +417,18 @@ async function wompiWebhook(req, res) {
         await query(`UPDATE empresas SET marca_blanca = true, marca_blanca_pagado_at = now(), updated_at = now() WHERE id = $1`, [
           empresaId,
         ]);
+      }
+      try {
+        const reward = await applyRewardForPaidReferral(empresaId);
+        if (reward?.rewarded) {
+          console.log('[Wompi webhook] Recompensa de afiliado aplicada', {
+            empresaReferidaId: empresaId,
+            empresaCreadoraId: reward.empresaCreadoraId,
+            rewardDays: reward.rewardDays,
+          });
+        }
+      } catch (e) {
+        console.warn('[Wompi webhook] Error aplicando recompensa de afiliado:', e.message || e);
       }
       console.log('[Wompi webhook] Pago aprobado. Empresa renovada', { empresaId, plan: finalPlan, duracionDias });
     }

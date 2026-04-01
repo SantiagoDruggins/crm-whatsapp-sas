@@ -16,6 +16,7 @@ const { crearRolAdminInicial } = require('../models/crmRoleModel');
 const { usuarioClienteDesdeFila } = require('../lib/crmPermissions');
 const { query } = require('../config/db');
 const { sendMail } = require('../services/emailService');
+const { createReferralFromCode, normalizeCode } = require('../models/affiliateModel');
 
 const SALT_ROUNDS = 10;
 const RESET_TOKEN_EXPIRY_HOURS = 1;
@@ -64,12 +65,20 @@ async function cambiarPassword(req, res) {
 
 async function registrarEmpresa(req, res) {
   try {
-    const { nombre_empresa, email_empresa, password } = req.body;
+    const { nombre_empresa, email_empresa, password, codigo_referido } = req.body;
     if (!nombre_empresa || !email_empresa || !password) return res.status(400).json({ message: 'nombre_empresa, email_empresa y password son requeridos' });
     const existente = await obtenerEmpresaPorEmail(email_empresa);
     if (existente) return res.status(409).json({ message: 'Ya existe una empresa con ese email' });
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     const empresa = await crearEmpresaConDemo({ nombre: nombre_empresa, email: email_empresa, passwordHash });
+    const codigoReferidoNormalizado = normalizeCode(codigo_referido);
+    if (codigoReferidoNormalizado) {
+      try {
+        await createReferralFromCode({ codeRaw: codigoReferidoNormalizado, empresaReferidaId: empresa.id });
+      } catch (e) {
+        console.warn('[Afiliados] No se pudo guardar referido en registro:', e.message || e);
+      }
+    }
     const adminRole = await crearRolAdminInicial(empresa.id);
     const adminUsuario = await crearUsuarioEmpresa({
       empresaId: empresa.id,

@@ -86,6 +86,7 @@ const nav = [
   { path: '/dashboard/equipo', label: 'Equipo y roles', esAdminOnly: true },
   { path: '/dashboard/branding', label: 'Marca / logo', perm: 'branding' },
   { path: '/dashboard/sugerencias', label: 'Sugerencias', perm: 'sugerencias' },
+  { path: '/dashboard/referidos', label: 'Referidos' },
   { path: '/dashboard/ayuda', label: 'Ayuda' },
   { path: '/dashboard/mi-cuenta', label: 'Mi cuenta' },
 ];

@@ -27,6 +27,7 @@ import Ayuda from './pages/cliente/Ayuda';
 import Branding from './pages/cliente/Branding';
 import Sugerencias from './pages/cliente/Sugerencias';
 import MiCuenta from './pages/cliente/MiCuenta';
+import Referidos from './pages/cliente/Referidos';
 import AdminMetricas from './pages/admin/AdminMetricas';
 import AdminEmpresas from './pages/admin/AdminEmpresas';
 import AdminEmpresaDetalle from './pages/admin/AdminEmpresaDetalle';
@@ -62,6 +63,7 @@ function App() {
         <Route path="branding" element={<Branding />} />
         <Route path="sugerencias" element={<Sugerencias />} />
         <Route path="mi-cuenta" element={<MiCuenta />} />
+        <Route path="referidos" element={<Referidos />} />
       </Route>
       <Route path="/admin" element={<LayoutSuperAdmin />}>
         <Route index element={<AdminMetricas />} />

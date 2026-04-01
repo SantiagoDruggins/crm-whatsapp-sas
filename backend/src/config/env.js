@@ -95,6 +95,9 @@ const config = {
     usdCopFallback: Number(process.env.FX_USD_COP_FALLBACK || 4000),
     cacheSeconds: Number(process.env.FX_CACHE_SECONDS || 3600),
   },
+  affiliates: {
+    rewardDaysReferrer: Number(process.env.AFFILIATE_REWARD_DAYS_REFERRER || 15),
+  },
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: Number(process.env.SMTP_PORT) || 587,

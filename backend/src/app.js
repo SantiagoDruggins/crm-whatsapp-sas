@@ -20,6 +20,7 @@ const integracionesRoutes = require('./routes/integracionesRoutes');
 const pedidosRoutes = require('./routes/pedidosRoutes');
 const integracionesWebhookRoutes = require('./routes/integracionesWebhookRoutes');
 const wompiRoutes = require('./routes/wompiRoutes');
+const referralsRoutes = require('./routes/referralsRoutes');
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use('/api/integraciones', integracionesRoutes);
 app.use('/api/pedidos', pedidosRoutes);
 app.use('/api/integraciones-webhook', integracionesWebhookRoutes);
 app.use('/api/wompi', wompiRoutes);
+app.use('/api/referrals', referralsRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok', env: config.env }));
 
