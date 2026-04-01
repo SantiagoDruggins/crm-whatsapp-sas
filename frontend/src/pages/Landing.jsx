@@ -308,14 +308,14 @@ export default function Landing() {
         <section id="problema" className={styles.sectionAlt}>
           <Reveal>
             <div className="max-w-6xl mx-auto">
-              <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-center">
+              <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
                 <div>
                   <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Paso 1</p>
                   <h2 className={styles.h2}>¿Pierdes ventas porque no respondes a tiempo en WhatsApp?</h2>
                   <p className={styles.p + ' mb-10'}>
                     Los clientes esperan respuestas rápidas. Si no estás disponible, se van a la competencia.
                   </p>
-                  <ul className="grid md:grid-cols-3 lg:grid-cols-1 gap-4 text-[#8b9cad]">
+                  <ul className="grid sm:grid-cols-2 lg:grid-cols-1 gap-4 text-[#8b9cad]">
                     {[
                       { t: 'Horarios limitados', d: 'No puedes estar 24/7 detrás del celular.', icon: '⏰', kpi: 'Fuera de horario' },
                       { t: 'Conversaciones desordenadas', d: 'Se mezclan clientes, pedidos y dudas en un solo chat.', icon: '💬', kpi: 'Saturación de chats' },
@@ -385,8 +385,8 @@ export default function Landing() {
               <p className={styles.p + ' mb-10'}>
                 Conectas tu número, configuras el asistente en minutos y todas las conversaciones se organizan solas. Tú decides cuándo intervenir.
               </p>
-              <div className="grid md:grid-cols-2 gap-8 items-center">
-                <ul className="space-y-4 text-[#8b9cad]">
+              <div className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] gap-8 lg:gap-12 items-start lg:items-center">
+                <ul className="space-y-4 text-[#8b9cad] max-w-2xl">
                   <li className="flex gap-3">
                     <span className="text-[#00c896] font-bold">1.</span>
                     <span>
@@ -412,8 +412,8 @@ export default function Landing() {
                     </span>
                   </li>
                 </ul>
-                <div className="flex flex-col items-center">
-                  <div className="relative w-full max-w-[330px]">
+                <div className="w-full max-w-[400px] mx-auto lg:mx-0 lg:justify-self-end flex flex-col items-center">
+                  <div className="relative w-full max-w-[300px]">
                     <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-b from-[#00c896]/20 to-transparent blur-xl" aria-hidden />
                     <div className="relative rounded-[2rem] border border-[#2d3a47] bg-[#151e27]/70 p-3">
                       <WhatsAppPhoneMockup
@@ -423,7 +423,7 @@ export default function Landing() {
                     </div>
                   </div>
 
-                  <div className="mt-5 w-full max-w-[370px] bg-[#232d38] rounded-2xl border border-[#2d3a47] p-6 text-center transition-shadow hover:shadow-lg hover:shadow-[#00c896]/5">
+                  <div className="mt-4 w-full max-w-[370px] bg-[#232d38] rounded-2xl border border-[#2d3a47] p-6 text-center transition-shadow hover:shadow-lg hover:shadow-[#00c896]/5">
                     <p className="text-white font-semibold mb-2">Demo 3 días gratis</p>
                     <p className="text-[#8b9cad] text-sm mb-4">Sin tarjeta. Acceso completo al CRM y al bot.</p>
                     <Link to="/registro" onClick={trackDemo} className={styles.cta}>
