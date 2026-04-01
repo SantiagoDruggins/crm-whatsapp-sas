@@ -14,6 +14,7 @@ const { query } = require('../config/db');
 const { listAllForAdmin, listByEmpresaId: listWompiTxByEmpresa } = require('../models/wompiTransactionModel');
 const subModel = require('../models/wompiSubscriptionModel');
 const pagoModel = require('../models/pagoModel');
+const { getCodeByEmpresaId, upsertCodeByEmpresa } = require('../models/affiliateModel');
 
 async function listarEmpresasAdmin(req, res) {
   try {
@@ -248,6 +249,44 @@ async function updateAiModelsEmpresaAdmin(req, res) {
   }
 }
 
+async function getAffiliateCodeEmpresaAdmin(req, res) {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'Falta id de empresa' });
+    const empresa = await obtenerEmpresaPorId(id);
+    if (!empresa) return res.status(404).json({ message: 'Empresa no encontrada' });
+    const affiliate = await getCodeByEmpresaId(id);
+    return res.status(200).json({
+      ok: true,
+      affiliate: affiliate
+        ? { code: affiliate.code, activo: !!affiliate.activo, updated_at: affiliate.updated_at }
+        : null,
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
+async function setAffiliateCodeEmpresaAdmin(req, res) {
+  try {
+    const { id } = req.params;
+    const { code, activo } = req.body || {};
+    if (!id) return res.status(400).json({ message: 'Falta id de empresa' });
+    const empresa = await obtenerEmpresaPorId(id);
+    if (!empresa) return res.status(404).json({ message: 'Empresa no encontrada' });
+    const out = await upsertCodeByEmpresa({ empresaId: id, codeRaw: code, activo: activo !== false });
+    if (!out.ok && out.reason === 'invalid_code') {
+      return res.status(400).json({ message: 'Código inválido. Usa 4-40 caracteres (A-Z, 0-9, _ o -).' });
+    }
+    if (!out.ok && out.reason === 'code_in_use') {
+      return res.status(409).json({ message: 'Ese código ya está asignado a otra empresa.' });
+    }
+    return res.status(200).json({ ok: true, affiliate: out.row });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Error' });
+  }
+}
+
 module.exports = {
   listarEmpresasAdmin,
   obtenerEmpresaDetalleAdmin,
@@ -260,4 +299,6 @@ module.exports = {
   subirLogoEmpresaAdmin,
   getAiModelsEmpresaAdmin,
   updateAiModelsEmpresaAdmin,
+  getAffiliateCodeEmpresaAdmin,
+  setAffiliateCodeEmpresaAdmin,
 };

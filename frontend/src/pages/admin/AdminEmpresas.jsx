@@ -42,6 +42,9 @@ export default function AdminEmpresas() {
   });
   const [logoFile, setLogoFile] = useState(null);
   const [guardandoMb, setGuardandoMb] = useState(false);
+  const [modalAffiliate, setModalAffiliate] = useState(null);
+  const [affiliateForm, setAffiliateForm] = useState({ code: '', activo: true });
+  const [guardandoAffiliate, setGuardandoAffiliate] = useState(false);
 
   const load = () => {
     const q = filtroEstado ? `?estado=${filtroEstado}` : '';
@@ -102,6 +105,37 @@ export default function AdminEmpresas() {
       setError(err.message || 'Error al guardar marca blanca');
     } finally {
       setGuardandoMb(false);
+    }
+  };
+
+  const abrirModalAffiliate = async (empresa) => {
+    setModalAffiliate(empresa);
+    setGuardandoAffiliate(false);
+    setAffiliateForm({ code: '', activo: true });
+    try {
+      const r = await api.get(`/admin/empresas/${empresa.id}/affiliate-code`);
+      setAffiliateForm({
+        code: r?.affiliate?.code || '',
+        activo: r?.affiliate?.activo !== false,
+      });
+    } catch (_) {}
+  };
+
+  const guardarAffiliateCode = async (ev) => {
+    ev.preventDefault();
+    if (!modalAffiliate?.id) return;
+    setGuardandoAffiliate(true);
+    setError('');
+    try {
+      await api.patch(`/admin/empresas/${modalAffiliate.id}/affiliate-code`, {
+        code: affiliateForm.code,
+        activo: affiliateForm.activo,
+      });
+      setModalAffiliate(null);
+    } catch (err) {
+      setError(err.message || 'Error al guardar código de creador');
+    } finally {
+      setGuardandoAffiliate(false);
     }
   };
 
@@ -196,6 +230,13 @@ export default function AdminEmpresas() {
                       >
                         Marca blanca
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => abrirModalAffiliate(e)}
+                        className="rounded bg-[#0f172a] border border-[#334155] text-[#93c5fd] px-2 py-1 text-xs font-medium hover:bg-[#1e293b]"
+                      >
+                        Código creador
+                      </button>
                       <Link
                         to={`/admin/empresas/${e.id}`}
                         className="rounded bg-[#1a2129] border border-[#2d3a47] text-[#00c896] px-2 py-1 text-xs font-medium hover:bg-[#232d38]"
@@ -289,6 +330,69 @@ export default function AdminEmpresas() {
                   type="button"
                   onClick={() => setModalMb(null)}
                   disabled={guardandoMb}
+                  className="rounded-xl border border-[#2d3a47] text-[#8b9cad] px-4 py-2 hover:text-white"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {modalAffiliate !== null && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          onClick={() => !guardandoAffiliate && setModalAffiliate(null)}
+        >
+          <div
+            className="bg-[#1a2129] border border-[#2d3a47] rounded-2xl p-6 w-full max-w-md"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold text-white mb-1">Código de creador</h2>
+            <p className="text-sm text-[#8b9cad] mb-4">
+              {modalAffiliate.nombre} — {modalAffiliate.email}
+            </p>
+            <form onSubmit={guardarAffiliateCode} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#8b9cad] mb-1">Código</label>
+                <input
+                  type="text"
+                  value={affiliateForm.code}
+                  onChange={(ev) =>
+                    setAffiliateForm((f) => ({
+                      ...f,
+                      code: ev.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 40),
+                    }))
+                  }
+                  placeholder="EJ: CREADOR-DELTA"
+                  className="w-full rounded-xl bg-[#0f1419] border border-[#2d3a47] px-4 py-2 text-white text-sm font-mono"
+                  required
+                  minLength={4}
+                />
+                <p className="text-[11px] text-[#6b7a8a] mt-1">Solo A-Z, 0-9, guion y guion bajo.</p>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={affiliateForm.activo}
+                  onChange={(ev) => setAffiliateForm((f) => ({ ...f, activo: ev.target.checked }))}
+                  className="rounded border-[#2d3a47] bg-[#0f1419] text-[#00c896]"
+                />
+                <span className="text-sm text-white">Código activo</span>
+              </label>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={guardandoAffiliate}
+                  className="rounded-xl bg-[#00c896] text-[#0f1419] font-semibold px-4 py-2 hover:bg-[#00e0a8] disabled:opacity-50"
+                >
+                  {guardandoAffiliate ? 'Guardando...' : 'Guardar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalAffiliate(null)}
+                  disabled={guardandoAffiliate}
                   className="rounded-xl border border-[#2d3a47] text-[#8b9cad] px-4 py-2 hover:text-white"
                 >
                   Cancelar

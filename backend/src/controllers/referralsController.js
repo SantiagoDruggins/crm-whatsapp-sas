@@ -1,4 +1,4 @@
-const { getOrCreateCodeForEmpresa, listMyReferrals } = require('../models/affiliateModel');
+const { getCodeByEmpresaId, listMyReferrals } = require('../models/affiliateModel');
 
 function baseUrl(req) {
   const host = req.get('x-forwarded-host') || req.get('host') || '';
@@ -10,15 +10,15 @@ async function getMyAffiliateData(req, res) {
   try {
     const empresaId = req.user?.empresaId;
     if (!empresaId) return res.status(400).json({ message: 'Empresa no asociada' });
-    const code = await getOrCreateCodeForEmpresa(empresaId, req.empresa?.nombre || req.user?.nombre || 'CRM');
+    const code = await getCodeByEmpresaId(empresaId);
     const data = await listMyReferrals(empresaId, { limit: Number(req.query.limit) || 100 });
-    const url = `${baseUrl(req)}/registro?ref=${encodeURIComponent(code.code)}`;
+    const url = code?.code ? `${baseUrl(req)}/registro?ref=${encodeURIComponent(code.code)}` : '';
     return res.json({
       ok: true,
       affiliate: {
-        code: code.code,
-        active: !!code.activo,
-        invite_url: url,
+        code: code?.code || null,
+        active: !!code?.activo,
+        invite_url: url || null,
       },
       referrals: data.referrals || [],
     });

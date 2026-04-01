@@ -47,6 +47,7 @@ export default function Referidos() {
       setTimeout(() => setCopied(false), 1500);
     } catch (_) {}
   };
+  const hasCode = !!data.affiliate?.code;
 
   if (loading) return <div className="text-[#8b9cad]">Cargando referidos...</div>;
   if (error) return <div className="text-[#f87171]">{error}</div>;
@@ -58,6 +59,11 @@ export default function Referidos() {
         <p className="text-[#8b9cad] text-sm mt-1">
           Comparte tu enlace. Cuando una empresa referida pague su primer plan, ganas d&iacute;as extra.
         </p>
+        {!hasCode && (
+          <p className="mt-3 text-sm text-amber-300 bg-amber-500/10 border border-amber-400/20 rounded-lg px-3 py-2">
+            Tu c&oacute;digo de creador a&uacute;n no est&aacute; asignado. Solic&iacute;talo al super admin.
+          </p>
+        )}
         <div className="mt-4 grid md:grid-cols-3 gap-3">
           <div className="rounded-xl border border-[#2d3a47] bg-[#0f1419] p-3">
             <p className="text-xs text-[#8b9cad]">Tu c&oacute;digo</p>
@@ -81,7 +87,8 @@ export default function Referidos() {
           <button
             type="button"
             onClick={copyLink}
-            className="rounded-xl px-4 py-2 bg-[#00c896] text-[#0f1419] font-semibold hover:bg-[#00e0a8]"
+            disabled={!hasCode}
+            className="rounded-xl px-4 py-2 bg-[#00c896] text-[#0f1419] font-semibold hover:bg-[#00e0a8] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {copied ? 'Copiado' : 'Copiar'}
           </button>

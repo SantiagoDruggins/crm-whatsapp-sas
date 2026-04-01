@@ -48,6 +48,29 @@ async function getOrCreateCodeForEmpresa(empresaId, empresaNombre = '') {
   throw new Error('No se pudo generar código de afiliado único');
 }
 
+async function upsertCodeByEmpresa({ empresaId, codeRaw, activo = true }) {
+  const code = normalizeCode(codeRaw);
+  if (!code || code.length < 4) {
+    return { ok: false, reason: 'invalid_code' };
+  }
+  try {
+    const r = await query(
+      `INSERT INTO affiliate_codes (empresa_id, code, activo)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (empresa_id)
+       DO UPDATE SET code = EXCLUDED.code, activo = EXCLUDED.activo, updated_at = now()
+       RETURNING *`,
+      [empresaId, code, !!activo]
+    );
+    return { ok: true, row: r.rows[0] || null };
+  } catch (e) {
+    if (String(e.message || '').toLowerCase().includes('duplicate')) {
+      return { ok: false, reason: 'code_in_use' };
+    }
+    throw e;
+  }
+}
+
 async function createReferralFromCode({ codeRaw, empresaReferidaId }) {
   const code = await getByCode(codeRaw);
   if (!code) return { ok: false, reason: 'invalid_code' };
@@ -140,6 +163,7 @@ module.exports = {
   normalizeCode,
   getCodeByEmpresaId,
   getOrCreateCodeForEmpresa,
+  upsertCodeByEmpresa,
   getByCode,
   createReferralFromCode,
   listMyReferrals,
