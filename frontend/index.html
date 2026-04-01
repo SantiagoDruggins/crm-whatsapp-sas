@@ -74,7 +74,8 @@
     <script>
       (function () {
         var pid = '%VITE_META_PIXEL_ID%';
-        if (!pid || pid === '%VITE_META_PIXEL_ID%') return;
+        // En build, Vite reemplaza el token. Si quedó sin reemplazar (empieza por %), no inicializamos.
+        if (!pid || pid.charAt(0) === '%') return;
         !(function (f, b, e, v, n, t, s) {
           if (f.fbq) return;
           n = f.fbq = function () {
