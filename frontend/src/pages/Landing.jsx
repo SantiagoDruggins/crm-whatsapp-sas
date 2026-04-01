@@ -386,7 +386,24 @@ export default function Landing() {
                 Conectas tu número, configuras el asistente en minutos y todas las conversaciones se organizan solas. Tú decides cuándo intervenir.
               </p>
               <div className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] gap-8 lg:gap-12 items-start lg:items-center">
-                <ul className="space-y-4 text-[#8b9cad] max-w-2xl">
+                <div className="max-w-2xl">
+                  <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      { k: '-70%', l: 'menos tiempo de respuesta' },
+                      { k: '24/7', l: 'atención incluso fuera de horario' },
+                      { k: '+Leads', l: 'seguimiento sin perder contexto' },
+                    ].map((m) => (
+                      <div
+                        key={m.k + m.l}
+                        className="rounded-xl border border-[#2d3a47] bg-gradient-to-br from-[#1f2a36] to-[#19232d] px-4 py-3"
+                      >
+                        <p className="text-[#00c896] text-lg font-extrabold leading-tight">{m.k}</p>
+                        <p className="text-[11px] text-[#9aabbb] leading-snug mt-1">{m.l}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <ul className="space-y-4 text-[#8b9cad]">
                   <li className="flex gap-3">
                     <span className="text-[#00c896] font-bold">1.</span>
                     <span>
@@ -411,7 +428,8 @@ export default function Landing() {
                       <strong className="text-white">Aviso cuando piden agente:</strong> el sistema te avisa y puedes tomar la conversación.
                     </span>
                   </li>
-                </ul>
+                  </ul>
+                </div>
                 <div className="w-full max-w-[400px] mx-auto lg:mx-0 lg:justify-self-end flex flex-col items-center">
                   <div className="relative w-full max-w-[300px]">
                     <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-b from-[#00c896]/20 to-transparent blur-xl" aria-hidden />
