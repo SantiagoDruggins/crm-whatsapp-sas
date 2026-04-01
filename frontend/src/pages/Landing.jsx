@@ -380,13 +380,15 @@ export default function Landing() {
         <section id="solucion" className={styles.section}>
           <Reveal>
             <div className="max-w-6xl mx-auto">
-              <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2">Paso 2</p>
-              <h2 className={styles.h2}>Un CRM pensado para WhatsApp con IA que responde por ti</h2>
-              <p className={styles.p + ' mb-10'}>
+              <p className="text-[#00c896] font-semibold text-sm uppercase tracking-wider mb-2 text-center">Paso 2</p>
+              <h2 className={styles.h2 + ' text-center'}>
+                Un CRM pensado para WhatsApp con IA que responde por ti
+              </h2>
+              <p className={styles.p + ' mb-10 mx-auto text-center'}>
                 Conectas tu número, configuras el asistente en minutos y todas las conversaciones se organizan solas. Tú decides cuándo intervenir.
               </p>
-              <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)_minmax(0,1fr)] gap-6 lg:gap-10 items-center">
-                <div className="space-y-4">
+              <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)_minmax(0,1fr)] gap-6 lg:gap-10 items-start lg:items-center">
+                <div className="space-y-4 lg:justify-self-end w-full max-w-[360px]">
                   <div className="rounded-xl border border-[#2d3a47] bg-gradient-to-br from-[#1f2a36] to-[#19232d] px-4 py-3">
                     <p className="text-[#00c896] text-lg font-extrabold leading-tight">-70%</p>
                     <p className="text-[11px] text-[#9aabbb] leading-snug mt-1">menos tiempo de respuesta</p>
@@ -419,7 +421,7 @@ export default function Landing() {
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-4 lg:justify-self-start w-full max-w-[360px]">
                   <div className="rounded-xl border border-[#2d3a47] bg-gradient-to-br from-[#1f2a36] to-[#19232d] px-4 py-3">
                     <p className="text-[#00c896] text-lg font-extrabold leading-tight">24/7</p>
                     <p className="text-[11px] text-[#9aabbb] leading-snug mt-1">atención incluso fuera de horario</p>
