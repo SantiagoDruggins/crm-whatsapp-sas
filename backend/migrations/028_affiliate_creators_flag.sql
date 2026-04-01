@@ -1,0 +1,2 @@
+ALTER TABLE empresas
+  ADD COLUMN IF NOT EXISTS es_creador_affiliate BOOLEAN NOT NULL DEFAULT false;

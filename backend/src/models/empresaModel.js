@@ -33,6 +33,7 @@ async function obtenerEmpresaPublicaPorId(id) {
   const result = await query(
     `SELECT id, nombre, email, estado, plan, demo_expires_at, fecha_expiracion, logo_url,
             COALESCE(marca_blanca, false) AS marca_blanca, marca_blanca_pagado_at,
+            COALESCE(es_creador_affiliate, false) AS es_creador_affiliate,
             marca_blanca_dominio, marca_blanca_nombre_publico, admin_notas_internas,
             whatsapp_cloud_phone_number_id, whatsapp_waba_id,
             shopify_activo, shopify_store_url,

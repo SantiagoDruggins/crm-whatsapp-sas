@@ -15,6 +15,7 @@ const {
   updateAiModelsEmpresaAdmin,
   getAffiliateCodeEmpresaAdmin,
   setAffiliateCodeEmpresaAdmin,
+  setCreatorAffiliateEmpresaAdmin,
 } = require('../controllers/adminController');
 const { uploadEmpresaLogo } = require('../config/multer');
 const { listarFeedbackAdmin } = require('../controllers/feedbackController');
@@ -39,5 +40,6 @@ router.get('/empresas/:id/ia-models', asyncHandler(getAiModelsEmpresaAdmin));
 router.patch('/empresas/:id/ia-models', asyncHandler(updateAiModelsEmpresaAdmin));
 router.get('/empresas/:id/affiliate-code', asyncHandler(getAffiliateCodeEmpresaAdmin));
 router.patch('/empresas/:id/affiliate-code', asyncHandler(setAffiliateCodeEmpresaAdmin));
+router.patch('/empresas/:id/affiliate-creator', asyncHandler(setCreatorAffiliateEmpresaAdmin));
 
 module.exports = router;

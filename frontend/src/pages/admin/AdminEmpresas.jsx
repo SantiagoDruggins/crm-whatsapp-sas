@@ -31,6 +31,7 @@ export default function AdminEmpresas() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
+  const [soloCreadores, setSoloCreadores] = useState(false);
   const [modalPlan, setModalPlan] = useState(null);
   const [planForm, setPlanForm] = useState({ plan: '', tipo_duracion: 'meses', cantidad: 1, desde_hoy: true });
   const [guardandoPlan, setGuardandoPlan] = useState(false);
@@ -48,13 +49,16 @@ export default function AdminEmpresas() {
 
   const load = () => {
     const q = filtroEstado ? `?estado=${filtroEstado}` : '';
-    api.get(`/admin/empresas${q}`).then((r) => setEmpresas(r.empresas || [])).catch((e) => setError(e.message)).finally(() => setLoading(false));
+    api.get(`/admin/empresas${q}`).then((r) => {
+      const list = r.empresas || [];
+      setEmpresas(soloCreadores ? list.filter((x) => x.es_creador_affiliate) : list);
+    }).catch((e) => setError(e.message)).finally(() => setLoading(false));
   };
 
   useEffect(() => {
     setLoading(true);
     load();
-  }, [filtroEstado]);
+  }, [filtroEstado, soloCreadores]);
 
   const cambiarEstado = (id, estado) => {
     api.patch(`/admin/empresas/${id}/estado`, { estado }).then(() => load()).catch((e) => setError(e.message));
@@ -121,17 +125,28 @@ export default function AdminEmpresas() {
     } catch (_) {}
   };
 
+  const toggleCreatorStatus = async (empresaId, enabled) => {
+    await api.patch(`/admin/empresas/${empresaId}/affiliate-creator`, {
+      es_creador_affiliate: !!enabled,
+    });
+  };
+
   const guardarAffiliateCode = async (ev) => {
     ev.preventDefault();
     if (!modalAffiliate?.id) return;
     setGuardandoAffiliate(true);
     setError('');
     try {
+      if (!modalAffiliate.es_creador_affiliate) {
+        await toggleCreatorStatus(modalAffiliate.id, true);
+        setModalAffiliate((m) => (m ? { ...m, es_creador_affiliate: true } : m));
+      }
       await api.patch(`/admin/empresas/${modalAffiliate.id}/affiliate-code`, {
         code: affiliateForm.code,
         activo: affiliateForm.activo,
       });
       setModalAffiliate(null);
+      load();
     } catch (err) {
       setError(err.message || 'Error al guardar código de creador');
     } finally {
@@ -164,12 +179,23 @@ export default function AdminEmpresas() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">Empresas</h1>
-        <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="rounded-xl bg-[#1a2129] border border-[#2d3a47] px-4 py-2 text-white text-sm">
-          <option value="">Todos los estados</option>
-          {ESTADOS.map((e) => (
-            <option key={e} value={e}>{e}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-3">
+          <label className="inline-flex items-center gap-2 text-sm text-[#8b9cad]">
+            <input
+              type="checkbox"
+              checked={soloCreadores}
+              onChange={(e) => setSoloCreadores(e.target.checked)}
+              className="rounded border-[#2d3a47] bg-[#0f1419] text-[#00c896]"
+            />
+            Solo creadores
+          </label>
+          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="rounded-xl bg-[#1a2129] border border-[#2d3a47] px-4 py-2 text-white text-sm">
+            <option value="">Todos los estados</option>
+            {ESTADOS.map((e) => (
+              <option key={e} value={e}>{e}</option>
+            ))}
+          </select>
+        </div>
       </div>
       {error && <p className="text-sm text-[#f87171] mb-4">{error}</p>}
       <div className="bg-[#1a2129] border border-[#2d3a47] rounded-xl overflow-hidden">
@@ -179,6 +205,7 @@ export default function AdminEmpresas() {
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Nombre</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Email</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">MB</th>
+              <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Creator</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Estado</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Plan</th>
               <th className="px-4 py-3 text-[#8b9cad] text-sm font-medium">Expiración</th>
@@ -187,7 +214,7 @@ export default function AdminEmpresas() {
           </thead>
           <tbody>
             {empresas.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-[#8b9cad] text-center">No hay empresas</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-[#8b9cad] text-center">No hay empresas</td></tr>
             ) : (
               empresas.map((e) => (
                 <tr key={e.id} className="border-b border-[#2d3a47] hover:bg-[#232d38]/50">
@@ -197,6 +224,15 @@ export default function AdminEmpresas() {
                     {e.marca_blanca ? (
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#00c896]/20 text-[#8ff3d8] border border-[#00c896]/40">
                         MB
+                      </span>
+                    ) : (
+                      <span className="text-[#5c6b7a] text-xs">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {e.es_creador_affiliate ? (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/20 text-blue-200 border border-blue-400/40">
+                        Creator
                       </span>
                     ) : (
                       <span className="text-[#5c6b7a] text-xs">—</span>
@@ -375,7 +411,27 @@ export default function AdminEmpresas() {
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
+                  checked={!!modalAffiliate.es_creador_affiliate}
+                  onChange={async (ev) => {
+                    const checked = ev.target.checked;
+                    try {
+                      await toggleCreatorStatus(modalAffiliate.id, checked);
+                      setModalAffiliate((m) => (m ? { ...m, es_creador_affiliate: checked } : m));
+                      if (!checked) setAffiliateForm((f) => ({ ...f, activo: false }));
+                      load();
+                    } catch (err) {
+                      setError(err.message || 'No se pudo actualizar estado de creador');
+                    }
+                  }}
+                  className="rounded border-[#2d3a47] bg-[#0f1419] text-[#00c896]"
+                />
+                <span className="text-sm text-white">Habilitar como creador</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
                   checked={affiliateForm.activo}
+                  disabled={!modalAffiliate.es_creador_affiliate}
                   onChange={(ev) => setAffiliateForm((f) => ({ ...f, activo: ev.target.checked }))}
                   className="rounded border-[#2d3a47] bg-[#0f1419] text-[#00c896]"
                 />
