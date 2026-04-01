@@ -385,54 +385,31 @@ export default function Landing() {
               <p className={styles.p + ' mb-10'}>
                 Conectas tu número, configuras el asistente en minutos y todas las conversaciones se organizan solas. Tú decides cuándo intervenir.
               </p>
-              <div className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] gap-8 lg:gap-12 items-start lg:items-center">
-                <div className="max-w-2xl">
-                  <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {[
-                      { k: '-70%', l: 'menos tiempo de respuesta' },
-                      { k: '24/7', l: 'atención incluso fuera de horario' },
-                      { k: '+Leads', l: 'seguimiento sin perder contexto' },
-                    ].map((m) => (
-                      <div
-                        key={m.k + m.l}
-                        className="rounded-xl border border-[#2d3a47] bg-gradient-to-br from-[#1f2a36] to-[#19232d] px-4 py-3"
-                      >
-                        <p className="text-[#00c896] text-lg font-extrabold leading-tight">{m.k}</p>
-                        <p className="text-[11px] text-[#9aabbb] leading-snug mt-1">{m.l}</p>
-                      </div>
-                    ))}
+              <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)_minmax(0,1fr)] gap-6 lg:gap-10 items-center">
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-[#2d3a47] bg-gradient-to-br from-[#1f2a36] to-[#19232d] px-4 py-3">
+                    <p className="text-[#00c896] text-lg font-extrabold leading-tight">-70%</p>
+                    <p className="text-[11px] text-[#9aabbb] leading-snug mt-1">menos tiempo de respuesta</p>
                   </div>
-
                   <ul className="space-y-4 text-[#8b9cad]">
-                  <li className="flex gap-3">
-                    <span className="text-[#00c896] font-bold">1.</span>
-                    <span>
-                      <strong className="text-white">Chatbot con IA (Gemini)</strong> que responde consultas, califica leads y puede cerrar ventas.
-                    </span>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-[#00c896] font-bold">2.</span>
-                    <span>
-                      <strong className="text-white">CRM integrado:</strong> contactos, catálogo, pedidos, tags, notas e historial por conversación.
-                    </span>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-[#00c896] font-bold">3.</span>
-                    <span>
-                      <strong className="text-white">Shopify:</strong> conecta tu tienda para que los pedidos lleguen solos al CRM (otras apps suelen enlazarse vía Shopify).
-                    </span>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="text-[#00c896] font-bold">4.</span>
-                    <span>
-                      <strong className="text-white">Aviso cuando piden agente:</strong> el sistema te avisa y puedes tomar la conversación.
-                    </span>
-                  </li>
+                    <li className="flex gap-3">
+                      <span className="text-[#00c896] font-bold">1.</span>
+                      <span>
+                        <strong className="text-white">Chatbot con IA (Gemini)</strong> que responde consultas, califica leads y puede cerrar ventas.
+                      </span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="text-[#00c896] font-bold">2.</span>
+                      <span>
+                        <strong className="text-white">CRM integrado:</strong> contactos, catálogo, pedidos, tags, notas e historial por conversación.
+                      </span>
+                    </li>
                   </ul>
                 </div>
-                <div className="w-full max-w-[400px] mx-auto lg:mx-0 lg:justify-self-end flex flex-col items-center">
-                  <div className="relative w-full max-w-[300px]">
-                    <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-b from-[#00c896]/20 to-transparent blur-xl" aria-hidden />
+
+                <div className="w-full flex flex-col items-center">
+                  <div className="relative w-full max-w-[330px]">
+                    <div className="absolute -inset-6 rounded-[2.2rem] bg-gradient-to-b from-[#00c896]/30 via-[#00c896]/10 to-transparent blur-2xl" aria-hidden />
                     <div className="relative rounded-[2rem] border border-[#2d3a47] bg-[#151e27]/70 p-3">
                       <WhatsAppPhoneMockup
                         variant="crm"
@@ -440,8 +417,28 @@ export default function Landing() {
                       />
                     </div>
                   </div>
+                </div>
 
-                  <div className="mt-4 w-full max-w-[370px] bg-[#232d38] rounded-2xl border border-[#2d3a47] p-6 text-center transition-shadow hover:shadow-lg hover:shadow-[#00c896]/5">
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-[#2d3a47] bg-gradient-to-br from-[#1f2a36] to-[#19232d] px-4 py-3">
+                    <p className="text-[#00c896] text-lg font-extrabold leading-tight">24/7</p>
+                    <p className="text-[11px] text-[#9aabbb] leading-snug mt-1">atención incluso fuera de horario</p>
+                  </div>
+                  <ul className="space-y-4 text-[#8b9cad]">
+                    <li className="flex gap-3">
+                      <span className="text-[#00c896] font-bold">3.</span>
+                      <span>
+                        <strong className="text-white">Shopify:</strong> conecta tu tienda para que los pedidos lleguen solos al CRM (otras apps suelen enlazarse vía Shopify).
+                      </span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="text-[#00c896] font-bold">4.</span>
+                      <span>
+                        <strong className="text-white">Aviso cuando piden agente:</strong> el sistema te avisa y puedes tomar la conversación.
+                      </span>
+                    </li>
+                  </ul>
+                  <div className="w-full bg-[#232d38] rounded-2xl border border-[#2d3a47] p-6 text-center transition-shadow hover:shadow-lg hover:shadow-[#00c896]/5">
                     <p className="text-white font-semibold mb-2">Demo 3 días gratis</p>
                     <p className="text-[#8b9cad] text-sm mb-4">Sin tarjeta. Acceso completo al CRM y al bot.</p>
                     <Link to="/registro" onClick={trackDemo} className={styles.cta}>
