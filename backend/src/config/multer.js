@@ -3,13 +3,14 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
-const dirComprobantes = path.join(process.cwd(), 'uploads', 'comprobantes');
-const dirBotConocimiento = path.join(process.cwd(), 'uploads', 'bot-conocimiento');
-const dirProductos = path.join(process.cwd(), 'uploads', 'productos');
-const dirEmpresas = path.join(process.cwd(), 'uploads', 'empresas');
-const dirFlowsMedia = path.join(process.cwd(), 'uploads', 'flows-media');
-const dirConversaciones = path.join(process.cwd(), 'uploads', 'conversaciones');
-const dirContactosAvatars = path.join(process.cwd(), 'uploads', 'contactos-avatars');
+const uploadsRoot = path.join(__dirname, '..', '..', 'uploads');
+const dirComprobantes = path.join(uploadsRoot, 'comprobantes');
+const dirBotConocimiento = path.join(uploadsRoot, 'bot-conocimiento');
+const dirProductos = path.join(uploadsRoot, 'productos');
+const dirEmpresas = path.join(uploadsRoot, 'empresas');
+const dirFlowsMedia = path.join(uploadsRoot, 'flows-media');
+const dirConversaciones = path.join(uploadsRoot, 'conversaciones');
+const dirContactosAvatars = path.join(uploadsRoot, 'contactos-avatars');
 try { fs.mkdirSync(dirComprobantes, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirBotConocimiento, { recursive: true }); } catch (e) {}
 try { fs.mkdirSync(dirProductos, { recursive: true }); } catch (e) {}
