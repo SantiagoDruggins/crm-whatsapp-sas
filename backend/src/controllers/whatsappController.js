@@ -103,6 +103,39 @@ function pareceConfirmacionCompra(texto) {
   );
 }
 
+async function detectarIntencionCompraConIA(empresaId, texto, { producto, productos = [] } = {}) {
+  const mensaje = String(texto || '').trim();
+  if (!empresaId || !mensaje) return false;
+  try {
+    const empresaFull = await obtenerEmpresaPorId(empresaId);
+    const aiCfg = getAiConfig(empresaFull, config);
+    if (!aiCfg?.apiKey) return false;
+
+    const nombresProductos = [
+      producto?.nombre,
+      ...(Array.isArray(productos) ? productos.map((p) => p?.nombre) : []),
+    ]
+      .filter(Boolean)
+      .slice(0, 20)
+      .join(', ');
+    const prompt =
+      'Eres un clasificador de WhatsApp para un CRM de ventas. Devuelve SOLO SI o NO.\n' +
+      'Responde SI cuando el cliente expresa intención clara de comprar, confirmar pedido, pedir envío, pagar, contraentrega, adquirir, apartar o cerrar la compra.\n' +
+      'Responde NO si solo pregunta precio, características, soporte, agenda, saludo o está indeciso.\n' +
+      `Productos disponibles/contexto: ${nombresProductos || 'no especificado'}\n`;
+
+    const r = await generateContent(
+      { provider: aiCfg.provider, apiKey: aiCfg.apiKey, systemPrompt: prompt, userMessage: mensaje },
+      { ...config, gemini: { ...(config.gemini || {}), model: empresaFull?.ai_model_router || 'gemini-2.5-flash', maxOutputTokens: 8, temperature: 0 } }
+    );
+    const out = normalizeText(r.text || '');
+    return /\bsi\b/.test(out) && !/\bno\b/.test(out);
+  } catch (e) {
+    console.warn('[WhatsApp] No se pudo clasificar intención de compra con IA:', e.message);
+    return false;
+  }
+}
+
 function matchProductoPorNombre(texto, productos) {
   const t = normalizeText(texto);
   if (!t || !Array.isArray(productos) || productos.length === 0) return null;
@@ -300,10 +333,14 @@ async function sincronizarPedidoConShopify(empresaId, pedido, { contacto, fromPh
 
 async function tryCrearPedidoDesdeWhatsapp({ empresaId, contacto, conversacion, fromPhone, texto }) {
   if (!empresaId || !conversacion?.id || !contacto?.id) return { ok: false };
-  if (!pareceConfirmacionCompra(texto)) return { ok: false };
   const productos = await productoModel.listarActivos(empresaId, { limit: 200, offset: 0 });
   const producto = await obtenerProductoDesdeContexto(empresaId, conversacion.id, texto, productos);
   if (!producto?.id) return { ok: false };
+
+  const confirmaCompra =
+    pareceConfirmacionCompra(texto) ||
+    (await detectarIntencionCompraConIA(empresaId, texto, { producto, productos }));
+  if (!confirmaCompra) return { ok: false };
 
   // Evitar duplicados recientes (misma conversación + mismo producto)
   const reciente = await pedidoModel.getRecientePorConversacionProducto(empresaId, conversacion.id, producto.id, { minutos: 15 });
