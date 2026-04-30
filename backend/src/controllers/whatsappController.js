@@ -212,6 +212,69 @@ function extraerDireccionDesdeTexto(texto) {
   };
 }
 
+function nombreContactoValido(contacto) {
+  const nombre = String(contacto?.nombre || '').trim();
+  if (!nombre || nombre.length < 3) return '';
+  const digits = nombre.replace(/\D/g, '');
+  const phone = String(contacto?.telefono || '').replace(/\D/g, '');
+  if (/^\d{7,}$/.test(digits)) return '';
+  if (phone && digits && digits === phone) return '';
+  if (/^(sin nombre|cliente|whatsapp)$/i.test(nombre)) return '';
+  return nombre;
+}
+
+function extraerDatosClientePedido(texto, contacto = {}) {
+  const raw = String(texto || '').trim();
+  const direccion = extraerDireccionDesdeTexto(raw);
+  const get = (labels) => {
+    for (const label of labels) {
+      const re = new RegExp(`${label}\\s*[:\\-]\\s*([^\\n,]+)`, 'i');
+      const m = raw.match(re);
+      if (m?.[1]) return m[1].trim();
+    }
+    return '';
+  };
+  const nombreExplicito = get(['nombre', 'cliente', 'nombres']);
+  const lineas = raw.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const ciudadLinea = lineas.find((l) => /^ciudad\s*[:\-]/i.test(l));
+  const direccionLinea = lineas.find((l) => /^(direccion|dirección|dir)\s*[:\-]/i.test(l));
+  const ciudad = direccion.city || (ciudadLinea ? ciudadLinea.replace(/^ciudad\s*[:\-]\s*/i, '').trim() : '');
+  const address1 = direccion.address1 || (direccionLinea ? direccionLinea.replace(/^(direccion|dirección|dir)\s*[:\-]\s*/i, '').trim() : '');
+  const addressRegex = /\b(calle|cll|cra|carrera|avenida|av|transversal|diagonal|barrio|numero|nro|#)\b/i;
+  const inferredAddress = address1 || lineas.find((l) => addressRegex.test(l)) || (lineas.length >= 3 ? lineas.slice(2).join(' ') : '');
+  const inferredCity = ciudad || (lineas.length >= 3 ? lineas[1] : '');
+  const inferredName = nombreExplicito || nombreContactoValido(contacto) || (lineas.length >= 3 ? lineas[0] : '');
+  return {
+    nombre: inferredName,
+    telefono: String(contacto?.telefono || '').replace(/\D/g, ''),
+    address1: inferredAddress,
+    city: inferredCity,
+  };
+}
+
+function datosPedidoCompletos(datos = {}) {
+  return !!(
+    String(datos.nombre || '').trim().length >= 3 &&
+    String(datos.telefono || '').replace(/\D/g, '').length >= 7 &&
+    String(datos.address1 || '').trim().length >= 6 &&
+    String(datos.city || '').trim().length >= 2
+  );
+}
+
+function mensajeSolicitudDatosPedido(producto, faltantes = []) {
+  const nombreProducto = producto?.nombre ? ` para ${producto.nombre}` : '';
+  const campos = faltantes.length ? faltantes : ['nombre completo', 'ciudad', 'dirección completa'];
+  return `Perfecto, te ayudo con el pedido${nombreProducto}. Para registrarlo necesito:\n${campos.map((c, i) => `${i + 1}) ${c}`).join('\n')}`;
+}
+
+function faltantesDatosPedido(datos = {}) {
+  const faltan = [];
+  if (!String(datos.nombre || '').trim()) faltan.push('nombre completo');
+  if (!String(datos.city || '').trim()) faltan.push('ciudad');
+  if (!String(datos.address1 || '').trim()) faltan.push('dirección completa');
+  return faltan;
+}
+
 async function obtenerProductoDesdeContexto(empresaId, conversacionId, texto, productos) {
   const productoPorTexto = matchProductoPorNombre(texto, productos);
   if (productoPorTexto?.id) return productoPorTexto;
@@ -334,13 +397,53 @@ async function sincronizarPedidoConShopify(empresaId, pedido, { contacto, fromPh
 async function tryCrearPedidoDesdeWhatsapp({ empresaId, contacto, conversacion, fromPhone, texto }) {
   if (!empresaId || !conversacion?.id || !contacto?.id) return { ok: false };
   const productos = await productoModel.listarActivos(empresaId, { limit: 200, offset: 0 });
-  const producto = await obtenerProductoDesdeContexto(empresaId, conversacion.id, texto, productos);
+  const state = await conversationStateModel.get(empresaId, contacto.id).catch(() => null);
+  const pendiente = state?.context_data?.pedido_pendiente || null;
+  const productoPendiente = pendiente?.producto_id
+    ? (productos || []).find((p) => String(p.id) === String(pendiente.producto_id))
+    : null;
+  const producto = productoPendiente || (await obtenerProductoDesdeContexto(empresaId, conversacion.id, texto, productos));
   if (!producto?.id) return { ok: false };
 
-  const confirmaCompra =
-    pareceConfirmacionCompra(texto) ||
-    (await detectarIntencionCompraConIA(empresaId, texto, { producto, productos }));
+  const hayPedidoPendiente = !!(pendiente?.estado === 'esperando_datos' && productoPendiente?.id);
+  const confirmaCompra = hayPedidoPendiente
+    ? true
+    : pareceConfirmacionCompra(texto) ||
+      (await detectarIntencionCompraConIA(empresaId, texto, { producto, productos }));
   if (!confirmaCompra) return { ok: false };
+
+  const datosPrevios = pendiente?.datos_cliente && typeof pendiente.datos_cliente === 'object' ? pendiente.datos_cliente : {};
+  const datosMensaje = extraerDatosClientePedido(texto, contacto);
+  const datosCliente = {
+    nombre: datosMensaje.nombre || datosPrevios.nombre || '',
+    telefono: datosMensaje.telefono || datosPrevios.telefono || String(fromPhone || contacto.telefono || '').replace(/\D/g, ''),
+    address1: datosMensaje.address1 || datosPrevios.address1 || '',
+    city: datosMensaje.city || datosPrevios.city || '',
+  };
+
+  if (!datosPedidoCompletos(datosCliente)) {
+    const faltantes = faltantesDatosPedido(datosCliente);
+    await conversationStateModel.set(empresaId, contacto.id, {
+      current_state: 'bot_activo',
+      last_intent: 'pedido',
+      context_data: {
+        pedido_pendiente: {
+          estado: 'esperando_datos',
+          producto_id: String(producto.id),
+          producto_nombre: producto.nombre || '',
+          datos_cliente: datosCliente,
+          updated_at_iso: new Date().toISOString(),
+        },
+      },
+    });
+    return {
+      ok: true,
+      necesitaDatos: true,
+      producto,
+      faltantes,
+      textoRespuesta: mensajeSolicitudDatosPedido(producto, faltantes),
+    };
+  }
 
   // Evitar duplicados recientes (misma conversación + mismo producto)
   const reciente = await pedidoModel.getRecientePorConversacionProducto(empresaId, conversacion.id, producto.id, { minutos: 15 });
@@ -368,8 +471,15 @@ async function tryCrearPedidoDesdeWhatsapp({ empresaId, contacto, conversacion, 
         moneda,
       },
     ],
-    direccion: direccionTexto.address1 || '',
-    ciudad: direccionTexto.city || '',
+    direccion: datosCliente.address1 || direccionTexto.address1 || '',
+    ciudad: datosCliente.city || direccionTexto.city || '',
+  };
+
+  const direccionPedido = {
+    address1: datosCliente.address1 || direccionTexto.address1 || '',
+    city: datosCliente.city || direccionTexto.city || '',
+    country: 'Colombia',
+    phone: datosCliente.telefono,
   };
 
   let pedido = await pedidoModel.crear(empresaId, {
@@ -378,7 +488,7 @@ async function tryCrearPedidoDesdeWhatsapp({ empresaId, contacto, conversacion, 
     estado: 'pendiente',
     total: precio,
     datos,
-    direccion: direccionTexto,
+    direccion: direccionPedido,
     estado_shopify: 'pendiente',
     tags: 'Pendiente',
   });
@@ -386,7 +496,20 @@ async function tryCrearPedidoDesdeWhatsapp({ empresaId, contacto, conversacion, 
     contacto,
     fromPhone,
     producto,
-    direccion: direccionTexto,
+    direccion: direccionPedido,
+  });
+
+  await conversationStateModel.set(empresaId, contacto.id, {
+    current_state: 'post_venta',
+    last_intent: 'pedido',
+    context_data: {
+      pedido_pendiente: {
+        estado: 'creado',
+        producto_id: String(producto.id),
+        pedido_id: pedido?.id || null,
+        updated_at_iso: new Date().toISOString(),
+      },
+    },
   });
 
   return { ok: true, pedido, producto };
@@ -561,7 +684,37 @@ async function extraerYCrearPedidoSiHay(empresaId, contactId, conversacionId, re
         ],
       };
       const contacto = await contactoModel.getById(empresaId, contactId);
-      const direccion = payload?.direccion && typeof payload.direccion === 'object' ? payload.direccion : {};
+      const direccionRaw = payload?.direccion && typeof payload.direccion === 'object' ? payload.direccion : {};
+      const direccion = {
+        address1: direccionRaw.address1 || direccionRaw.direccion || '',
+        city: direccionRaw.city || direccionRaw.ciudad || '',
+        barrio: direccionRaw.barrio || '',
+        referencia: direccionRaw.referencia || '',
+        country: direccionRaw.country || 'Colombia',
+        phone: contacto?.telefono || '',
+      };
+      const datosCliente = {
+        nombre: payload?.nombre || nombreContactoValido(contacto),
+        telefono: String(contacto?.telefono || '').replace(/\D/g, ''),
+        address1: direccion.address1,
+        city: direccion.city,
+      };
+      if (!datosPedidoCompletos(datosCliente)) {
+        await conversationStateModel.set(empresaId, contactId, {
+          current_state: 'bot_activo',
+          last_intent: 'pedido',
+          context_data: {
+            pedido_pendiente: {
+              estado: 'esperando_datos',
+              producto_id: String(producto.id),
+              producto_nombre: producto.nombre || '',
+              datos_cliente: datosCliente,
+              updated_at_iso: new Date().toISOString(),
+            },
+          },
+        });
+        return respuesta.replace(regex, '').replace(/\n{2,}/g, '\n').trim();
+      }
       const pedido = await pedidoModel.crear(empresaId, {
         contacto_id: contactId,
         conversacion_id: conversacionId,
@@ -1359,12 +1512,18 @@ async function procesarCloudWebhookBody(body) {
                 fromPhone: from,
                 texto: contenidoEntrada,
               });
+              if (rPedido?.ok && rPedido.necesitaDatos) {
+                mode = 'pedidos';
+              }
               if (rPedido?.ok && (rPedido.pedido || rPedido.yaExistia)) {
                 const pedidoId = rPedido.pedido?.id || rPedido.pedidoId;
                 const prod = rPedido.producto;
-                const textoRespuesta = rPedido.yaExistia
+                let textoRespuesta = rPedido.yaExistia
                   ? `Perfecto. Ya tengo tu pedido en proceso (ID: ${pedidoId}). Para finalizar, envíame:\n1) Nombre completo\n2) Ciudad\n3) Dirección\n4) Barrio / punto de referencia\n5) Forma de pago`
                   : `Listo, confirmado. Te acabo de crear el pedido (ID: ${pedidoId}) para: ${prod?.nombre || 'el producto'}.\n\nPara finalizar, envíame:\n1) Nombre completo\n2) Ciudad\n3) Dirección\n4) Barrio / punto de referencia\n5) Forma de pago`;
+                textoRespuesta = rPedido.yaExistia
+                  ? `Perfecto. Ya tengo tu pedido en proceso (ID: ${pedidoId}).`
+                  : `Listo, confirmado. Ya registre tu pedido (ID: ${pedidoId}) para: ${prod?.nombre || 'el producto'}.`;
                 const sent = await enviarMensajeEmpresa(empresa.id, from, textoRespuesta);
                 if (sent.ok) {
                   await mensajeModel.crear(empresa.id, conversacion.id, { origen: 'bot', contenido: textoRespuesta, esEntrada: false });

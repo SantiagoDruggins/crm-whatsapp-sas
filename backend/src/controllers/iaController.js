@@ -74,11 +74,11 @@ async function generarRespuestaBot(empresaId, mensaje, opts = {}) {
         'Objetivo: cerrar la compra y crear/confirmar el pedido.\n' +
         '1) Identifica el producto/servicio del catálogo.\n' +
         '2) Confirma precio y qué incluye.\n' +
-        '3) Pide datos mínimos: nombre, ciudad, dirección, barrio/punto de referencia, forma de pago.\n' +
-        '4) Resume el pedido y confirma.\n' +
-        '5) Si el cliente confirma que lo quiere o pide comprar, añade AL FINAL una sola línea con el formato:\n' +
-        'PEDIDO:{"producto_id":"<id>","cantidad":1,"direccion":{"ciudad":"","direccion":"","barrio":"","referencia":""}}\n' +
-        'Usa el producto_id real (si el catálogo tiene id) o, si no lo tienes, NO pongas PEDIDO.\n' +
+        '3) Si detectas intención de compra, pide los datos mínimos que falten según el prompt principal: nombre, ciudad, dirección, barrio/punto de referencia y forma de pago.\n' +
+        '4) NO confirmes ni crees pedido si aún faltan datos de entrega.\n' +
+        '5) Solo cuando ya tengas producto identificado y datos mínimos de entrega, resume el pedido y añade AL FINAL una sola línea con el formato:\n' +
+        'PEDIDO:{"producto_id":"<id>","cantidad":1,"direccion":{"ciudad":"<ciudad>","direccion":"<direccion>","barrio":"<barrio>","referencia":"<referencia>"}}\n' +
+        'Usa el producto_id real (si el catálogo tiene id). Si faltan producto, ciudad o dirección, NO pongas PEDIDO; pide esos datos.\n' +
         'Sé directo y orientado a cierre.\n' +
         '--- FIN MODO PEDIDOS ---';
     }
