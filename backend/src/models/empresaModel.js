@@ -185,6 +185,20 @@ async function getIntegracionesConfig(empresaId) {
   };
 }
 
+async function getShopifyConfig(empresaId) {
+  const result = await query(
+    `SELECT shopify_store_url, shopify_access_token, shopify_activo FROM empresas WHERE id = $1`,
+    [empresaId]
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    shopify_store_url: (row.shopify_store_url || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, ''),
+    shopify_access_token: (row.shopify_access_token || '').trim(),
+    shopify_activo: !!row.shopify_activo,
+  };
+}
+
 async function updateIntegracionesConfig(empresaId, { gemini_api_key, ai_provider, ai_api_key, shopify_store_url, shopify_access_token, shopify_activo, shopify_webhook_secret }) {
   const updates = [];
   const values = [empresaId];
@@ -338,6 +352,7 @@ module.exports = {
   getEmpresaByWhatsappWabaId,
   getEmpresaByWhatsappDisplayDigits,
   getIntegracionesConfig,
+  getShopifyConfig,
   updateIntegracionesConfig,
   getEmpresaByShopifyShopDomain,
   actualizarBranding,

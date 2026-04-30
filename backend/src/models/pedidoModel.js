@@ -2,8 +2,8 @@ const { query } = require('../config/db');
 
 async function crear(empresaId, data) {
   const result = await query(
-    `INSERT INTO pedidos (empresa_id, contacto_id, conversacion_id, estado, total, datos, direccion, shopify_order_id)
-     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8)
+    `INSERT INTO pedidos (empresa_id, contacto_id, conversacion_id, estado, total, datos, direccion, shopify_order_id, estado_shopify, tags)
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10)
      RETURNING *`,
     [
       empresaId,
@@ -14,6 +14,8 @@ async function crear(empresaId, data) {
       JSON.stringify(data.datos || {}),
       JSON.stringify(data.direccion || {}),
       data.shopify_order_id || null,
+      data.estado_shopify || null,
+      data.tags || null,
     ]
   );
   return result.rows[0];
@@ -69,4 +71,45 @@ async function getById(empresaId, id) {
   return result.rows[0] || null;
 }
 
-module.exports = { crear, listarPorEmpresa, getRecientePorConversacionProducto, getById, getByShopifyOrderId };
+async function actualizarShopify(empresaId, id, data = {}) {
+  const updates = [];
+  const values = [id, empresaId];
+  let idx = 3;
+
+  if (data.shopify_order_id !== undefined) {
+    updates.push(`shopify_order_id = $${idx}`);
+    values.push(data.shopify_order_id || null);
+    idx++;
+  }
+  if (data.estado_shopify !== undefined) {
+    updates.push(`estado_shopify = $${idx}`);
+    values.push(data.estado_shopify || null);
+    idx++;
+  }
+  if (data.tags !== undefined) {
+    updates.push(`tags = $${idx}`);
+    values.push(data.tags || null);
+    idx++;
+  }
+  if (data.estado !== undefined) {
+    updates.push(`estado = $${idx}`);
+    values.push(data.estado || 'pendiente');
+    idx++;
+  }
+  if (data.datos !== undefined) {
+    updates.push(`datos = COALESCE(datos, '{}'::jsonb) || $${idx}::jsonb`);
+    values.push(JSON.stringify(data.datos || {}));
+    idx++;
+  }
+
+  if (updates.length === 0) return getById(empresaId, id);
+  updates.push('updated_at = now()');
+
+  const result = await query(
+    `UPDATE pedidos SET ${updates.join(', ')} WHERE id = $1 AND empresa_id = $2 RETURNING *`,
+    values
+  );
+  return result.rows[0] || null;
+}
+
+module.exports = { crear, listarPorEmpresa, getRecientePorConversacionProducto, getById, getByShopifyOrderId, actualizarShopify };

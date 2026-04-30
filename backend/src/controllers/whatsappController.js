@@ -13,6 +13,7 @@ const {
   getEmpresaByWhatsappWabaId,
   getEmpresaByWhatsappDisplayDigits,
   obtenerEmpresaPorId,
+  getShopifyConfig,
 } = require('../models/empresaModel');
 const contactoModel = require('../models/contactoModel');
 const conversacionModel = require('../models/conversacionModel');
@@ -97,7 +98,7 @@ function pareceConfirmacionCompra(texto) {
   const t = normalizeText(texto);
   if (!t) return false;
   return (
-    /\b(confirmo|confirmar|listo|de una|hagale|hágale|lo quiero|la quiero|quiero ese|quiero ese producto|me lo llevo|comprar ya|si lo compro|si compro|ok lo compro|ok compro|dale|dale compra)\b/.test(t) ||
+    /\b(confirmo|confirmar|listo|de una|hagale|hágale|lo quiero|la quiero|si quiero|si claro|quiero ese|quiero ese producto|me lo llevo|comprar ya|si lo compro|si compro|ok lo compro|ok compro|dale|dale compra)\b/.test(t) ||
     (/\bquiero\b/.test(t) && /\bcomprar|pedido|orden\b/.test(t))
   );
 }
@@ -133,11 +134,175 @@ function matchProductoPorNombre(texto, productos) {
   return best;
 }
 
+function extraerShopifyVariantId(producto) {
+  if (!producto) return null;
+  const direct = producto.shopify_variant_id || producto.variant_id || producto.shopifyVariantId;
+  if (direct) return String(direct).trim();
+  const tags = producto.tags;
+  const candidates = [];
+  if (Array.isArray(tags)) candidates.push(...tags);
+  else if (tags && typeof tags === 'object') candidates.push(tags);
+  else if (typeof tags === 'string') {
+    try {
+      const parsed = JSON.parse(tags);
+      if (Array.isArray(parsed)) candidates.push(...parsed);
+      else if (parsed && typeof parsed === 'object') candidates.push(parsed);
+    } catch (_) {
+      candidates.push(tags);
+    }
+  }
+  for (const item of candidates) {
+    if (item && typeof item === 'object') {
+      const val = item.shopify_variant_id || item.variant_id || item.shopifyVariantId;
+      if (val) return String(val).trim();
+    }
+    const text = String(item || '');
+    const match = text.match(/(?:shopify_variant_id|variant_id|variant):\s*(\d+)/i);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+function extraerDireccionDesdeTexto(texto) {
+  const raw = String(texto || '');
+  const get = (labels) => {
+    for (const label of labels) {
+      const re = new RegExp(`${label}\\s*[:\\-]\\s*([^\\n,]+)`, 'i');
+      const m = raw.match(re);
+      if (m?.[1]) return m[1].trim();
+    }
+    return '';
+  };
+  return {
+    address1: get(['direccion', 'dirección', 'dir']),
+    city: get(['ciudad', 'municipio']),
+  };
+}
+
+async function obtenerProductoDesdeContexto(empresaId, conversacionId, texto, productos) {
+  const productoPorTexto = matchProductoPorNombre(texto, productos);
+  if (productoPorTexto?.id) return productoPorTexto;
+  if (!conversacionId || !Array.isArray(productos) || productos.length === 0) return null;
+
+  try {
+    const mensajes = await mensajeModel.listarUltimosPorConversacion(empresaId, conversacionId, 20);
+    const textoReciente = (mensajes || [])
+      .map((m) => m.contenido || '')
+      .join('\n');
+    const productoReciente = matchProductoPorNombre(textoReciente, productos);
+    if (productoReciente?.id) return productoReciente;
+  } catch (e) {
+    console.warn('[WhatsApp] No se pudo leer contexto reciente para pedido:', e.message);
+  }
+
+  return productos.length === 1 ? productos[0] : null;
+}
+
+async function createShopifyOrder(empresaId, { nombre, telefono, direccion, ciudad, producto, cantidad = 1 }) {
+  const shopify = await getShopifyConfig(empresaId);
+  if (!shopify?.shopify_activo || !shopify.shopify_store_url || !shopify.shopify_access_token) {
+    throw new Error('Shopify no está configurado o activo para esta empresa');
+  }
+
+  const variantId = extraerShopifyVariantId(producto);
+  if (!variantId) {
+    throw new Error(`Producto sin variant_id de Shopify: ${producto?.nombre || producto?.id || 'sin nombre'}`);
+  }
+
+  const shop = shopify.shopify_store_url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const url = `https://${shop}/admin/api/2024-01/orders.json`;
+  const phone = String(telefono || '').replace(/\D/g, '');
+  const firstName = String(nombre || '').trim() || phone || 'Cliente WhatsApp';
+  const tags = 'DSG, WhatsApp, Pendiente';
+  const payload = {
+    order: {
+      line_items: [
+        {
+          variant_id: Number(variantId),
+          quantity: Math.max(1, Number(cantidad) || 1),
+        },
+      ],
+      customer: {
+        first_name: firstName,
+        phone,
+      },
+      shipping_address: {
+        address1: direccion || '',
+        city: ciudad || '',
+        country: 'Colombia',
+        phone,
+      },
+      financial_status: 'pending',
+      tags,
+    },
+  };
+
+  const { data } = await axios.post(url, payload, {
+    headers: {
+      'X-Shopify-Access-Token': shopify.shopify_access_token,
+      'Content-Type': 'application/json',
+    },
+    timeout: 20000,
+  });
+  return data?.order || data;
+}
+
+async function updateShopifyOrderTags(empresaId, orderId, newTags) {
+  const shopify = await getShopifyConfig(empresaId);
+  if (!shopify?.shopify_activo || !shopify.shopify_store_url || !shopify.shopify_access_token) {
+    throw new Error('Shopify no está configurado o activo para esta empresa');
+  }
+  const shop = shopify.shopify_store_url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const tags = Array.isArray(newTags) ? newTags.join(', ') : String(newTags || '');
+  const url = `https://${shop}/admin/api/2024-01/orders/${orderId}.json`;
+  const { data } = await axios.put(
+    url,
+    { order: { id: orderId, tags } },
+    {
+      headers: {
+        'X-Shopify-Access-Token': shopify.shopify_access_token,
+        'Content-Type': 'application/json',
+      },
+      timeout: 20000,
+    }
+  );
+  return data?.order || data;
+}
+
+async function sincronizarPedidoConShopify(empresaId, pedido, { contacto, fromPhone, producto, direccion = {} } = {}) {
+  if (!pedido?.id) return pedido;
+  try {
+    const shopifyOrder = await createShopifyOrder(empresaId, {
+      nombre: contacto?.nombre || '',
+      telefono: contacto?.telefono || fromPhone || '',
+      direccion: direccion.address1 || direccion.direccion || '',
+      ciudad: direccion.city || direccion.ciudad || '',
+      producto,
+      cantidad: 1,
+    });
+    const shopifyOrderId = shopifyOrder?.id ? String(shopifyOrder.id) : null;
+    return await pedidoModel.actualizarShopify(empresaId, pedido.id, {
+      shopify_order_id: shopifyOrderId,
+      estado_shopify: 'pendiente',
+      tags: 'Pendiente',
+      datos: { shopify: { order_id: shopifyOrderId, tags: 'DSG, WhatsApp, Pendiente' } },
+    });
+  } catch (e) {
+    console.error('[Shopify] Error creando pedido:', e.response?.data || e.message);
+    return await pedidoModel.actualizarShopify(empresaId, pedido.id, {
+      estado: 'error',
+      estado_shopify: 'error',
+      tags: 'Error',
+      datos: { shopify_error: e.response?.data || { message: e.message } },
+    });
+  }
+}
+
 async function tryCrearPedidoDesdeWhatsapp({ empresaId, contacto, conversacion, fromPhone, texto }) {
   if (!empresaId || !conversacion?.id || !contacto?.id) return { ok: false };
   if (!pareceConfirmacionCompra(texto)) return { ok: false };
   const productos = await productoModel.listarActivos(empresaId, { limit: 200, offset: 0 });
-  const producto = matchProductoPorNombre(texto, productos);
+  const producto = await obtenerProductoDesdeContexto(empresaId, conversacion.id, texto, productos);
   if (!producto?.id) return { ok: false };
 
   // Evitar duplicados recientes (misma conversación + mismo producto)
@@ -146,8 +311,11 @@ async function tryCrearPedidoDesdeWhatsapp({ empresaId, contacto, conversacion, 
 
   const precio = Number(producto.precio) || 0;
   const moneda = producto.moneda || 'COP';
+  const direccionTexto = extraerDireccionDesdeTexto(texto);
   const datos = {
     origen: 'whatsapp_auto',
+    nombre: contacto.nombre || '',
+    telefono: String(fromPhone || contacto.telefono || '').replace(/\D/g, ''),
     producto_id: String(producto.id),
     producto_nombre: producto.nombre || '',
     tipo: producto.tipo || 'producto',
@@ -163,16 +331,25 @@ async function tryCrearPedidoDesdeWhatsapp({ empresaId, contacto, conversacion, 
         moneda,
       },
     ],
-    telefono: String(fromPhone || '').replace(/\D/g, ''),
+    direccion: direccionTexto.address1 || '',
+    ciudad: direccionTexto.city || '',
   };
 
-  const pedido = await pedidoModel.crear(empresaId, {
+  let pedido = await pedidoModel.crear(empresaId, {
     contacto_id: contacto.id,
     conversacion_id: conversacion.id,
     estado: 'pendiente',
     total: precio,
     datos,
-    direccion: {},
+    direccion: direccionTexto,
+    estado_shopify: 'pendiente',
+    tags: 'Pendiente',
+  });
+  pedido = await sincronizarPedidoConShopify(empresaId, pedido, {
+    contacto,
+    fromPhone,
+    producto,
+    direccion: direccionTexto,
   });
 
   return { ok: true, pedido, producto };
@@ -346,13 +523,23 @@ async function extraerYCrearPedidoSiHay(empresaId, contactId, conversacionId, re
           },
         ],
       };
-      await pedidoModel.crear(empresaId, {
+      const contacto = await contactoModel.getById(empresaId, contactId);
+      const direccion = payload?.direccion && typeof payload.direccion === 'object' ? payload.direccion : {};
+      const pedido = await pedidoModel.crear(empresaId, {
         contacto_id: contactId,
         conversacion_id: conversacionId,
         estado: 'pendiente',
         total,
         datos,
-        direccion: payload?.direccion && typeof payload.direccion === 'object' ? payload.direccion : {},
+        direccion,
+        estado_shopify: 'pendiente',
+        tags: 'Pendiente',
+      });
+      await sincronizarPedidoConShopify(empresaId, pedido, {
+        contacto,
+        fromPhone: contacto?.telefono || '',
+        producto,
+        direccion,
       });
     }
   } catch (e) {
@@ -1792,4 +1979,6 @@ module.exports = {
   enviarDocumentoEmpresa,
   resolvePublicMediaUrl,
   verificarUrlImagenPublica,
+  createShopifyOrder,
+  updateShopifyOrderTags,
 };
