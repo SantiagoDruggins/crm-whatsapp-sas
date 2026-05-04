@@ -20,6 +20,7 @@ import Catalogo from './pages/cliente/Catalogo';
 import Pagos from './pages/cliente/Pagos';
 import Integraciones from './pages/cliente/Integraciones';
 import Pedidos from './pages/cliente/Pedidos';
+import AuditoriaIA from './pages/cliente/AuditoriaIA';
 import Agenda from './pages/cliente/Agenda';
 import PideAgente from './pages/cliente/PideAgente';
 import Automatizaciones from './pages/cliente/Automatizaciones';
@@ -57,6 +58,7 @@ function App() {
         <Route path="equipo" element={<Equipo />} />
         <Route path="integraciones" element={<Integraciones />} />
         <Route path="pedidos" element={<Pedidos />} />
+        <Route path="auditoria-ia" element={<AuditoriaIA />} />
         <Route path="agenda" element={<Agenda />} />
         <Route path="automatizaciones" element={<Automatizaciones />} />
         <Route path="ayuda" element={<Ayuda />} />

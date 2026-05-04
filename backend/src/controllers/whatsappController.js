@@ -796,6 +796,33 @@ async function enviarImagenEmpresa(empresaId, toPhone, imageUrl, caption) {
   }
 }
 
+/** Envia un video por WhatsApp Cloud API (link debe ser URL publica). */
+async function enviarVideoEmpresa(empresaId, toPhone, videoUrl, caption) {
+  const row = await getWhatsappConfig(empresaId);
+  if (!row?.whatsapp_cloud_access_token || !row?.whatsapp_cloud_phone_number_id) return { ok: false, error: 'WhatsApp no configurado' };
+  const url = `${CLOUD_API_BASE}/${row.whatsapp_cloud_phone_number_id}/messages`;
+  const toNumber = String(toPhone).replace(/\D/g, '');
+  const body = {
+    messaging_product: 'whatsapp',
+    to: toNumber,
+    type: 'video',
+    video: { link: videoUrl },
+  };
+  if (caption && String(caption).trim()) body.video.caption = String(caption).trim().slice(0, 1024);
+  try {
+    await axios.post(url, body, {
+      headers: { Authorization: `Bearer ${row.whatsapp_cloud_access_token}`, 'Content-Type': 'application/json' },
+      timeout: 25000,
+    });
+    return { ok: true };
+  } catch (err) {
+    const metaErr = err.response?.data?.error;
+    const detail = metaErr?.message || metaErr?.error_user_msg || err.message;
+    if (metaErr) console.warn('[WhatsApp] enviarVideoEmpresa:', detail, metaErr);
+    return { ok: false, error: detail };
+  }
+}
+
 /** Envía un documento/archivo por WhatsApp Cloud API (URL pública). */
 async function enviarDocumentoEmpresa(empresaId, toPhone, documentUrl, filename = 'archivo') {
   const row = await getWhatsappConfig(empresaId);
@@ -1073,6 +1100,48 @@ function esConsultaProductos(texto) {
   return /\b(productos?|catálogo|catalogo|qué tienen|que tienen|qué ofrecen|precios?|mostrar|ver)\b/.test(t) ||
     /\b(tienen foto|imágenes?|imagenes|fotos?|muéstrame|muestrame)\b/.test(t) ||
     /qué\s+(venden|ofrecen|tienen)/i.test(t);
+}
+
+function productMedia(producto) {
+  const media = Array.isArray(producto?.media) ? producto.media : [];
+  if (media.length) {
+    return media
+      .filter((m) => m?.url && ['image', 'video'].includes(String(m.type || '').toLowerCase()))
+      .map((m, idx) => ({
+        type: String(m.type).toLowerCase(),
+        url: m.url,
+        is_primary: !!m.is_primary,
+        order_index: Number(m.order_index) || idx,
+      }))
+      .sort((a, b) => a.order_index - b.order_index);
+  }
+  if (producto?.imagen_url && String(producto.imagen_url).trim()) {
+    return [{ type: 'image', url: String(producto.imagen_url).trim(), is_primary: true, order_index: 0 }];
+  }
+  return [];
+}
+
+async function enviarMediaProductoEmpresa(empresaId, toPhone, producto, { caption = '' } = {}) {
+  const media = productMedia(producto);
+  const video = media.find((m) => m.type === 'video');
+  const images = media.filter((m) => m.type === 'image').slice(0, video ? 3 : 4);
+  const enviados = [];
+  if (video) {
+    const publicUrl = resolvePublicMediaUrl(video.url);
+    if (publicUrl) {
+      const sent = await enviarVideoEmpresa(empresaId, toPhone, publicUrl, caption);
+      if (sent.ok) enviados.push({ type: 'video', url: video.url });
+      await new Promise((r) => setTimeout(r, 600));
+    }
+  }
+  for (const img of images.slice(0, Math.max(0, 4 - enviados.length))) {
+    const publicUrl = resolvePublicMediaUrl(img.url);
+    if (!publicUrl) continue;
+    const sent = await enviarImagenEmpresa(empresaId, toPhone, publicUrl, enviados.length === 0 ? caption : '');
+    if (sent.ok) enviados.push({ type: 'image', url: img.url });
+    await new Promise((r) => setTimeout(r, 600));
+  }
+  return enviados;
 }
 
 function normalizarTagsContacto(contacto) {
@@ -1561,6 +1630,17 @@ async function procesarCloudWebhookBody(body) {
 
             if (textoParaBot) {
               try {
+                const productosParaMedia = await productoModel.listarActivos(empresa.id, { limit: 50 });
+                const productoConsultado = matchProductoPorNombre(textoParaBot, productosParaMedia);
+                if (productoConsultado?.id) {
+                  await enviarMediaProductoEmpresa(empresa.id, from, productoConsultado, {
+                    caption: `${productoConsultado.nombre} - ${Number(productoConsultado.precio || 0).toLocaleString('es-CO')} ${productoConsultado.moneda || 'COP'}`,
+                  });
+                }
+              } catch (eMediaProd) {
+                console.warn('[WhatsApp] Error enviando multimedia del producto:', eMediaProd.message);
+              }
+              try {
                 const intentMap = { pedidos: 'pedido', agenda: 'agenda', support: 'soporte' };
                 await conversationStateModel.setMotorState(empresa.id, contacto.id, {
                   estado_operativo: 'bot_activo',
@@ -1613,8 +1693,8 @@ async function procesarCloudWebhookBody(body) {
                     if (esConsultaProductos(textoParaBot) && baseUrl) {
                       try {
                         const productos = await productoModel.listarActivos(empresa.id, { limit: 20 });
-                        const conImagen = (productos || []).filter((p) => p.imagen_url && String(p.imagen_url).trim());
-                        for (const p of conImagen.slice(0, 5)) {
+                        const conMedia = (productos || []).filter((p) => productMedia(p).length > 0);
+                        for (const p of conMedia.slice(0, 5)) {
                           const imgUrl = resolvePublicMediaUrl(p.imagen_url);
                           if (!imgUrl) continue;
                           await enviarImagenEmpresa(empresa.id, from, imgUrl, `${p.nombre} – ${Number(p.precio || 0).toLocaleString('es-CO')} ${p.moneda || 'COP'}`);
@@ -2172,6 +2252,7 @@ module.exports = {
   enviarAudioTtsEmpresa,
   enviarAudioArchivoEmpresa,
   enviarImagenEmpresa,
+  enviarVideoEmpresa,
   enviarDocumentoEmpresa,
   resolvePublicMediaUrl,
   verificarUrlImagenPublica,

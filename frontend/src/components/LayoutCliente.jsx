@@ -78,6 +78,7 @@ const nav = [
   { path: '/dashboard/ia', label: 'Bot IA', perm: 'bot_ia' },
   { path: '/dashboard/catalogo', label: 'Catálogo', perm: 'catalogo' },
   { path: '/dashboard/pedidos', label: 'Pedidos', perm: 'pedidos' },
+  { path: '/dashboard/auditoria-ia', label: 'Auditoria IA', perm: 'pedidos' },
   { path: '/dashboard/agenda', label: 'Agenda', perm: 'agenda' },
   { section: 'Configuración' },
   { path: '/dashboard/automatizaciones', label: 'Automatizaciones', perm: 'automatizaciones' },

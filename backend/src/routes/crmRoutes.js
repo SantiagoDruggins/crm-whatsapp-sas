@@ -22,10 +22,11 @@ const {
   obtenerMotorConversacion,
   actualizarMotorConversacion,
 } = require('../controllers/conversacionesController');
-const { listarProductos, obtenerProducto, crearProducto, actualizarProducto, eliminarProducto, subirImagenProducto } = require('../controllers/productosController');
+const { listarProductos, obtenerProducto, crearProducto, actualizarProducto, eliminarProducto, subirImagenProducto, subirMediaProducto, subirMediaTemporalProducto } = require('../controllers/productosController');
 const { listarTags, obtenerTag, crearTag, actualizarTag, eliminarTag, listarTagsContacto, actualizarTagsContacto } = require('../controllers/tagsController');
 const { listarAppointments, obtenerAppointment, crearAppointment, actualizarAppointment, eliminarAppointment, listarAppointmentsContacto } = require('../controllers/appointmentsController');
 const { actividadReciente } = require('../controllers/activityController');
+const { listarAuditorias, auditarConversacion, crearPedidoDesdeAuditoria } = require('../controllers/conversationAuditController');
 const { listarFlows, obtenerFlow, crearFlow, actualizarFlow, eliminarFlow, subirMediaFlow } = require('../controllers/flowsController');
 const { listarWebhooks, crearWebhook, actualizarWebhook, eliminarWebhook } = require('../controllers/webhooksController');
 const { subirLogoEmpresa } = require('../controllers/empresaBrandingController');
@@ -68,6 +69,9 @@ router.post('/conversaciones/:id/enviar-producto', asyncHandler(enviarProductoCa
 router.get('/conversaciones/:id/motor', asyncHandler(obtenerMotorConversacion));
 router.patch('/conversaciones/:id/motor', asyncHandler(actualizarMotorConversacion));
 router.get('/actividad-reciente', asyncHandler(actividadReciente));
+router.get('/auditoria-ia', asyncHandler(listarAuditorias));
+router.post('/auditoria-ia/conversaciones/:id', asyncHandler(auditarConversacion));
+router.post('/auditoria-ia/:id/crear-pedido', asyncHandler(crearPedidoDesdeAuditoria));
 
 // Flujos / Automatizaciones
 router.get('/flows', asyncHandler(listarFlows));
@@ -103,10 +107,12 @@ router.get('/contactos/:id/appointments', asyncHandler(listarAppointmentsContact
 // Catálogo de productos / servicios
 router.get('/productos', asyncHandler(listarProductos));
 router.get('/productos/:id', asyncHandler(obtenerProducto));
+router.post('/productos/media', uploadProductoImagen.array('media', 10), asyncHandler(subirMediaTemporalProducto));
 router.post('/productos', asyncHandler(crearProducto));
 router.patch('/productos/:id', asyncHandler(actualizarProducto));
 router.delete('/productos/:id', asyncHandler(eliminarProducto));
 router.post('/productos/:id/imagen', uploadProductoImagen.single('imagen'), asyncHandler(subirImagenProducto));
+router.post('/productos/:id/media', uploadProductoImagen.array('media', 10), asyncHandler(subirMediaProducto));
 
 // Branding empresa (logo)
 router.post('/empresa/logo', uploadEmpresaLogo.single('logo'), asyncHandler(subirLogoEmpresa));

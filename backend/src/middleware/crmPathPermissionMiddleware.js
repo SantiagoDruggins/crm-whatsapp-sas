@@ -12,6 +12,7 @@ const RULES = [
   { re: /^\/webhooks(\/|$)/, perm: 'integraciones' },
   { re: /^\/appointments(\/|$)/, perm: 'agenda' },
   { re: /^\/productos(\/|$)/, perm: 'catalogo' },
+  { re: /^\/auditoria-ia(\/|$)/, perm: 'pedidos' },
   { re: /^\/empresa\/logo(\/|$)/, perm: 'branding' },
   { re: /^\/feedback(\/|$)/, perm: 'sugerencias' },
 ];

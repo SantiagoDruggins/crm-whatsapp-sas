@@ -71,6 +71,15 @@ async function getById(empresaId, id) {
   return result.rows[0] || null;
 }
 
+async function existePorConversacion(empresaId, conversacionId) {
+  if (!empresaId || !conversacionId) return false;
+  const result = await query(
+    `SELECT id FROM pedidos WHERE empresa_id = $1 AND conversacion_id = $2 LIMIT 1`,
+    [empresaId, conversacionId]
+  );
+  return !!result.rows[0];
+}
+
 async function actualizarShopify(empresaId, id, data = {}) {
   const updates = [];
   const values = [id, empresaId];
@@ -112,4 +121,4 @@ async function actualizarShopify(empresaId, id, data = {}) {
   return result.rows[0] || null;
 }
 
-module.exports = { crear, listarPorEmpresa, getRecientePorConversacionProducto, getById, getByShopifyOrderId, actualizarShopify };
+module.exports = { crear, listarPorEmpresa, getRecientePorConversacionProducto, existePorConversacion, getById, getByShopifyOrderId, actualizarShopify };

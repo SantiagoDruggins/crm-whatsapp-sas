@@ -41,7 +41,7 @@ const storageProductos = multer.diskStorage({
   destination(req, file, cb) { cb(null, dirProductos); },
   filename(req, file, cb) {
     const ext = (path.extname(file.originalname) || '.jpg').toLowerCase();
-    const safe = /\.(jpe?g|png|gif|webp)$/i.test(ext) ? ext : '.jpg';
+    const safe = /\.(jpe?g|png|gif|webp|mp4|mov|webm)$/i.test(ext) ? ext : '.jpg';
     cb(null, uuidv4() + safe);
   }
 });
@@ -88,9 +88,10 @@ const uploadBotConocimiento = multer({
 const uploadProductoImagen = multer({
   storage: storageProductos,
   // 15MB para evitar 413 en fotos grandes (servicios suelen tener banners pesados)
-  limits: { fileSize: 15 * 1024 * 1024 },
+  limits: { fileSize: 30 * 1024 * 1024 },
   fileFilter(req, file, cb) {
-    const ok = /\.(jpe?g|png|gif|webp)$/i.test(file.originalname) || (file.mimetype && file.mimetype.startsWith('image/'));
+    const mime = (file.mimetype || '').toLowerCase();
+    const ok = /\.(jpe?g|png|gif|webp|mp4|mov|webm)$/i.test(file.originalname) || mime.startsWith('image/') || mime.startsWith('video/');
     if (ok) cb(null, true);
     else cb(new Error('Solo imágenes (jpg, png, gif, webp)'));
   }
