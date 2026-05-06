@@ -1123,22 +1123,18 @@ function productMedia(producto) {
 
 async function enviarMediaProductoEmpresa(empresaId, toPhone, producto, { caption = '' } = {}) {
   const media = productMedia(producto);
-  const video = media.find((m) => m.type === 'video');
-  const images = media.filter((m) => m.type === 'image').slice(0, video ? 3 : 4);
+  const primaryImage = media.find((m) => m.type === 'image' && m.is_primary) || media.find((m) => m.type === 'image');
+  const videos = media.filter((m) => m.type === 'video');
+  const secondaryImages = media.filter((m) => m.type === 'image' && m !== primaryImage);
+  const ordered = [primaryImage, ...videos, ...secondaryImages].filter(Boolean).slice(0, 6);
   const enviados = [];
-  if (video) {
-    const publicUrl = resolvePublicMediaUrl(video.url);
-    if (publicUrl) {
-      const sent = await enviarVideoEmpresa(empresaId, toPhone, publicUrl, caption);
-      if (sent.ok) enviados.push({ type: 'video', url: video.url });
-      await new Promise((r) => setTimeout(r, 600));
-    }
-  }
-  for (const img of images.slice(0, Math.max(0, 4 - enviados.length))) {
-    const publicUrl = resolvePublicMediaUrl(img.url);
+  for (const item of ordered) {
+    const publicUrl = resolvePublicMediaUrl(item.url);
     if (!publicUrl) continue;
-    const sent = await enviarImagenEmpresa(empresaId, toPhone, publicUrl, enviados.length === 0 ? caption : '');
-    if (sent.ok) enviados.push({ type: 'image', url: img.url });
+    const sent = item.type === 'video'
+      ? await enviarVideoEmpresa(empresaId, toPhone, publicUrl, enviados.length === 0 ? caption : '')
+      : await enviarImagenEmpresa(empresaId, toPhone, publicUrl, enviados.length === 0 ? caption : '');
+    if (sent.ok) enviados.push({ type: item.type, url: item.url });
     await new Promise((r) => setTimeout(r, 600));
   }
   return enviados;

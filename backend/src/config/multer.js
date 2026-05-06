@@ -41,7 +41,7 @@ const storageProductos = multer.diskStorage({
   destination(req, file, cb) { cb(null, dirProductos); },
   filename(req, file, cb) {
     const ext = (path.extname(file.originalname) || '.jpg').toLowerCase();
-    const safe = /\.(jpe?g|png|gif|webp|mp4|mov|webm)$/i.test(ext) ? ext : '.jpg';
+    const safe = /\.(jpe?g|png|webp|mp4|mov|webm)$/i.test(ext) ? ext : '.jpg';
     cb(null, uuidv4() + safe);
   }
 });
@@ -91,9 +91,12 @@ const uploadProductoImagen = multer({
   limits: { fileSize: 30 * 1024 * 1024 },
   fileFilter(req, file, cb) {
     const mime = (file.mimetype || '').toLowerCase();
-    const ok = /\.(jpe?g|png|gif|webp|mp4|mov|webm)$/i.test(file.originalname) || mime.startsWith('image/') || mime.startsWith('video/');
+    const name = String(file.originalname || '').toLowerCase();
+    const okImage = /\.(jpe?g|png|webp)$/i.test(name) && ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(mime);
+    const okVideo = /\.(mp4|mov|webm)$/i.test(name) && ['video/mp4', 'video/quicktime', 'video/webm'].includes(mime);
+    const ok = okImage || okVideo;
     if (ok) cb(null, true);
-    else cb(new Error('Solo imágenes (jpg, png, gif, webp)'));
+    else cb(new Error('Solo imagenes jpg, jpeg, png, webp o videos mp4, mov, webm'));
   }
 });
 

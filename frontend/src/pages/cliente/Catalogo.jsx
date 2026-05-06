@@ -22,8 +22,10 @@ function normalizeMedia(producto) {
     return media.map((m, idx) => ({
       type: m.type || 'image',
       url: m.url || '',
+      filename: m.filename || '',
+      thumbnail_url: m.thumbnail_url || '',
       is_primary: !!m.is_primary,
-      order_index: Number(m.order_index) || idx,
+      order_index: Number(m.order_index ?? m.order) || idx,
     }));
   }
   if (producto?.imagen_url) return [{ type: 'image', url: producto.imagen_url, is_primary: true, order_index: 0 }];
@@ -123,6 +125,10 @@ export default function Catalogo() {
     });
   };
 
+  const removeSelectedFile = (idx) => {
+    setMediaFiles((files) => files.filter((_, i) => i !== idx));
+  };
+
   const moveMedia = (idx, dir) => {
     setForm((f) => {
       const next = [...(f.media || [])];
@@ -137,7 +143,6 @@ export default function Catalogo() {
     e.preventDefault();
     if (!form.nombre.trim()) return setError('El nombre es obligatorio.');
     const mediaPayload = (form.media || []).filter((m) => String(m.url || '').trim());
-    if (mediaPayload.length === 0 && mediaFiles.length === 0) return setError('Agrega al menos una imagen o video.');
     setGuardando(true);
     try {
       let media = mediaPayload.map((m, idx) => ({ ...m, order_index: idx }));
@@ -267,7 +272,7 @@ export default function Catalogo() {
                   <span className="text-sm font-semibold text-white">Galeria</span>
                   <button type="button" onClick={addUrlMedia} className="text-xs rounded-lg border border-[#2d3a47] text-[#8b9cad] px-3 py-1.5 hover:text-white">Agregar URL</button>
                 </div>
-                <input type="file" multiple accept="image/*,video/*" onChange={(e) => setMediaFiles(Array.from(e.target.files || []))} className="block w-full text-sm text-[#8b9cad] mb-3" />
+                <input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.mp4,.mov,.webm,image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" onChange={(e) => setMediaFiles((prev) => [...prev, ...Array.from(e.target.files || [])])} className="block w-full text-sm text-[#8b9cad] mb-3" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {(form.media || []).map((m, idx) => (
                     <div key={idx} className="rounded-xl border border-[#2d3a47] bg-[#0f1419] p-3">
@@ -288,6 +293,17 @@ export default function Catalogo() {
                     </div>
                   ))}
                 </div>
+                {mediaFiles.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {mediaFiles.map((file, idx) => (
+                      <div key={`${file.name}-${idx}`} className="flex items-center gap-2 rounded-lg border border-[#2d3a47] bg-[#0f1419] px-3 py-2 text-xs text-[#cbd5e0]">
+                        <span className="truncate">{file.name}</span>
+                        <span className="ml-auto text-[#8b9cad]">{file.type?.startsWith('video/') ? 'Video' : 'Imagen'}</span>
+                        <button type="button" onClick={() => removeSelectedFile(idx)} className="text-[#f87171]">Quitar</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {previewMedia.length > 0 && (
                   <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                     {previewMedia.map((m, idx) => (

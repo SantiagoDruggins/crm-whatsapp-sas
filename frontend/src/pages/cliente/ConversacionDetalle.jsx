@@ -82,6 +82,7 @@ export default function ConversacionDetalle() {
   const [modoReactivacion, setModoReactivacion] = useState('soporte');
   const [productos, setProductos] = useState([]);
   const [productoCatalogoId, setProductoCatalogoId] = useState('');
+  const [productoMediaMode, setProductoMediaMode] = useState('all');
   const [enviandoImagen, setEnviandoImagen] = useState(false);
   const [enviandoDoc, setEnviandoDoc] = useState(false);
   const [enviandoCatalogo, setEnviandoCatalogo] = useState(false);
@@ -328,7 +329,7 @@ export default function ConversacionDetalle() {
     setError('');
     setAviso('');
     try {
-      const r = await api.post(`/crm/conversaciones/${id}/enviar-producto`, { producto_id: productoCatalogoId });
+      const r = await api.post(`/crm/conversaciones/${id}/enviar-producto`, { producto_id: productoCatalogoId, media_mode: productoMediaMode });
       setProductoCatalogoId('');
       load({ showSpinner: false });
       if (r?.advertencia) setAviso(r.advertencia);
@@ -410,7 +411,8 @@ export default function ConversacionDetalle() {
     const u = String(url).trim();
     if (u.startsWith('http://') || u.startsWith('https://')) return u;
     const base = import.meta.env.VITE_UPLOADS_BASE || window.location.origin;
-    return u.startsWith('/') ? base + u : base + '/' + u;
+    const path = u.startsWith('/') ? u : '/' + u;
+    return path.startsWith('/uploads/') ? `${base}/api${path}` : base + path;
   };
 
   const telefono = conversacion.contacto_telefono;
@@ -594,6 +596,16 @@ export default function ConversacionDetalle() {
                         <p className="whitespace-pre-wrap break-words text-sm">{m.contenido}</p>
                       )}
                     </div>
+                  ) : m.message_type === 'video' && m.media_url ? (
+                    <div className="space-y-2">
+                      <video
+                        controls
+                        src={mediaSrc(m.media_url)}
+                        className="max-w-[240px] max-h-[240px] rounded-md object-cover border border-[#2d3a47]"
+                        preload="metadata"
+                      />
+                      {m.contenido && <p className="whitespace-pre-wrap break-words text-sm">{m.contenido}</p>}
+                    </div>
                   ) : m.message_type === 'document' && m.media_url ? (
                     <div className="space-y-1">
                       <a
@@ -657,13 +669,23 @@ export default function ConversacionDetalle() {
                   </option>
                 ))}
               </select>
+              <select
+                value={productoMediaMode}
+                onChange={(e) => setProductoMediaMode(e.target.value)}
+                disabled={enviandoCatalogo || grabandoAudio || !!audioBlob}
+                className="rounded-lg border border-[#2d3a47] bg-[#0f1419] text-[#cbd5e0] px-2 py-1 text-xs"
+              >
+                <option value="all">Todo</option>
+                <option value="images">Solo imagenes</option>
+                <option value="videos">Solo videos</option>
+              </select>
               <button
                 type="button"
                 onClick={enviarProductoCatalogo}
                 disabled={!productoCatalogoId || enviandoCatalogo || grabandoAudio || !!audioBlob}
                 className="rounded-lg border border-[#00a884]/50 bg-[#00a884]/15 text-[#25d366] px-2.5 py-1 hover:bg-[#00a884]/25 disabled:opacity-50"
               >
-                {enviandoCatalogo ? '…' : 'Enviar producto'}
+                {enviandoCatalogo ? '...' : 'Enviar multimedia producto'}
               </button>
             </span>
           )}

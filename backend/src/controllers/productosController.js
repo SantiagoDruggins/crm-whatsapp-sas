@@ -14,6 +14,29 @@ function parseMediaBody(value) {
   return undefined;
 }
 
+function mediaFilenameFromUpload(file) {
+  return String(file?.originalname || file?.filename || '').trim().slice(0, 255);
+}
+
+function mediaTypeFromFile(file) {
+  return (file?.mimetype || '').toLowerCase().startsWith('video/') ? 'video' : 'image';
+}
+
+function mediaUrlForFile(file) {
+  return `/uploads/productos/${file.filename}`;
+}
+
+function mediaPayloadFromExisting(media = []) {
+  return (Array.isArray(media) ? media : []).map((m, idx) => ({
+    type: m.type,
+    url: m.url,
+    filename: m.filename,
+    thumbnail_url: m.thumbnail_url,
+    is_primary: !!m.is_primary,
+    order_index: Number(m.order_index ?? m.order) || idx,
+  }));
+}
+
 async function listarProductos(req, res) {
   try {
     const empresaId = req.user.empresaId;
@@ -86,21 +109,18 @@ async function subirImagenProducto(req, res) {
   try {
     if (!req.file) return res.status(400).json({ message: 'Imagen es requerida' });
     const empresaId = req.user.empresaId;
-    const ruta = `/uploads/productos/${req.file.filename}`;
     const productoPrevio = await productoModel.obtener(empresaId, req.params.id);
     if (!productoPrevio) return res.status(404).json({ message: 'Producto no encontrado' });
     const mediaActual = Array.isArray(productoPrevio.media) ? productoPrevio.media : [];
-    const tipo = (req.file.mimetype || '').toLowerCase().startsWith('video/') ? 'video' : 'image';
+    const tipo = mediaTypeFromFile(req.file);
+    const ruta = mediaUrlForFile(req.file);
     const media = [
-      ...mediaActual.map((m) => ({
-        type: m.type,
-        url: m.url,
-        is_primary: !!m.is_primary,
-        order_index: Number(m.order_index) || 0,
-      })),
+      ...mediaPayloadFromExisting(mediaActual),
       {
         type: tipo,
         url: ruta,
+        filename: mediaFilenameFromUpload(req.file),
+        thumbnail_url: tipo === 'image' ? ruta : null,
         is_primary: mediaActual.length === 0 && tipo === 'image',
         order_index: mediaActual.length,
       },
@@ -122,22 +142,20 @@ async function subirMediaProducto(req, res) {
     if (!producto) return res.status(404).json({ message: 'Producto no encontrado' });
     const actuales = Array.isArray(producto.media) ? producto.media : [];
     const nuevos = files.map((file, idx) => {
-      const tipo = (file.mimetype || '').toLowerCase().startsWith('video/') ? 'video' : 'image';
+      const tipo = mediaTypeFromFile(file);
+      const url = mediaUrlForFile(file);
       return {
         type: tipo,
-        url: `/uploads/productos/${file.filename}`,
+        url,
+        filename: mediaFilenameFromUpload(file),
+        thumbnail_url: tipo === 'image' ? url : null,
         is_primary: actuales.length === 0 && idx === 0 && tipo === 'image',
         order_index: actuales.length + idx,
       };
     });
     const actualizado = await productoModel.actualizar(empresaId, req.params.id, {
       media: [
-        ...actuales.map((m) => ({
-          type: m.type,
-          url: m.url,
-          is_primary: !!m.is_primary,
-          order_index: Number(m.order_index) || 0,
-        })),
+        ...mediaPayloadFromExisting(actuales),
         ...nuevos,
       ],
     });
@@ -152,9 +170,11 @@ async function subirMediaTemporalProducto(req, res) {
     const files = Array.isArray(req.files) ? req.files : [];
     if (files.length === 0) return res.status(400).json({ message: 'Archivo multimedia requerido' });
     const media = files.map((file, idx) => ({
-      type: (file.mimetype || '').toLowerCase().startsWith('video/') ? 'video' : 'image',
-      url: `/uploads/productos/${file.filename}`,
-      is_primary: idx === 0 && !(file.mimetype || '').toLowerCase().startsWith('video/'),
+      type: mediaTypeFromFile(file),
+      url: mediaUrlForFile(file),
+      filename: mediaFilenameFromUpload(file),
+      thumbnail_url: mediaTypeFromFile(file) === 'image' ? mediaUrlForFile(file) : null,
+      is_primary: idx === 0 && mediaTypeFromFile(file) === 'image',
       order_index: idx,
     }));
     return res.status(200).json({ ok: true, media });

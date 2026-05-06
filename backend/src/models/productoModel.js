@@ -1,18 +1,38 @@
 const { pool, query } = require('../config/db');
 
+function mediaFilenameFromUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  try {
+    const pathname = raw.startsWith('http') ? new URL(raw).pathname : raw;
+    return decodeURIComponent(String(pathname).split('/').filter(Boolean).pop() || '');
+  } catch (_) {
+    return raw.split('/').filter(Boolean).pop() || '';
+  }
+}
+
 function normalizeMediaInput(media = [], fallbackImageUrl = null) {
   const list = Array.isArray(media) ? media : [];
   const clean = list
     .map((m, idx) => ({
       type: String(m?.type || '').trim().toLowerCase(),
       url: String(m?.url || '').trim(),
+      filename: String(m?.filename || '').trim(),
+      thumbnail_url: String(m?.thumbnail_url || m?.thumbnailUrl || '').trim(),
       is_primary: !!(m?.is_primary ?? m?.isPrimary),
-      order_index: Number.isFinite(Number(m?.order_index ?? m?.orderIndex)) ? Number(m?.order_index ?? m?.orderIndex) : idx,
+      order_index: Number.isFinite(Number(m?.order_index ?? m?.orderIndex ?? m?.order)) ? Number(m?.order_index ?? m?.orderIndex ?? m?.order) : idx,
     }))
     .filter((m) => m.url);
 
   if (clean.length === 0 && fallbackImageUrl && String(fallbackImageUrl).trim()) {
-    clean.push({ type: 'image', url: String(fallbackImageUrl).trim(), is_primary: true, order_index: 0 });
+    clean.push({
+      type: 'image',
+      url: String(fallbackImageUrl).trim(),
+      filename: mediaFilenameFromUrl(fallbackImageUrl),
+      thumbnail_url: String(fallbackImageUrl).trim(),
+      is_primary: true,
+      order_index: 0,
+    });
   }
 
   for (const m of clean) {
@@ -23,11 +43,7 @@ function normalizeMediaInput(media = [], fallbackImageUrl = null) {
     }
   }
 
-  if (clean.length === 0) {
-    const err = new Error('Debe existir mínimo 1 media');
-    err.status = 400;
-    throw err;
-  }
+  if (clean.length === 0) return [];
 
   clean.sort((a, b) => a.order_index - b.order_index);
   if (!clean.some((m) => m.is_primary)) {
@@ -38,7 +54,13 @@ function normalizeMediaInput(media = [], fallbackImageUrl = null) {
   return clean.map((m, idx) => {
     const isPrimary = m.is_primary && !primaryUsed;
     if (isPrimary) primaryUsed = true;
-    return { ...m, is_primary: isPrimary, order_index: idx };
+    return {
+      ...m,
+      filename: m.filename || mediaFilenameFromUrl(m.url),
+      thumbnail_url: m.thumbnail_url || (m.type === 'image' ? m.url : ''),
+      is_primary: isPrimary,
+      order_index: idx,
+    };
   });
 }
 
@@ -49,8 +71,12 @@ function attachMedia(rows) {
     if (!byId.has(id)) {
       const base = { ...row, media: [] };
       delete base.media_id;
+      delete base.media_empresa_id;
+      delete base.media_product_id;
       delete base.media_type;
       delete base.media_url;
+      delete base.media_filename;
+      delete base.media_thumbnail_url;
       delete base.media_is_primary;
       delete base.media_order_index;
       byId.set(id, base);
@@ -60,8 +86,14 @@ function attachMedia(rows) {
         id: row.media_id,
         type: row.media_type,
         url: row.media_url,
+        filename: row.media_filename || mediaFilenameFromUrl(row.media_url),
+        thumbnail_url: row.media_thumbnail_url || (row.media_type === 'image' ? row.media_url : null),
+        company_id: row.media_empresa_id || row.empresa_id,
+        empresa_id: row.media_empresa_id || row.empresa_id,
+        product_id: row.media_product_id || id,
         is_primary: row.media_is_primary,
         order_index: row.media_order_index,
+        order: row.media_order_index,
       });
     }
   }
@@ -74,20 +106,29 @@ function attachMedia(rows) {
   });
 }
 
-async function setMediaForProduct(client, productId, media) {
-  await client.query(`DELETE FROM product_media WHERE product_id = $1`, [productId]);
+async function setMediaForProduct(client, empresaId, productId, media) {
+  await client.query(`DELETE FROM product_media WHERE product_id = $1 AND empresa_id = $2`, [productId, empresaId]);
   for (const m of media) {
     await client.query(
-      `INSERT INTO product_media (product_id, type, url, is_primary, order_index)
-       VALUES ($1, $2::product_media_type, $3, $4, $5)`,
-      [productId, m.type, m.url, m.is_primary, m.order_index]
+      `INSERT INTO product_media (empresa_id, product_id, type, url, filename, thumbnail_url, is_primary, order_index)
+       VALUES ($1, $2, $3::product_media_type, $4, $5, $6, $7, $8)`,
+      [
+        empresaId,
+        productId,
+        m.type,
+        m.url,
+        m.filename || mediaFilenameFromUrl(m.url),
+        m.thumbnail_url || (m.type === 'image' ? m.url : null),
+        m.is_primary,
+        m.order_index,
+      ]
     );
   }
 }
 
 async function getMedia(productId) {
   const result = await query(
-    `SELECT id, type, url, is_primary, order_index
+    `SELECT id, empresa_id, product_id, type, url, filename, thumbnail_url, is_primary, order_index
      FROM product_media
      WHERE product_id = $1
      ORDER BY order_index ASC, created_at ASC`,
@@ -98,13 +139,18 @@ async function getMedia(productId) {
 
 async function listar(empresaId, { limit = 100, offset = 0 } = {}) {
   const result = await query(
-    `SELECT p.*, pm.id AS media_id, pm.type AS media_type, pm.url AS media_url,
+    `SELECT p.*, pm.id AS media_id, pm.empresa_id AS media_empresa_id, pm.product_id AS media_product_id,
+            pm.type AS media_type, pm.url AS media_url, pm.filename AS media_filename, pm.thumbnail_url AS media_thumbnail_url,
             pm.is_primary AS media_is_primary, pm.order_index AS media_order_index
-     FROM productos p
-     LEFT JOIN product_media pm ON pm.product_id = p.id
-     WHERE p.empresa_id = $1
+     FROM (
+       SELECT * FROM productos
+       WHERE empresa_id = $1
+       ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3
+     ) p
+     LEFT JOIN product_media pm ON pm.product_id = p.id AND pm.empresa_id = p.empresa_id
      ORDER BY p.created_at DESC, pm.order_index ASC, pm.created_at ASC
-     LIMIT $2 OFFSET $3`,
+     `,
     [empresaId, limit, offset]
   );
   return attachMedia(result.rows || []);
@@ -112,13 +158,18 @@ async function listar(empresaId, { limit = 100, offset = 0 } = {}) {
 
 async function listarActivos(empresaId, { limit = 100, offset = 0 } = {}) {
   const result = await query(
-    `SELECT p.*, pm.id AS media_id, pm.type AS media_type, pm.url AS media_url,
+    `SELECT p.*, pm.id AS media_id, pm.empresa_id AS media_empresa_id, pm.product_id AS media_product_id,
+            pm.type AS media_type, pm.url AS media_url, pm.filename AS media_filename, pm.thumbnail_url AS media_thumbnail_url,
             pm.is_primary AS media_is_primary, pm.order_index AS media_order_index
-     FROM productos p
-     LEFT JOIN product_media pm ON pm.product_id = p.id
-     WHERE p.empresa_id = $1 AND p.activo = true
+     FROM (
+       SELECT * FROM productos
+       WHERE empresa_id = $1 AND activo = true
+       ORDER BY nombre ASC
+       LIMIT $2 OFFSET $3
+     ) p
+     LEFT JOIN product_media pm ON pm.product_id = p.id AND pm.empresa_id = p.empresa_id
      ORDER BY p.nombre ASC, pm.order_index ASC, pm.created_at ASC
-     LIMIT $2 OFFSET $3`,
+     `,
     [empresaId, limit, offset]
   );
   return attachMedia(result.rows || []);
@@ -126,10 +177,11 @@ async function listarActivos(empresaId, { limit = 100, offset = 0 } = {}) {
 
 async function obtener(empresaId, id) {
   const result = await query(
-    `SELECT p.*, pm.id AS media_id, pm.type AS media_type, pm.url AS media_url,
+    `SELECT p.*, pm.id AS media_id, pm.empresa_id AS media_empresa_id, pm.product_id AS media_product_id,
+            pm.type AS media_type, pm.url AS media_url, pm.filename AS media_filename, pm.thumbnail_url AS media_thumbnail_url,
             pm.is_primary AS media_is_primary, pm.order_index AS media_order_index
      FROM productos p
-     LEFT JOIN product_media pm ON pm.product_id = p.id
+     LEFT JOIN product_media pm ON pm.product_id = p.id AND pm.empresa_id = p.empresa_id
      WHERE p.id = $1 AND p.empresa_id = $2
      ORDER BY pm.order_index ASC, pm.created_at ASC`,
     [id, empresaId]
@@ -160,7 +212,7 @@ async function crear(empresaId, data) {
       ]
     );
     const producto = result.rows[0] || null;
-    await setMediaForProduct(client, producto.id, media);
+    await setMediaForProduct(client, empresaId, producto.id, media);
     await client.query('COMMIT');
     return obtener(empresaId, producto.id);
   } catch (e) {
@@ -185,7 +237,7 @@ async function actualizar(empresaId, id, data) {
     if (data.media !== undefined) {
       normalizedMedia = normalizeMediaInput(data.media, data.imagen_url);
       const primary = normalizedMedia.find((m) => m.is_primary) || normalizedMedia[0];
-      nextImageUrl = primary?.url || nextImageUrl || null;
+      nextImageUrl = primary?.url || '';
     }
     const result = await client.query(
       `UPDATE productos
@@ -213,7 +265,7 @@ async function actualizar(empresaId, id, data) {
         data.activo !== undefined ? !!data.activo : null,
       ]
     );
-    if (normalizedMedia) await setMediaForProduct(client, id, normalizedMedia);
+    if (normalizedMedia) await setMediaForProduct(client, empresaId, id, normalizedMedia);
     await client.query('COMMIT');
     return obtener(empresaId, result.rows[0].id);
   } catch (e) {
