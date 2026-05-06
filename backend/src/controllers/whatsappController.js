@@ -1690,14 +1690,14 @@ async function procesarCloudWebhookBody(body) {
                       try {
                         const productos = await productoModel.listarActivos(empresa.id, { limit: 20 });
                         const conMedia = (productos || []).filter((p) => productMedia(p).length > 0);
-                        for (const p of conMedia.slice(0, 5)) {
-                          const imgUrl = resolvePublicMediaUrl(p.imagen_url);
-                          if (!imgUrl) continue;
-                          await enviarImagenEmpresa(empresa.id, from, imgUrl, `${p.nombre} – ${Number(p.precio || 0).toLocaleString('es-CO')} ${p.moneda || 'COP'}`);
-                          await new Promise((r) => setTimeout(r, 600));
+                        for (const p of conMedia.slice(0, 3)) {
+                          await enviarMediaProductoEmpresa(empresa.id, from, p, {
+                            caption: `${p.nombre} - ${Number(p.precio || 0).toLocaleString('es-CO')} ${p.moneda || 'COP'}`,
+                          });
+                          await new Promise((r) => setTimeout(r, 800));
                         }
                       } catch (eImg) {
-                        console.warn('[WhatsApp] Error enviando fotos de productos:', eImg.message);
+                        console.warn('[WhatsApp] Error enviando multimedia de productos:', eImg.message);
                       }
                     }
                   }
