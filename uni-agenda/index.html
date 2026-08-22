@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UniAgenda</title>
+    <meta
+      name="description"
+      content="Agenda simple para universitarios: materias, tareas, fechas, horas y calendario."
+    />
+    <link rel="stylesheet" href="./assets/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar" aria-label="Resumen">
+        <div>
+          <p class="eyebrow">Planner universitario</p>
+          <h1>UniAgenda</h1>
+        </div>
+        <div class="stats-grid" aria-live="polite">
+          <article class="stat">
+            <span id="statToday">0</span>
+            <small>hoy</small>
+          </article>
+          <article class="stat">
+            <span id="statWeek">0</span>
+            <small>esta semana</small>
+          </article>
+          <article class="stat">
+            <span id="statPending">0</span>
+            <small>pendientes</small>
+          </article>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <aside class="task-form-panel" aria-labelledby="formTitle">
+          <div class="panel-heading">
+            <p class="eyebrow">Nuevo pendiente</p>
+            <h2 id="formTitle">Añadir tarea</h2>
+          </div>
+
+          <form id="taskForm" class="task-form">
+            <label>
+              Materia
+              <input
+                id="subjectInput"
+                type="text"
+                placeholder="Cálculo, Inglés, Física..."
+                required
+              />
+            </label>
+
+            <label>
+              Tarea
+              <textarea
+                id="taskInput"
+                rows="4"
+                placeholder="Ej: entregar taller 2, leer capítulo 4..."
+                required
+              ></textarea>
+            </label>
+
+            <div class="form-row">
+              <label>
+                Fecha
+                <input id="dateInput" type="date" required />
+              </label>
+              <label>
+                Hora
+                <input id="timeInput" type="time" required />
+              </label>
+            </div>
+
+            <label>
+              Prioridad
+              <select id="priorityInput">
+                <option value="normal">Normal</option>
+                <option value="alta">Alta</option>
+                <option value="baja">Baja</option>
+              </select>
+            </label>
+
+            <button type="submit">Guardar tarea</button>
+          </form>
+        </aside>
+
+        <section class="main-panel">
+          <nav class="controls" aria-label="Controles del calendario">
+            <button id="prevMonth" type="button" aria-label="Mes anterior">‹</button>
+            <h2 id="monthLabel"></h2>
+            <button id="nextMonth" type="button" aria-label="Mes siguiente">›</button>
+          </nav>
+
+          <div class="calendar-card">
+            <div class="weekday-grid" aria-hidden="true">
+              <span>Lun</span>
+              <span>Mar</span>
+              <span>Mié</span>
+              <span>Jue</span>
+              <span>Vie</span>
+              <span>Sáb</span>
+              <span>Dom</span>
+            </div>
+            <div id="calendarGrid" class="calendar-grid"></div>
+          </div>
+        </section>
+
+        <section class="tasks-panel" aria-labelledby="tasksTitle">
+          <div class="panel-heading">
+            <p class="eyebrow">Seguimiento</p>
+            <h2 id="tasksTitle">Tareas</h2>
+          </div>
+
+          <div class="filters" role="group" aria-label="Filtros de tareas">
+            <button class="filter active" type="button" data-filter="pending">Pendientes</button>
+            <button class="filter" type="button" data-filter="today">Hoy</button>
+            <button class="filter" type="button" data-filter="all">Todas</button>
+          </div>
+
+          <div id="taskList" class="task-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./assets/app.js"></script>
+  </body>
+</html>
