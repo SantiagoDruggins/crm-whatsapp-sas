@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
-const STORAGE_KEY = 'uniagenda.tasks.v1';
+const SESSION_KEY = 'uniagenda.session.v1';
+const USERS_KEY = 'uniagenda.users.v1';
 
 const monthFormatter = new Intl.DateTimeFormat('es-CO', {
   month: 'long',
@@ -12,14 +13,6 @@ const dayFormatter = new Intl.DateTimeFormat('es-CO', {
   day: 'numeric',
   month: 'short',
 });
-
-const initialForm = {
-  subject: '',
-  title: '',
-  date: getDateKey(new Date()),
-  time: '08:00',
-  priority: 'normal',
-};
 
 function getDateKey(date) {
   return [
@@ -34,27 +27,40 @@ function parseDateKey(dateKey) {
   return new Date(year, month - 1, day);
 }
 
-function loadTasks() {
+function normalizeEmail(email) {
+  return email.trim().toLowerCase();
+}
+
+function tasksKey(userId) {
+  return `uniagenda.tasks.${userId}.v2`;
+}
+
+function initialTaskForm() {
+  return {
+    subject: '',
+    title: '',
+    date: getDateKey(new Date()),
+    time: '08:00',
+    priority: 'normal',
+    checklistText: '',
+  };
+}
+
+function loadJson(key, fallback) {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? [];
+    return JSON.parse(localStorage.getItem(key)) ?? fallback;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-function saveTasks(tasks) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+function saveJson(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
 }
 
 function priorityStyles(priority) {
-  if (priority === 'alta') {
-    return 'border-red-300 bg-red-50 text-red-800';
-  }
-
-  if (priority === 'baja') {
-    return 'border-emerald-300 bg-emerald-50 text-emerald-800';
-  }
-
+  if (priority === 'alta') return 'border-red-300 bg-red-50 text-red-800';
+  if (priority === 'baja') return 'border-emerald-300 bg-emerald-50 text-emerald-800';
   return 'border-cyan-300 bg-cyan-50 text-cyan-800';
 }
 
@@ -64,9 +70,129 @@ function sortedTasks(tasks) {
   );
 }
 
+function taskProgress(task) {
+  const checklist = task.checklist ?? [];
+
+  if (!checklist.length) {
+    return { total: 1, completed: task.done ? 1 : 0, done: task.done };
+  }
+
+  const completed = checklist.filter((item) => item.done).length;
+  return { total: checklist.length, completed, done: completed === checklist.length };
+}
+
+function createUserSession(form) {
+  const email = normalizeEmail(form.email);
+  const users = loadJson(USERS_KEY, {});
+  const existingUser = users[email];
+  const user = existingUser ?? {
+    id: crypto.randomUUID(),
+    name: form.name.trim() || email.split('@')[0],
+    email,
+    plan: 'gratis',
+    createdAt: new Date().toISOString(),
+  };
+
+  users[email] = user;
+  saveJson(USERS_KEY, users);
+  saveJson(SESSION_KEY, user);
+  return user;
+}
+
+function LoginPanel({ onLogin }) {
+  const [mode, setMode] = useState('login');
+  const [form, setForm] = useState({ name: '', email: '' });
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    onLogin(createUserSession(form));
+  };
+
+  return (
+    <main className="grid min-h-screen place-items-center bg-[#f2f6f9] px-4 py-8 text-[#18212f]">
+      <section className="grid w-full max-w-5xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl shadow-slate-300/70 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="bg-[#18212f] p-8 text-white md:p-12">
+          <p className="mb-3 text-xs font-black uppercase tracking-wider text-cyan-300">
+            Planner universitario
+          </p>
+          <h1 className="max-w-xl text-5xl font-black leading-none md:text-6xl">UniAgenda</h1>
+          <p className="mt-5 max-w-xl text-lg font-semibold text-slate-300">
+            Organiza materias, tareas y entregas en un calendario tipo checklist.
+          </p>
+
+          <div className="mt-10 grid gap-3 sm:grid-cols-3">
+            {['Calendario', 'Checklist', 'Cuenta local'].map((item) => (
+              <div key={item} className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <span className="text-sm font-black text-cyan-200">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-6 md:p-10">
+          <div className="mb-6 grid grid-cols-2 rounded-lg bg-slate-100 p-1">
+            {[
+              ['login', 'Iniciar sesión'],
+              ['register', 'Crear cuenta'],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                className={`h-11 rounded-md text-sm font-black ${
+                  mode === value ? 'bg-white text-[#18212f] shadow-sm' : 'text-slate-500'
+                }`}
+                type="button"
+                onClick={() => setMode(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <form className="grid gap-4" onSubmit={handleSubmit}>
+            {mode === 'register' ? (
+              <label className="grid gap-2 text-sm font-black text-slate-500">
+                Nombre
+                <input
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-[#18212f] outline-none focus:border-[#1e6f8c] focus:ring-4 focus:ring-cyan-100"
+                  value={form.name}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
+                  placeholder="Tu nombre"
+                  required
+                />
+              </label>
+            ) : null}
+
+            <label className="grid gap-2 text-sm font-black text-slate-500">
+              Correo universitario
+              <input
+                className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-[#18212f] outline-none focus:border-[#1e6f8c] focus:ring-4 focus:ring-cyan-100"
+                type="email"
+                value={form.email}
+                onChange={(event) => setForm({ ...form, email: event.target.value })}
+                placeholder="nombre@universidad.edu"
+                required
+              />
+            </label>
+
+            <button className="h-12 rounded-lg bg-[#1e6f8c] font-black text-white hover:bg-[#134e63]">
+              {mode === 'register' ? 'Crear mi agenda' : 'Entrar a mi agenda'}
+            </button>
+          </form>
+
+          <p className="mt-5 rounded-lg bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+            Versión MVP: la cuenta se guarda en este navegador. Luego la pasamos a base de datos,
+            suscripciones y plan premium.
+          </p>
+        </div>
+      </section>
+    </main>
+  );
+}
+
 export default function UniAgenda() {
-  const [tasks, setTasks] = useState(loadTasks);
-  const [form, setForm] = useState(initialForm);
+  const [user, setUser] = useState(() => loadJson(SESSION_KEY, null));
+  const [tasks, setTasks] = useState(() => (user ? loadJson(tasksKey(user.id), []) : []));
+  const [form, setForm] = useState(initialTaskForm);
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [activeFilter, setActiveFilter] = useState('pending');
 
@@ -74,9 +200,10 @@ export default function UniAgenda() {
   const orderedTasks = useMemo(() => sortedTasks(tasks), [tasks]);
 
   const visibleTasks = orderedTasks.filter((task) => {
+    const progress = taskProgress(task);
     if (activeFilter === 'all') return true;
     if (activeFilter === 'today') return task.date === todayKey;
-    if (activeFilter === 'pending') return !task.done;
+    if (activeFilter === 'pending') return !progress.done;
     return task.date === activeFilter;
   });
 
@@ -85,38 +212,14 @@ export default function UniAgenda() {
     weekLimit.setDate(weekLimit.getDate() + 7);
 
     return {
-      today: tasks.filter((task) => !task.done && task.date === todayKey).length,
+      today: tasks.filter((task) => !taskProgress(task).done && task.date === todayKey).length,
       week: tasks.filter((task) => {
         const dueDate = parseDateKey(task.date);
-        return !task.done && dueDate >= parseDateKey(todayKey) && dueDate <= weekLimit;
+        return !taskProgress(task).done && dueDate >= parseDateKey(todayKey) && dueDate <= weekLimit;
       }).length,
-      pending: tasks.filter((task) => !task.done).length,
+      pending: tasks.filter((task) => !taskProgress(task).done).length,
     };
   }, [tasks, todayKey]);
-
-  const updateTasks = (nextTasks) => {
-    setTasks(nextTasks);
-    saveTasks(nextTasks);
-  };
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
-
-    const nextTasks = [
-      ...tasks,
-      {
-        id: crypto.randomUUID(),
-        ...form,
-        subject: form.subject.trim(),
-        title: form.title.trim(),
-        done: false,
-        createdAt: new Date().toISOString(),
-      },
-    ];
-
-    updateTasks(nextTasks);
-    setForm(initialForm);
-  };
 
   const monthDays = useMemo(() => {
     const year = currentMonth.getFullYear();
@@ -129,6 +232,7 @@ export default function UniAgenda() {
       const date = new Date(gridStart);
       date.setDate(gridStart.getDate() + index);
       const dateKey = getDateKey(date);
+
       return {
         date,
         dateKey,
@@ -138,18 +242,67 @@ export default function UniAgenda() {
     });
   }, [currentMonth, orderedTasks]);
 
+  if (!user) {
+    return (
+      <LoginPanel
+        onLogin={(nextUser) => {
+          setUser(nextUser);
+          setTasks(loadJson(tasksKey(nextUser.id), []));
+        }}
+      />
+    );
+  }
+
+  const updateTasks = (nextTasks) => {
+    setTasks(nextTasks);
+    saveJson(tasksKey(user.id), nextTasks);
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+
+    const checklist = form.checklistText
+      .split('\n')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((text) => ({ id: crypto.randomUUID(), text, done: false }));
+
+    updateTasks([
+      ...tasks,
+      {
+        id: crypto.randomUUID(),
+        subject: form.subject.trim(),
+        title: form.title.trim(),
+        date: form.date,
+        time: form.time,
+        priority: form.priority,
+        checklist,
+        done: false,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    setForm(initialTaskForm());
+  };
+
+  const logout = () => {
+    localStorage.removeItem(SESSION_KEY);
+    setUser(null);
+    setTasks([]);
+  };
+
   return (
     <main className="min-h-screen bg-[#f2f6f9] text-[#18212f]">
       <section className="mx-auto w-[min(1440px,calc(100%-32px))] py-7">
         <div className="flex flex-col gap-5 pb-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="mb-2 text-xs font-black uppercase tracking-wider text-[#1e6f8c]">
-              Planner universitario
+              Hola, {user.name}
             </p>
             <h1 className="text-5xl font-black leading-none md:text-7xl">UniAgenda</h1>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid gap-2 sm:grid-cols-[repeat(3,minmax(96px,1fr))_auto]">
             {[
               ['hoy', stats.today],
               ['esta semana', stats.week],
@@ -160,10 +313,17 @@ export default function UniAgenda() {
                 <span className="text-sm font-bold text-slate-500">{label}</span>
               </article>
             ))}
+            <button
+              className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-600 shadow-sm hover:bg-slate-50"
+              type="button"
+              onClick={logout}
+            >
+              Salir
+            </button>
           </div>
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
+        <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)_390px]">
           <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70">
             <p className="mb-2 text-xs font-black uppercase tracking-wider text-[#1e6f8c]">
               Nuevo pendiente
@@ -185,11 +345,21 @@ export default function UniAgenda() {
               <label className="grid gap-2 text-sm font-black text-slate-500">
                 Tarea
                 <textarea
-                  className="min-h-28 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-[#18212f] outline-none focus:border-[#1e6f8c] focus:ring-4 focus:ring-cyan-100"
+                  className="min-h-24 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-[#18212f] outline-none focus:border-[#1e6f8c] focus:ring-4 focus:ring-cyan-100"
                   value={form.title}
                   onChange={(event) => setForm({ ...form, title: event.target.value })}
                   placeholder="Entregar taller, estudiar parcial..."
                   required
+                />
+              </label>
+
+              <label className="grid gap-2 text-sm font-black text-slate-500">
+                Checklist
+                <textarea
+                  className="min-h-28 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-[#18212f] outline-none focus:border-[#1e6f8c] focus:ring-4 focus:ring-cyan-100"
+                  value={form.checklistText}
+                  onChange={(event) => setForm({ ...form, checklistText: event.target.value })}
+                  placeholder={'Leer guía\nResolver ejercicios\nSubir PDF'}
                 />
               </label>
 
@@ -231,7 +401,7 @@ export default function UniAgenda() {
               </label>
 
               <button className="h-12 rounded-lg bg-[#1e6f8c] font-black text-white hover:bg-[#134e63]">
-                Guardar tarea
+                Guardar checklist
               </button>
             </form>
           </aside>
@@ -277,50 +447,58 @@ export default function UniAgenda() {
               </div>
 
               <div className="grid grid-cols-7 gap-px bg-slate-200">
-                {monthDays.map((day) => (
-                  <button
-                    key={day.dateKey}
-                    className={`min-h-[92px] bg-white p-2 text-left md:min-h-[118px] ${
-                      day.outside ? 'text-slate-400' : 'text-[#18212f]'
-                    } ${day.dateKey === todayKey ? 'outline outline-4 outline-cyan-100' : ''}`}
-                    type="button"
-                    onClick={() => {
-                      setForm({ ...form, date: day.dateKey });
-                      setActiveFilter(day.dateKey);
-                    }}
-                  >
-                    <span className="flex items-center justify-between gap-1 font-black">
-                      {day.date.getDate()}
-                      {day.tasks.length ? (
-                        <span className="grid h-6 min-w-6 place-items-center rounded-full bg-cyan-100 px-1 text-xs text-cyan-900">
-                          {day.tasks.length}
-                        </span>
-                      ) : null}
-                    </span>
+                {monthDays.map((day) => {
+                  const completed = day.tasks.filter((task) => taskProgress(task).done).length;
 
-                    <span className="mt-2 hidden gap-1 md:grid">
-                      {day.tasks.slice(0, 3).map((task) => (
-                        <span
-                          key={task.id}
-                          className={`truncate rounded-md border-l-4 px-2 py-1 text-xs font-black ${priorityStyles(
-                            task.priority
-                          )}`}
-                        >
-                          {task.subject} · {task.time}
-                        </span>
-                      ))}
-                    </span>
-                  </button>
-                ))}
+                  return (
+                    <button
+                      key={day.dateKey}
+                      className={`min-h-[100px] bg-white p-2 text-left md:min-h-[128px] ${
+                        day.outside ? 'text-slate-400' : 'text-[#18212f]'
+                      } ${day.dateKey === todayKey ? 'outline outline-4 outline-cyan-100' : ''}`}
+                      type="button"
+                      onClick={() => {
+                        setForm({ ...form, date: day.dateKey });
+                        setActiveFilter(day.dateKey);
+                      }}
+                    >
+                      <span className="flex items-center justify-between gap-1 font-black">
+                        {day.date.getDate()}
+                        {day.tasks.length ? (
+                          <span className="grid h-6 min-w-6 place-items-center rounded-full bg-cyan-100 px-1 text-xs text-cyan-900">
+                            {completed}/{day.tasks.length}
+                          </span>
+                        ) : null}
+                      </span>
+
+                      <span className="mt-2 hidden gap-1 md:grid">
+                        {day.tasks.slice(0, 3).map((task) => {
+                          const progress = taskProgress(task);
+
+                          return (
+                            <span
+                              key={task.id}
+                              className={`truncate rounded-md border-l-4 px-2 py-1 text-xs font-black ${priorityStyles(
+                                task.priority
+                              )} ${progress.done ? 'line-through opacity-60' : ''}`}
+                            >
+                              {task.subject} · {progress.completed}/{progress.total}
+                            </span>
+                          );
+                        })}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70 xl:max-h-[760px]">
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70 xl:max-h-[820px]">
             <p className="mb-2 text-xs font-black uppercase tracking-wider text-[#1e6f8c]">
               Seguimiento
             </p>
-            <h2 className="mb-5 text-2xl font-black">Tareas</h2>
+            <h2 className="mb-5 text-2xl font-black">Checklist</h2>
 
             <div className="mb-4 grid grid-cols-3 gap-2">
               {[
@@ -341,47 +519,80 @@ export default function UniAgenda() {
               ))}
             </div>
 
-            <div className="grid gap-3 overflow-auto xl:max-h-[610px]">
+            <div className="grid gap-3 overflow-auto xl:max-h-[670px]">
               {visibleTasks.length ? (
-                visibleTasks.map((task) => (
-                  <article
-                    key={task.id}
-                    className={`grid grid-cols-[auto_1fr_auto] gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 ${
-                      task.done ? 'opacity-60' : ''
-                    }`}
-                  >
-                    <input
-                      className="mt-1 h-5 w-5 accent-[#1e6f8c]"
-                      type="checkbox"
-                      checked={task.done}
-                      aria-label="Marcar tarea"
-                      onChange={(event) =>
-                        updateTasks(
-                          tasks.map((storedTask) =>
-                            storedTask.id === task.id
-                              ? { ...storedTask, done: event.target.checked }
-                              : storedTask
-                          )
-                        )
-                      }
-                    />
-                    <div className="min-w-0">
-                      <strong className="block truncate text-sm font-black">{task.subject}</strong>
-                      <span className="block text-sm font-semibold text-slate-500">{task.title}</span>
-                      <span className="mt-2 block text-xs font-black text-[#134e63]">
-                        {dayFormatter.format(parseDateKey(task.date))} · {task.time} · {task.priority}
-                      </span>
-                    </div>
-                    <button
-                      className="h-9 w-9 rounded-lg bg-red-50 text-xl font-black text-red-700"
-                      type="button"
-                      aria-label="Eliminar tarea"
-                      onClick={() => updateTasks(tasks.filter((storedTask) => storedTask.id !== task.id))}
+                visibleTasks.map((task) => {
+                  const progress = taskProgress(task);
+                  const checklist = task.checklist?.length
+                    ? task.checklist
+                    : [{ id: `${task.id}-main`, text: 'Marcar tarea completa', done: task.done }];
+
+                  return (
+                    <article
+                      key={task.id}
+                      className={`rounded-lg border border-slate-200 bg-slate-50 p-3 ${
+                        progress.done ? 'opacity-70' : ''
+                      }`}
                     >
-                      ×
-                    </button>
-                  </article>
-                ))
+                      <div className="grid grid-cols-[1fr_auto] gap-3">
+                        <div className="min-w-0">
+                          <strong className="block truncate text-sm font-black">{task.subject}</strong>
+                          <span className="block text-sm font-semibold text-slate-500">{task.title}</span>
+                          <span className="mt-2 block text-xs font-black text-[#134e63]">
+                            {dayFormatter.format(parseDateKey(task.date))} · {task.time} ·{' '}
+                            {task.priority} · {progress.completed}/{progress.total}
+                          </span>
+                        </div>
+                        <button
+                          className="h-9 w-9 rounded-lg bg-red-50 text-xl font-black text-red-700"
+                          type="button"
+                          aria-label="Eliminar tarea"
+                          onClick={() =>
+                            updateTasks(tasks.filter((storedTask) => storedTask.id !== task.id))
+                          }
+                        >
+                          ×
+                        </button>
+                      </div>
+
+                      <div className="mt-3 grid gap-2">
+                        {checklist.map((item) => (
+                          <label
+                            key={item.id}
+                            className="grid grid-cols-[auto_1fr] items-start gap-2 rounded-md bg-white p-2 text-sm font-bold text-slate-600"
+                          >
+                            <input
+                              className="mt-0.5 h-4 w-4 accent-[#1e6f8c]"
+                              type="checkbox"
+                              checked={item.done}
+                              onChange={(event) =>
+                                updateTasks(
+                                  tasks.map((storedTask) => {
+                                    if (storedTask.id !== task.id) return storedTask;
+
+                                    if (!storedTask.checklist?.length) {
+                                      return { ...storedTask, done: event.target.checked };
+                                    }
+
+                                    return {
+                                      ...storedTask,
+                                      checklist: storedTask.checklist.map((storedItem) =>
+                                        storedItem.id === item.id
+                                          ? { ...storedItem, done: event.target.checked }
+                                          : storedItem
+                                      ),
+                                    };
+                                  })
+                                )
+                              }
+                            />
+                            <span className={item.done ? 'line-through opacity-60' : ''}>{item.text}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </article>
+                  );
+                })
               ) : (
                 <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center font-bold text-slate-500">
                   Sin tareas por aquí. Respira y sigue.
