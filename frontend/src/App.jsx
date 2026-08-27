@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Landing from './pages/Landing';
+import UniAgenda from './pages/UniAgenda';
 import PoliticaPrivacidad from './pages/PoliticaPrivacidad';
 import CondicionesServicio from './pages/CondicionesServicio';
 import Registro from './pages/Registro';
@@ -38,7 +39,8 @@ import AdminFeedback from './pages/admin/AdminFeedback';
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
+      <Route path="/" element={<UniAgenda />} />
+      <Route path="/crm" element={<Landing />} />
       <Route path="/politica-de-privacidad" element={<PoliticaPrivacidad />} />
       <Route path="/terminos" element={<CondicionesServicio />} />
       <Route path="/registro" element={<Registro />} />
