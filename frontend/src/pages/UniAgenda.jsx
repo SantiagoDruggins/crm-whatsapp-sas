@@ -109,18 +109,20 @@ function LoginPanel({ onLogin }) {
   };
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[#f2f6f9] px-4 py-8 text-[#18212f]">
+    <main className="grid min-h-dvh place-items-center bg-[#f2f6f9] px-3 py-4 text-[#18212f] sm:px-4 sm:py-8">
       <section className="grid w-full max-w-5xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl shadow-slate-300/70 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="bg-[#18212f] p-8 text-white md:p-12">
+        <div className="bg-[#18212f] p-6 text-white md:p-12">
           <p className="mb-3 text-xs font-black uppercase tracking-wider text-cyan-300">
             Planner universitario
           </p>
-          <h1 className="max-w-xl text-5xl font-black leading-none md:text-6xl">UniAgenda</h1>
-          <p className="mt-5 max-w-xl text-lg font-semibold text-slate-300">
+          <h1 className="max-w-xl text-4xl font-black leading-none sm:text-5xl md:text-6xl">
+            UniAgenda
+          </h1>
+          <p className="mt-4 max-w-xl text-base font-semibold text-slate-300 sm:text-lg">
             Organiza materias, tareas y entregas en un calendario tipo checklist.
           </p>
 
-          <div className="mt-10 grid gap-3 sm:grid-cols-3">
+          <div className="mt-8 hidden gap-3 sm:grid sm:grid-cols-3">
             {['Calendario', 'Checklist', 'Cuenta local'].map((item) => (
               <div key={item} className="rounded-lg border border-white/10 bg-white/5 p-4">
                 <span className="text-sm font-black text-cyan-200">{item}</span>
@@ -129,7 +131,7 @@ function LoginPanel({ onLogin }) {
           </div>
         </div>
 
-        <div className="p-6 md:p-10">
+        <div className="p-5 sm:p-6 md:p-10">
           <div className="mb-6 grid grid-cols-2 rounded-lg bg-slate-100 p-1">
             {[
               ['login', 'Iniciar sesión'],
@@ -179,7 +181,7 @@ function LoginPanel({ onLogin }) {
             </button>
           </form>
 
-          <p className="mt-5 rounded-lg bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+          <p className="mt-5 rounded-lg bg-amber-50 p-4 text-xs font-semibold text-amber-800 sm:text-sm">
             Versión MVP: la cuenta se guarda en este navegador. Luego la pasamos a base de datos,
             suscripciones y plan premium.
           </p>
@@ -195,6 +197,7 @@ export default function UniAgenda() {
   const [form, setForm] = useState(initialTaskForm);
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [activeFilter, setActiveFilter] = useState('pending');
+  const [mobileView, setMobileView] = useState('tasks');
 
   const todayKey = getDateKey(new Date());
   const orderedTasks = useMemo(() => sortedTasks(tasks), [tasks]);
@@ -292,39 +295,64 @@ export default function UniAgenda() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f2f6f9] text-[#18212f]">
-      <section className="mx-auto w-[min(1440px,calc(100%-32px))] py-7">
-        <div className="flex flex-col gap-5 pb-6 lg:flex-row lg:items-end lg:justify-between">
+    <main className="min-h-dvh bg-[#f2f6f9] text-[#18212f]">
+      <section className="mx-auto w-full max-w-[1440px] px-3 pb-24 pt-3 sm:px-4 sm:py-7">
+        <div className="sticky top-0 z-20 -mx-3 mb-3 border-b border-slate-200 bg-[#f2f6f9]/95 px-3 py-3 backdrop-blur sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+          <div className="flex flex-col gap-4 sm:pb-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="mb-2 text-xs font-black uppercase tracking-wider text-[#1e6f8c]">
               Hola, {user.name}
             </p>
-            <h1 className="text-5xl font-black leading-none md:text-7xl">UniAgenda</h1>
+            <h1 className="text-3xl font-black leading-none sm:text-5xl md:text-7xl">UniAgenda</h1>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-[repeat(3,minmax(96px,1fr))_auto]">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-[repeat(3,minmax(96px,1fr))_auto]">
             {[
               ['hoy', stats.today],
               ['esta semana', stats.week],
               ['pendientes', stats.pending],
             ].map(([label, value]) => (
-              <article key={label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <strong className="block text-2xl font-black">{value}</strong>
-                <span className="text-sm font-bold text-slate-500">{label}</span>
+              <article key={label} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                <strong className="block text-xl font-black sm:text-2xl">{value}</strong>
+                <span className="text-xs font-bold text-slate-500 sm:text-sm">{label}</span>
               </article>
             ))}
             <button
-              className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-600 shadow-sm hover:bg-slate-50"
+              className="col-span-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-600 shadow-sm hover:bg-slate-50 sm:col-auto"
               type="button"
               onClick={logout}
             >
               Salir
             </button>
           </div>
+          </div>
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)_390px]">
-          <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70">
+        <nav className="fixed inset-x-3 bottom-3 z-30 grid grid-cols-3 gap-2 rounded-lg border border-slate-200 bg-white/95 p-1 shadow-2xl shadow-slate-400/40 backdrop-blur xl:hidden">
+          {[
+            ['tasks', 'Checklist'],
+            ['calendar', 'Agenda'],
+            ['new', 'Nueva'],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              className={`h-11 rounded-md text-sm font-black ${
+                mobileView === value ? 'bg-[#18212f] text-white' : 'text-slate-500'
+              }`}
+              type="button"
+              onClick={() => setMobileView(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)_390px] xl:gap-5">
+          <aside
+            className={`rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-5 ${
+              mobileView === 'new' ? 'block' : 'hidden xl:block'
+            }`}
+          >
             <p className="mb-2 text-xs font-black uppercase tracking-wider text-[#1e6f8c]">
               Nuevo pendiente
             </p>
@@ -406,7 +434,11 @@ export default function UniAgenda() {
             </form>
           </aside>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70">
+          <section
+            className={`rounded-lg border border-slate-200 bg-white p-3 shadow-xl shadow-slate-200/70 sm:p-5 ${
+              mobileView === 'calendar' ? 'block' : 'hidden xl:block'
+            }`}
+          >
             <div className="mb-4 grid grid-cols-[44px_1fr_44px] items-center gap-3">
               <button
                 className="h-11 rounded-lg bg-slate-100 text-3xl font-black"
@@ -420,7 +452,7 @@ export default function UniAgenda() {
               >
                 ‹
               </button>
-              <h2 className="text-center text-2xl font-black capitalize">
+              <h2 className="text-center text-lg font-black capitalize sm:text-2xl">
                 {monthFormatter.format(currentMonth)}
               </h2>
               <button
@@ -438,7 +470,7 @@ export default function UniAgenda() {
             </div>
 
             <div className="overflow-hidden rounded-lg border border-slate-200">
-              <div className="grid grid-cols-7 bg-[#18212f] text-center text-xs font-black text-white">
+              <div className="grid grid-cols-7 bg-[#18212f] text-center text-[0.68rem] font-black text-white sm:text-xs">
                 {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
                   <span key={day} className="px-1 py-3">
                     {day}
@@ -453,7 +485,7 @@ export default function UniAgenda() {
                   return (
                     <button
                       key={day.dateKey}
-                      className={`min-h-[100px] bg-white p-2 text-left md:min-h-[128px] ${
+                      className={`min-h-[74px] bg-white p-1.5 text-left sm:min-h-[100px] sm:p-2 md:min-h-[128px] ${
                         day.outside ? 'text-slate-400' : 'text-[#18212f]'
                       } ${day.dateKey === todayKey ? 'outline outline-4 outline-cyan-100' : ''}`}
                       type="button"
@@ -462,23 +494,23 @@ export default function UniAgenda() {
                         setActiveFilter(day.dateKey);
                       }}
                     >
-                      <span className="flex items-center justify-between gap-1 font-black">
+                      <span className="flex items-center justify-between gap-1 text-sm font-black sm:text-base">
                         {day.date.getDate()}
                         {day.tasks.length ? (
-                          <span className="grid h-6 min-w-6 place-items-center rounded-full bg-cyan-100 px-1 text-xs text-cyan-900">
+                          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-cyan-100 px-1 text-[0.62rem] text-cyan-900 sm:h-6 sm:min-w-6 sm:text-xs">
                             {completed}/{day.tasks.length}
                           </span>
                         ) : null}
                       </span>
 
-                      <span className="mt-2 hidden gap-1 md:grid">
+                      <span className="mt-1 grid gap-1 sm:mt-2">
                         {day.tasks.slice(0, 3).map((task) => {
                           const progress = taskProgress(task);
 
                           return (
                             <span
                               key={task.id}
-                              className={`truncate rounded-md border-l-4 px-2 py-1 text-xs font-black ${priorityStyles(
+                              className={`truncate rounded-md border-l-2 px-1.5 py-0.5 text-[0.62rem] font-black sm:border-l-4 sm:px-2 sm:py-1 sm:text-xs ${priorityStyles(
                                 task.priority
                               )} ${progress.done ? 'line-through opacity-60' : ''}`}
                             >
@@ -494,7 +526,11 @@ export default function UniAgenda() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70 xl:max-h-[820px]">
+          <section
+            className={`rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70 sm:p-5 xl:max-h-[820px] ${
+              mobileView === 'tasks' ? 'block' : 'hidden xl:block'
+            }`}
+          >
             <p className="mb-2 text-xs font-black uppercase tracking-wider text-[#1e6f8c]">
               Seguimiento
             </p>
